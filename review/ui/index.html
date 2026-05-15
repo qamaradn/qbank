@@ -2,9 +2,769 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>QBank Review — placeholder</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>QBank Review</title>
+  <style>
+    /* Design system: design-system/MASTER.md — Data-Dense Dark Dashboard */
+    :root {
+      --bg:          #0D1117;
+      --surface:     #161B22;
+      --border:      #30363D;
+      --text:        #E6EDF3;
+      --text-muted:  #8B949E;
+      --approve:     #3FB950;
+      --reject:      #F85149;
+      --edit:        #58A6FF;
+      --high-conf:   #3FB950;
+      --mid-conf:    #E3B341;
+      --low-conf:    #F85149;
+      --progress:    #238636;
+      --mono: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
+      --sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background-color: #0D1117;
+      color: #E6EDF3;
+      font-family: var(--sans);
+      font-size: 15px;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    /* Header */
+    .header {
+      background-color: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 10px 20px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-shrink: 0;
+    }
+    .header-title {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text);
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+    .header-meta {
+      font-family: var(--mono);
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+
+    /* Layout */
+    .layout { display: flex; flex: 1; overflow: hidden; }
+
+    /* Sidebar */
+    .sidebar {
+      width: 196px;
+      background-color: var(--surface);
+      border-right: 1px solid var(--border);
+      overflow-y: auto;
+      flex-shrink: 0;
+      padding: 16px 12px;
+    }
+    .sidebar-section { margin-bottom: 24px; }
+    .sidebar-label {
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--text-muted);
+      margin-bottom: 10px;
+    }
+    .stat-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 3px 0;
+    }
+    .stat-label { font-size: 13px; color: var(--text-muted); }
+    .stat-value {
+      font-family: var(--mono);
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text);
+    }
+    .stat-value.approved { color: var(--approve); }
+    .stat-value.rejected { color: var(--reject); }
+
+    /* Subject filter */
+    .subject-filter { display: flex; flex-direction: column; gap: 4px; }
+    .subject-btn {
+      background: none;
+      border: 1px solid var(--border);
+      color: var(--text-muted);
+      padding: 5px 10px;
+      border-radius: 4px;
+      font-size: 12px;
+      cursor: pointer;
+      text-align: left;
+      font-family: var(--sans);
+    }
+    .subject-btn:hover { border-color: var(--edit); color: var(--text); }
+    .subject-btn.active {
+      border-color: var(--edit);
+      color: var(--edit);
+      background-color: rgba(88, 166, 255, 0.08);
+    }
+    .subject-btn:focus, .subject-btn:focus-visible {
+      outline: 2px solid var(--edit);
+      outline-offset: 2px;
+    }
+
+    /* Main */
+    .main { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+    .question-area { flex: 1; overflow-y: auto; padding: 24px 32px; }
+
+    /* Figure */
+    .figure-container { margin-bottom: 20px; }
+    .figure-container img {
+      max-height: 320px;
+      max-width: 100%;
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      display: block;
+    }
+
+    /* Stem */
+    .question-stem {
+      font-size: 16px;
+      line-height: 1.6;
+      color: var(--text);
+      margin-bottom: 20px;
+    }
+
+    /* Options */
+    .options { display: flex; flex-direction: column; gap: 6px; margin-bottom: 20px; }
+    .option-row {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      padding: 10px 12px;
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      background-color: var(--surface);
+    }
+    .option-row:hover { background-color: #1C2128; }
+    .option-row.correct-answer {
+      border-color: var(--approve);
+      background-color: rgba(63, 185, 80, 0.1);
+    }
+    .option-letter {
+      font-family: var(--mono);
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-muted);
+      min-width: 16px;
+      padding-top: 1px;
+    }
+    .option-row.correct-answer .option-letter { color: var(--approve); }
+    .option-text { font-size: 14px; color: var(--text); line-height: 1.5; }
+
+    /* Explanation */
+    .explanation {
+      font-size: 13px;
+      color: var(--text-muted);
+      padding: 12px;
+      border-left: 3px solid var(--border);
+      background-color: var(--surface);
+      margin-bottom: 16px;
+      border-radius: 0 4px 4px 0;
+    }
+
+    /* Meta / data elements */
+    .meta {
+      font-family: var(--mono);
+      font-size: 12px;
+      color: var(--text-muted);
+      display: flex;
+      gap: 16px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+    .confidence-badge { display: inline-flex; align-items: center; gap: 5px; }
+    .confidence-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+    .confidence-dot.high { background-color: var(--high-conf); }
+    .confidence-dot.mid  { background-color: var(--mid-conf); }
+    .confidence-dot.low  { background-color: var(--low-conf); }
+
+    /* Empty / loading */
+    .empty-state {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      height: 100%;
+      color: var(--text-muted);
+      font-size: 14px;
+    }
+
+    /* Edit mode inputs */
+    .edit-stem {
+      font-size: 16px;
+      line-height: 1.6;
+      color: var(--text);
+      background-color: var(--surface);
+      border: 1px solid var(--edit);
+      border-radius: 4px;
+      padding: 10px;
+      width: 100%;
+      min-height: 80px;
+      resize: vertical;
+      font-family: var(--sans);
+      margin-bottom: 16px;
+      outline: none;
+    }
+    .edit-stem:focus { outline: 2px solid var(--edit); outline-offset: 2px; }
+    .edit-option-input {
+      background-color: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 8px 10px;
+      color: var(--text);
+      font-family: var(--sans);
+      font-size: 14px;
+      width: 100%;
+      outline: none;
+    }
+    .edit-option-input:focus {
+      outline: 2px solid var(--edit);
+      outline-offset: 2px;
+    }
+    .correct-answer-select {
+      background-color: var(--surface);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 6px 10px;
+      border-radius: 4px;
+      font-family: var(--mono);
+      font-size: 13px;
+      cursor: pointer;
+    }
+    .correct-answer-select:focus {
+      outline: 2px solid var(--edit);
+      outline-offset: 2px;
+    }
+
+    /* Action bar */
+    .action-bar {
+      flex-shrink: 0;
+      border-top: 1px solid var(--border);
+      background-color: var(--surface);
+      padding: 10px 32px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .action-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 7px 13px;
+      border-radius: 4px;
+      border: 1px solid transparent;
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      font-family: var(--sans);
+    }
+    .action-btn:hover { opacity: 0.85; }
+    .action-btn:focus, .action-btn:focus-visible {
+      outline: 2px solid var(--edit);
+      outline-offset: 2px;
+    }
+    .btn-approve { background-color: var(--approve); color: #0D1117; border-color: var(--approve); }
+    .btn-reject  { background-color: var(--reject);  color: #fff;    border-color: var(--reject);  }
+    .btn-edit    { background-color: transparent;     color: var(--edit); border-color: var(--edit); }
+    .btn-save    { background-color: var(--approve);  color: #0D1117; }
+    .btn-cancel  { background-color: transparent; color: var(--text-muted); border-color: var(--border); }
+    .btn-nav {
+      background-color: transparent;
+      color: var(--text-muted);
+      border-color: var(--border);
+      padding: 7px 9px;
+    }
+    .btn-nav:hover { color: var(--text); border-color: var(--text-muted); }
+    .action-spacer { flex: 1; }
+    .kbd {
+      font-family: var(--mono);
+      font-size: 11px;
+      font-weight: 500;
+      background-color: rgba(255,255,255,0.06);
+      border: 1px solid var(--border);
+      border-radius: 3px;
+      padding: 1px 5px;
+    }
+    .icon { width: 14px; height: 14px; flex-shrink: 0; }
+
+    /* Progress */
+    .progress-bar-wrap {
+      flex-shrink: 0;
+      padding: 8px 32px;
+      background-color: var(--bg);
+      border-top: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .progress {
+      flex: 1;
+      height: 6px;
+      background-color: var(--surface);
+      border-radius: 3px;
+      overflow: hidden;
+      border: 1px solid var(--border);
+    }
+    .progress-fill {
+      height: 100%;
+      background-color: var(--progress);
+      border-radius: 3px;
+      transition: width 0.3s ease;
+    }
+    .progress-label {
+      font-family: var(--mono);
+      font-size: 12px;
+      color: var(--text-muted);
+      white-space: nowrap;
+      min-width: 110px;
+      text-align: right;
+    }
+  </style>
 </head>
 <body>
-  <p>Review UI — to be built (feature/review-ui branch)</p>
+
+<header class="header">
+  <span class="header-title">QBank Review</span>
+  <span class="header-meta" id="header-meta"></span>
+</header>
+
+<div class="layout">
+
+  <!-- Sidebar: stats + subject filter -->
+  <nav class="sidebar" aria-label="Review sidebar">
+    <div class="sidebar-section">
+      <div class="sidebar-label">Stats</div>
+      <div class="stat-row">
+        <span class="stat-label">Approved</span>
+        <span class="stat-value approved" id="stat-approved">—</span>
+      </div>
+      <div class="stat-row">
+        <span class="stat-label">Rejected</span>
+        <span class="stat-value rejected" id="stat-rejected">—</span>
+      </div>
+      <div class="stat-row">
+        <span class="stat-label">Edited</span>
+        <span class="stat-value" id="stat-edited">—</span>
+      </div>
+      <div class="stat-row">
+        <span class="stat-label">Pending</span>
+        <span class="stat-value" id="stat-pending">—</span>
+      </div>
+    </div>
+
+    <div class="sidebar-section">
+      <div class="sidebar-label">Subject</div>
+      <div class="subject-filter" role="group" aria-label="Filter by subject">
+        <button class="subject-btn active" data-subject="" onclick="filterSubject(this,'')">All</button>
+        <button class="subject-btn" data-subject="quantitative_reasoning"
+                onclick="filterSubject(this,'quantitative_reasoning')">Quantitative</button>
+        <button class="subject-btn" data-subject="logical_reasoning"
+                onclick="filterSubject(this,'logical_reasoning')">Logical</button>
+        <button class="subject-btn" data-subject="science_reasoning"
+                onclick="filterSubject(this,'science_reasoning')">Science</button>
+        <button class="subject-btn" data-subject="reading_comprehension"
+                onclick="filterSubject(this,'reading_comprehension')">Reading</button>
+        <button class="subject-btn" data-subject="writing"
+                onclick="filterSubject(this,'writing')">Writing</button>
+      </div>
+    </div>
+  </nav>
+
+  <!-- Main content -->
+  <div class="main">
+
+    <div class="question-area" id="question-area">
+      <div class="empty-state" id="empty-msg">Loading...</div>
+    </div>
+
+    <!-- Normal action bar -->
+    <div class="action-bar" id="bar-normal">
+      <button class="action-btn btn-approve" onclick="doApprove()" aria-label="Approve (A)">
+        <svg class="icon" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
+          <path d="M13.78 4.22a.75.75 0 010 1.06l-7.25 7.25a.75.75 0 01-1.06 0L2.22 9.28a.75.75 0 011.06-1.06L6 10.94l6.72-6.72a.75.75 0 011.06 0z"/>
+        </svg>
+        Approve <span class="kbd">A</span>
+      </button>
+      <button class="action-btn btn-reject" onclick="doReject()" aria-label="Reject (R)">
+        <svg class="icon" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
+          <path d="M3.72 3.72a.75.75 0 011.06 0L8 6.94l3.22-3.22a.75.75 0 111.06 1.06L9.06 8l3.22 3.22a.75.75 0 11-1.06 1.06L8 9.06l-3.22 3.22a.75.75 0 01-1.06-1.06L6.94 8 3.72 4.78a.75.75 0 010-1.06z"/>
+        </svg>
+        Reject <span class="kbd">R</span>
+      </button>
+      <button class="action-btn btn-edit" onclick="enterEdit()" aria-label="Edit (E)">
+        <svg class="icon" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
+          <path d="M11.013 1.427a1.75 1.75 0 012.474 0l1.086 1.086a1.75 1.75 0 010 2.474l-8.61 8.61c-.21.21-.47.364-.756.445l-3.251.93a.75.75 0 01-.927-.928l.929-3.25c.081-.286.235-.547.445-.758l8.61-8.61zm1.414 1.06a.25.25 0 00-.354 0L10.811 3.75l1.439 1.44 1.263-1.263a.25.25 0 000-.354l-1.086-1.086zM11.189 6.25L9.75 4.81l-6.286 6.287a.25.25 0 00-.064.108l-.558 1.953 1.953-.558a.249.249 0 00.108-.064L11.19 6.25z"/>
+        </svg>
+        Edit <span class="kbd">E</span>
+      </button>
+      <div class="action-spacer"></div>
+      <button class="action-btn btn-nav" onclick="navPrev()" aria-label="Previous (Left arrow)">
+        <svg class="icon" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
+          <path d="M9.78 12.78a.75.75 0 01-1.06 0L4.47 8.53a.75.75 0 010-1.06l4.25-4.25a.75.75 0 011.06 1.06L6.06 8l3.72 3.72a.75.75 0 010 1.06z"/>
+        </svg>
+      </button>
+      <span class="kbd" style="font-family:var(--mono);font-size:11px;color:var(--text-muted);" id="queue-pos"></span>
+      <button class="action-btn btn-nav" onclick="navNext()" aria-label="Next (Right arrow)">
+        <svg class="icon" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
+          <path d="M6.22 3.22a.75.75 0 011.06 0l4.25 4.25a.75.75 0 010 1.06l-4.25 4.25a.75.75 0 01-1.06-1.06L9.94 8 6.22 4.28a.75.75 0 010-1.06z"/>
+        </svg>
+      </button>
+    </div>
+
+    <!-- Edit action bar -->
+    <div class="action-bar" id="bar-edit" style="display:none;">
+      <button class="action-btn btn-save" onclick="saveEdit()" aria-label="Save (Enter)">
+        Save <span class="kbd">Enter</span>
+      </button>
+      <button class="action-btn btn-cancel" onclick="cancelEdit()" aria-label="Cancel (Escape)">
+        Cancel <span class="kbd">Esc</span>
+      </button>
+      <div class="action-spacer"></div>
+      <span style="font-size:12px;color:var(--text-muted);">Tab between fields to edit</span>
+    </div>
+
+    <!-- Progress bar -->
+    <div class="progress-bar-wrap">
+      <div class="progress" id="progress-bar-container"
+           role="progressbar" aria-label="Review progress"
+           aria-valuenow="0" aria-valuemin="0" aria-valuemax="0">
+        <div class="progress-fill" id="progress-fill" style="width:0%"></div>
+      </div>
+      <span class="progress-label" id="progress-label">0 / 0 reviewed</span>
+    </div>
+
+  </div><!-- /.main -->
+</div><!-- /.layout -->
+
+<script>
+  const API = (window.location.port === '8000' || window.location.port === '') &&
+              window.location.hostname !== ''
+    ? ''
+    : 'http://localhost:8000';
+
+  // ── State ─────────────────────────────────────────────────────────────────────
+  let queue        = [];
+  let currentIndex = 0;
+  let editMode     = false;
+  let originalValues = {};
+  let activeSubject  = '';
+
+  // ── Init ──────────────────────────────────────────────────────────────────────
+  async function init() {
+    await loadQueue();
+    await loadStats();
+  }
+
+  // ── Queue / render ────────────────────────────────────────────────────────────
+  async function loadQueue() {
+    const params = new URLSearchParams({ status: 'pending' });
+    if (activeSubject) params.set('subject', activeSubject);
+    try {
+      const res = await fetch(`${API}/questions?${params}`);
+      if (!res.ok) throw new Error(res.statusText);
+      queue = await res.json();
+      currentIndex = 0;
+      render();
+    } catch (e) {
+      showEmpty('Could not load questions: ' + e.message);
+    }
+  }
+
+  function render() {
+    if (!queue.length) { showEmpty('No pending questions'); return; }
+    renderQuestion(queue[currentIndex]);
+    document.getElementById('queue-pos').textContent =
+      `${currentIndex + 1} / ${queue.length}`;
+  }
+
+  function renderQuestion(q) {
+    const area = document.getElementById('question-area');
+    area.innerHTML = '';
+
+    // Figure — above stem when has_figure=true and figure_url present
+    if (q.has_figure && q.figure_url) {
+      const fig = document.createElement('div');
+      fig.className = 'figure-container';
+      const img = document.createElement('img');
+      img.src = API + q.figure_url;
+      img.alt = 'Question figure';
+      img.loading = 'lazy';
+      fig.appendChild(img);
+      area.appendChild(fig);
+    }
+
+    // Stem
+    const stem = document.createElement('div');
+    stem.className = 'question-stem';
+    stem.textContent = q.stem || q.writing_prompt || '';
+    area.appendChild(stem);
+
+    // Options (MCQ)
+    if (q.correct_answer) {
+      const opts = document.createElement('div');
+      opts.className = 'options';
+      for (const [lt, key] of [['A','option_a'],['B','option_b'],['C','option_c'],['D','option_d']]) {
+        if (!q[key]) continue;
+        const row = document.createElement('div');
+        row.className = 'option-row' + (lt === q.correct_answer ? ' correct-answer' : '');
+        const lspan = document.createElement('span');
+        lspan.className = 'option-letter';
+        lspan.textContent = lt;
+        const tspan = document.createElement('span');
+        tspan.className = 'option-text';
+        tspan.textContent = q[key];
+        row.appendChild(lspan);
+        row.appendChild(tspan);
+        opts.appendChild(row);
+      }
+      area.appendChild(opts);
+    }
+
+    // Explanation
+    if (q.explanation) {
+      const exp = document.createElement('div');
+      exp.className = 'explanation';
+      exp.textContent = q.explanation;
+      area.appendChild(exp);
+    }
+
+    // Meta (monospace data elements)
+    const conf = typeof q.confidence === 'number' ? q.confidence : 0;
+    const confClass = conf >= 0.90 ? 'high' : conf >= 0.70 ? 'mid' : 'low';
+    const meta = document.createElement('div');
+    meta.className = 'meta';
+    meta.innerHTML =
+      `<span class="confidence-badge">` +
+        `<span class="confidence-dot ${confClass}"></span>` +
+        `${(conf * 100).toFixed(0)}% confidence` +
+      `</span>` +
+      `<span>${esc(q.source_book || '')} p.${q.source_page ?? '—'}</span>` +
+      `<span>${(q.subject || '').replace(/_/g, ' ')}</span>`;
+    area.appendChild(meta);
+  }
+
+  function showEmpty(msg) {
+    const area = document.getElementById('question-area');
+    area.innerHTML = `<div class="empty-state">${esc(msg)}</div>`;
+    document.getElementById('queue-pos').textContent = '';
+  }
+
+  function esc(s) {
+    return String(s)
+      .replace(/&/g,'&amp;').replace(/</g,'&lt;')
+      .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
+  // ── Stats ─────────────────────────────────────────────────────────────────────
+  async function loadStats() {
+    try {
+      const res = await fetch(`${API}/stats`);
+      if (!res.ok) return;
+      const d = await res.json();
+      document.getElementById('stat-approved').textContent = d.approved ?? 0;
+      document.getElementById('stat-rejected').textContent = d.rejected ?? 0;
+      document.getElementById('stat-edited').textContent   = d.edited   ?? 0;
+      document.getElementById('stat-pending').textContent  = d.pending  ?? 0;
+      document.getElementById('header-meta').textContent   =
+        `${d.pending ?? 0} pending`;
+      const reviewed = (d.approved ?? 0) + (d.rejected ?? 0);
+      const total    = d.total ?? 0;
+      const pct      = total > 0 ? (reviewed / total * 100) : 0;
+      document.getElementById('progress-fill').style.width = pct + '%';
+      document.getElementById('progress-label').textContent =
+        `${reviewed} / ${total} reviewed`;
+      const pb = document.getElementById('progress-bar-container');
+      pb.setAttribute('aria-valuenow', reviewed);
+      pb.setAttribute('aria-valuemax', total);
+    } catch (_) {}
+  }
+
+  // ── Actions ───────────────────────────────────────────────────────────────────
+  async function doApprove() {
+    if (editMode || !queue.length) return;
+    const q = queue[currentIndex];
+    await fetch(`${API}/questions/${q.id}/approve`, { method: 'POST' });
+    queue.splice(currentIndex, 1);
+    if (currentIndex >= queue.length) currentIndex = Math.max(0, queue.length - 1);
+    render();
+    await loadStats();
+  }
+
+  async function doReject() {
+    if (editMode || !queue.length) return;
+    const q = queue[currentIndex];
+    await fetch(`${API}/questions/${q.id}/reject`, { method: 'POST' });
+    queue.splice(currentIndex, 1);
+    if (currentIndex >= queue.length) currentIndex = Math.max(0, queue.length - 1);
+    render();
+    await loadStats();
+  }
+
+  function navPrev() {
+    if (editMode || !queue.length) return;
+    if (currentIndex > 0) { currentIndex--; render(); }
+  }
+
+  function navNext() {
+    if (editMode || !queue.length) return;
+    if (currentIndex < queue.length - 1) { currentIndex++; render(); }
+  }
+
+  // ── Edit mode ─────────────────────────────────────────────────────────────────
+  function enterEdit() {
+    if (!queue.length) return;
+    const q = queue[currentIndex];
+    editMode = true;
+
+    // Save original values so cancel can restore them
+    originalValues = {
+      stem:           q.stem,
+      option_a:       q.option_a,
+      option_b:       q.option_b,
+      option_c:       q.option_c,
+      option_d:       q.option_d,
+      correct_answer: q.correct_answer,
+    };
+
+    const area = document.getElementById('question-area');
+    area.innerHTML = '';
+
+    const ta = document.createElement('textarea');
+    ta.className = 'edit-stem';
+    ta.id = 'edit-stem';
+    ta.value = q.stem || '';
+    area.appendChild(ta);
+
+    for (const [lt, key] of [['A','option_a'],['B','option_b'],['C','option_c'],['D','option_d']]) {
+      const row = document.createElement('div');
+      row.style.cssText = 'display:flex;align-items:center;gap:8px;margin-bottom:6px;';
+      const lbl = document.createElement('span');
+      lbl.textContent = lt;
+      lbl.style.cssText = 'font-family:var(--mono);font-size:12px;color:var(--text-muted);min-width:14px;';
+      const inp = document.createElement('input');
+      inp.type = 'text';
+      inp.className = 'edit-option-input';
+      inp.id = `edit-${key}`;
+      inp.value = q[key] || '';
+      row.appendChild(lbl);
+      row.appendChild(inp);
+      area.appendChild(row);
+    }
+
+    const selRow = document.createElement('div');
+    selRow.style.cssText = 'display:flex;align-items:center;gap:10px;margin-top:12px;';
+    const selLbl = document.createElement('span');
+    selLbl.textContent = 'Correct answer:';
+    selLbl.style.cssText = 'font-size:13px;color:var(--text-muted);';
+    const sel = document.createElement('select');
+    sel.className = 'correct-answer-select';
+    sel.id = 'edit-correct';
+    for (const lt of ['A','B','C','D']) {
+      const opt = document.createElement('option');
+      opt.value = lt; opt.textContent = lt;
+      if (lt === q.correct_answer) opt.selected = true;
+      sel.appendChild(opt);
+    }
+    selRow.appendChild(selLbl);
+    selRow.appendChild(sel);
+    area.appendChild(selRow);
+
+    document.getElementById('bar-normal').style.display = 'none';
+    document.getElementById('bar-edit').style.display   = 'flex';
+    ta.focus();
+  }
+
+  async function saveEdit() {
+    if (!editMode || !queue.length) return;
+    const q = queue[currentIndex];
+    const payload = {
+      stem:           document.getElementById('edit-stem').value,
+      option_a:       document.getElementById('edit-option_a').value,
+      option_b:       document.getElementById('edit-option_b').value,
+      option_c:       document.getElementById('edit-option_c').value,
+      option_d:       document.getElementById('edit-option_d').value,
+      correct_answer: document.getElementById('edit-correct').value,
+    };
+    const res = await fetch(`${API}/questions/${q.id}/edit`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    if (!res.ok) { console.error('Edit failed', await res.text()); return; }
+    queue.splice(currentIndex, 1);
+    if (currentIndex >= queue.length) currentIndex = Math.max(0, queue.length - 1);
+    exitEdit();
+    render();
+    await loadStats();
+  }
+
+  function cancelEdit() {
+    if (!editMode || !queue.length) return;
+    // Restore original values to the in-memory object
+    Object.assign(queue[currentIndex], originalValues);
+    exitEdit();
+    render();
+  }
+
+  function exitEdit() {
+    editMode       = false;
+    originalValues = {};
+    document.getElementById('bar-normal').style.display = 'flex';
+    document.getElementById('bar-edit').style.display   = 'none';
+  }
+
+  // ── Subject filter ────────────────────────────────────────────────────────────
+  function filterSubject(btn, subject) {
+    document.querySelectorAll('.subject-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    activeSubject = subject;
+    loadQueue();
+  }
+
+  // ── Keyboard ──────────────────────────────────────────────────────────────────
+  document.addEventListener('keydown', function(e) {
+    const tag = (e.target.tagName || '').toLowerCase();
+    const typing = tag === 'input' || tag === 'textarea' || tag === 'select';
+
+    if (editMode) {
+      if (e.key === 'Escape') { e.preventDefault(); cancelEdit(); }
+      if (e.key === 'Enter' && !typing) { e.preventDefault(); saveEdit(); }
+      return;
+    }
+
+    if (typing) return;
+
+    if (e.key === 'a' || e.key === 'A') doApprove();
+    if (e.key === 'r' || e.key === 'R') doReject();
+    if (e.key === 'e' || e.key === 'E') enterEdit();
+    if (e.key === 'ArrowRight') { e.preventDefault(); navNext(); }
+    if (e.key === 'ArrowLeft')  { e.preventDefault(); navPrev(); }
+  });
+
+  // ── Start ─────────────────────────────────────────────────────────────────────
+  init();
+</script>
 </body>
 </html>
