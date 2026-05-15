@@ -1,0 +1,34 @@
+# Secrets
+.env
+*.env
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+dist/
+build/
+
+# All data — never commit
+/data/
+*.pdf
+*.db
+*.sqlite3
+
+# Pipeline working files
+/scratch/
+/output/
+
+# Figure images (except test fixture)
+*.png
+*.jpg
+*.jpeg
+!tests/fixtures/sample_figure.png
+
+# OS / IDE
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
