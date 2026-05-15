@@ -1,6 +1,7 @@
 # Core pipeline
 anthropic>=0.30.0
 docling>=2.0.0
+google-generativeai>=0.8.0
 pypdf>=4.0.0
 
 # Web framework (review server)
