@@ -1,0 +1,64 @@
+{
+  "book_id": "excel_selective_yr9",
+  "total_pages": 5,
+  "pages": [
+    {
+      "page_number": 45,
+      "markdown_path": "/data/scratch/excel_selective_yr9/pages/45.md",
+      "image_path": "/data/scratch/excel_selective_yr9/images/45.png",
+      "elements": [
+        {"type": "text", "text": "1. A train travels from Melbourne to Sydney...", "x": 50, "y": 80, "width": 500, "height": 20},
+        {"type": "text", "text": "(A) 78 km/h", "x": 80, "y": 110, "width": 200, "height": 18},
+        {"type": "text", "text": "(B) 79 km/h", "x": 80, "y": 130, "width": 200, "height": 18},
+        {"type": "text", "text": "(C) 80 km/h", "x": 80, "y": 150, "width": 200, "height": 18},
+        {"type": "text", "text": "(D) 81 km/h", "x": 80, "y": 170, "width": 200, "height": 18},
+        {"type": "text", "text": "2. If 3/8 of a number is 27...", "x": 50, "y": 210, "width": 500, "height": 20},
+        {"type": "text", "text": "(A) 56", "x": 80, "y": 240, "width": 200, "height": 18},
+        {"type": "text", "text": "(B) 60", "x": 80, "y": 260, "width": 200, "height": 18},
+        {"type": "text", "text": "(C) 64", "x": 80, "y": 280, "width": 200, "height": 18},
+        {"type": "text", "text": "(D) 72", "x": 80, "y": 300, "width": 200, "height": 18}
+      ]
+    },
+    {
+      "page_number": 46,
+      "markdown_path": "/data/scratch/excel_selective_yr9/pages/46.md",
+      "image_path": "/data/scratch/excel_selective_yr9/images/46.png",
+      "elements": [
+        {"type": "text", "text": "3. In a class of 40 students, 60% are girls...", "x": 50, "y": 80, "width": 500, "height": 20},
+        {"type": "figure", "text": "", "x": 50, "y": 250, "width": 300, "height": 200, "figure_path": "/data/scratch/excel_selective_yr9/figures/46_fig_1.png"},
+        {"type": "text", "text": "4. The diagram above shows a triangle...", "x": 50, "y": 460, "width": 500, "height": 20}
+      ]
+    },
+    {
+      "page_number": 47,
+      "markdown_path": "/data/scratch/excel_selective_yr9/pages/47.md",
+      "image_path": "/data/scratch/excel_selective_yr9/images/47.png",
+      "elements": [
+        {"type": "text", "text": "5. Which number pattern comes next?", "x": 50, "y": 80, "width": 500, "height": 20},
+        {"type": "text", "text": "(A) 42", "x": 80, "y": 110, "width": 100, "height": 18},
+        {"type": "text", "text": "(B) 44", "x": 80, "y": 130, "width": 100, "height": 18},
+        {"type": "text", "text": "(C) 46", "x": 80, "y": 150, "width": 100, "height": 18},
+        {"type": "text", "text": "(D) 48", "x": 80, "y": 170, "width": 100, "height": 18}
+      ]
+    },
+    {
+      "page_number": 48,
+      "markdown_path": "/data/scratch/excel_selective_yr9/pages/48.md",
+      "image_path": "/data/scratch/excel_selective_yr9/images/48.png",
+      "elements": [
+        {"type": "text", "text": "6. Read the passage below.", "x": 50, "y": 60, "width": 500, "height": 18},
+        {"type": "text", "text": "The Great Barrier Reef is the world's largest coral reef system...", "x": 50, "y": 90, "width": 500, "height": 80},
+        {"type": "text", "text": "7. According to the passage, where is the Great Barrier Reef?", "x": 50, "y": 200, "width": 500, "height": 20}
+      ]
+    },
+    {
+      "page_number": 381,
+      "markdown_path": "/data/scratch/excel_selective_yr9/pages/381.md",
+      "image_path": "/data/scratch/excel_selective_yr9/images/381.png",
+      "elements": [
+        {"type": "text", "text": "Answer Key", "x": 200, "y": 50, "width": 200, "height": 24},
+        {"type": "text", "text": "1 C  2 A  3 B  4 D  5 A  6 C  7 B", "x": 50, "y": 100, "width": 500, "height": 20}
+      ]
+    }
+  ]
+}
