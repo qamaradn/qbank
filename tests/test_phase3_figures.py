@@ -104,3 +104,101 @@ def test_p3_06_figure_position_above_question():
                                     figure_position="above_question")
     assert result_above["has_figure"] is True, "above_question SHOULD detect figure above"
     assert result_above["figure_path"] == "/tmp/fig_above.png"
+
+
+# ── Integration test fixture ───────────────────────────────────────────────────
+
+@pytest.fixture
+def p3_fixture_paths(tmp_path):
+    """Load fixture JSON files, replace SAMPLE_FIGURE_PLACEHOLDER with real PNG path."""
+    import json as _json
+    raw = _json.loads((FIXTURES / "sample_p3_docling.json").read_text())
+    fig_src = str(FIXTURES / "sample_figure.png")
+    for page in raw["pages"]:
+        for el in page["elements"]:
+            if el.get("type") == "figure":
+                el["figure_path"] = fig_src
+    docling_path = tmp_path / "docling_output.json"
+    docling_path.write_text(_json.dumps(raw))
+    page_map_path = FIXTURES / "sample_p3_page_map.json"
+    return docling_path, page_map_path
+
+
+# ── P3-07 ─────────────────────────────────────────────────────────────────────
+def test_p3_07_text_only_pages_go_to_text_folder(p3_fixture_paths, tmp_path):
+    """[INTEGRATION] page with 5 text elements and no figures → 5 JSONs in text/, 0 in figures/."""
+    docling_path, page_map_path = p3_fixture_paths
+    output_dir = tmp_path / "output"
+
+    p3.run(
+        book_id="test_book",
+        scratch_dir=str(tmp_path),
+        output_dir=str(output_dir),
+        docling_json_path=str(docling_path),
+        page_map_path=str(page_map_path),
+    )
+
+    text_dir    = output_dir / "quantitative_reasoning" / "text"
+    text_files  = list(text_dir.glob("*.json")) if text_dir.exists() else []
+    fig_dir     = output_dir / "quantitative_reasoning" / "figures"
+
+    # Page 10 has 5 text elements, page 11 has 3 text elements near figure
+    # text_dir gets only the page-10 elements (no figure) = 5 files
+    page10_files = [f for f in text_files if "_p10_" in f.name]
+    assert len(page10_files) == 5, f"Expected 5 text JSONs for page 10, got {len(page10_files)}"
+
+
+# ── P3-08 ─────────────────────────────────────────────────────────────────────
+def test_p3_08_figure_linked_questions_go_to_figures_folder(p3_fixture_paths, tmp_path):
+    """[INTEGRATION] 3 text elements near 1 figure → 3 JSONs + 3 PNGs in figures/."""
+    docling_path, page_map_path = p3_fixture_paths
+    output_dir = tmp_path / "output"
+
+    p3.run(
+        book_id="test_book",
+        scratch_dir=str(tmp_path),
+        output_dir=str(output_dir),
+        docling_json_path=str(docling_path),
+        page_map_path=str(page_map_path),
+    )
+
+    fig_dir   = output_dir / "quantitative_reasoning" / "figures"
+    json_files = list(fig_dir.glob("*.json")) if fig_dir.exists() else []
+    png_files  = list(fig_dir.glob("*.png"))  if fig_dir.exists() else []
+    assert len(json_files) == 3, f"Expected 3 figure JSONs, got {len(json_files)}"
+    assert len(png_files)  == 3, f"Expected 3 figure PNGs, got {len(png_files)}"
+
+
+# ── P3-09 ─────────────────────────────────────────────────────────────────────
+def test_p3_09_output_json_correct_schema(p3_fixture_paths, tmp_path):
+    """[CONTRACT] every output JSON has correct schema."""
+    docling_path, page_map_path = p3_fixture_paths
+    output_dir = tmp_path / "output"
+    p3.run(book_id="test_book", scratch_dir=str(tmp_path), output_dir=str(output_dir),
+           docling_json_path=str(docling_path), page_map_path=str(page_map_path))
+
+    all_json = list((output_dir / "quantitative_reasoning").rglob("*.json"))
+    assert len(all_json) > 0, "No output JSON files found"
+
+    for jf in all_json:
+        data = json.loads(jf.read_text())
+        assert isinstance(data["has_figure"], bool), f"{jf.name}: has_figure must be bool"
+        if data["has_figure"]:
+            assert data["figure_path"] is not None, f"{jf.name}: figure_path must be set"
+            assert isinstance(data["figure_path"], str)
+        else:
+            assert data["figure_path"] is None, f"{jf.name}: figure_path must be None"
+        assert data["review_status"] == "pending", f"{jf.name}: review_status must be 'pending'"
+
+
+# ── P3-10 ─────────────────────────────────────────────────────────────────────
+def test_p3_10_answer_key_pages_produce_no_output(p3_fixture_paths, tmp_path):
+    """[INTEGRATION] answer_key page 381 → no output files, skipped count >= 1."""
+    docling_path, page_map_path = p3_fixture_paths
+    output_dir = tmp_path / "output"
+    stats = p3.run(book_id="test_book", scratch_dir=str(tmp_path), output_dir=str(output_dir),
+                   docling_json_path=str(docling_path), page_map_path=str(page_map_path))
+
+    ak_dir = output_dir / "answer_key"
+    assert not ak_dir.exists(), "answer_key subject should produce no output directory"
+    assert stats["skipped"] >= 1, "Expected at least 1 skipped page (answer_key)"

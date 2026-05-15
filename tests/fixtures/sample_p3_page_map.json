@@ -1,0 +1,32 @@
+{
+  "book_id": "test_book",
+  "pages": [
+    {
+      "page_number": 10,
+      "subject": "quantitative_reasoning",
+      "confidence": 1.0,
+      "is_question_page": true,
+      "reasoning": "fixture",
+      "needs_manual_review": false,
+      "briefing_override": true
+    },
+    {
+      "page_number": 11,
+      "subject": "quantitative_reasoning",
+      "confidence": 1.0,
+      "is_question_page": true,
+      "reasoning": "fixture",
+      "needs_manual_review": false,
+      "briefing_override": true
+    },
+    {
+      "page_number": 381,
+      "subject": "answer_key",
+      "confidence": 1.0,
+      "is_question_page": false,
+      "reasoning": "fixture",
+      "needs_manual_review": false,
+      "briefing_override": true
+    }
+  ]
+}
