@@ -69,3 +69,56 @@ def test_p2_03_subject_always_valid():
         assert result["subject"] in valid, (
             f"{fname}: invalid subject {result['subject']!r}\nReasoning: {result['reasoning']}"
         )
+
+
+@pytest.mark.slow
+@pytest.mark.skipif(not GEMINI_AVAILABLE, reason="GEMINI_KEY not set")
+@pytest.mark.parametrize("fname,expected_subject", [
+    ("sample_qr_page.md",  "quantitative_reasoning"),
+    ("sample_lr_page.md",  "logical_reasoning"),
+    ("sample_sr_page.md",  "science_reasoning"),
+    ("sample_rc_page.md",  "reading_comprehension"),
+    ("sample_wr_page.md",  "writing"),
+])
+def test_p2_01_correct_subject_for_each_fixture(fname, expected_subject):
+    """[CONTRACT] classifier returns correct subject for each of the 5 subjects."""
+    data = briefing_module.load(str(FIXTURES / "sample_briefing.md"))
+    content = (FIXTURES / fname).read_text()
+    result = p2.classify_page(content, data, page_number=9999)
+    assert result["subject"] == expected_subject, (
+        f"{fname}: expected {expected_subject!r}, got {result['subject']!r}\n"
+        f"Reasoning: {result['reasoning']}\n"
+        f"Confidence: {result['confidence']}"
+    )
+
+
+@pytest.mark.slow
+@pytest.mark.skipif(not GEMINI_AVAILABLE, reason="GEMINI_KEY not set")
+def test_p2_04_answer_key_page_returns_answer_key():
+    """[EDGE] answer key page returns 'answer_key'."""
+    data = briefing_module.load(str(FIXTURES / "sample_briefing.md"))
+    content = (FIXTURES / "sample_answer_key_page.md").read_text()
+    result = p2.classify_page(content, data, page_number=9999)
+    assert result["subject"] == "answer_key", (
+        f"Expected 'answer_key', got {result['subject']!r}\nReasoning: {result['reasoning']}"
+    )
+
+
+@pytest.mark.slow
+@pytest.mark.skipif(not GEMINI_AVAILABLE, reason="GEMINI_KEY not set")
+def test_p2_05_theory_page_is_question_page_false():
+    """[EDGE] theory/explanation page sets is_question_page=False."""
+    data = briefing_module.load(str(FIXTURES / "sample_briefing.md"))
+    content = (FIXTURES / "sample_theory_page.md").read_text()
+    result = p2.classify_page(content, data, page_number=9999)
+    assert result["is_question_page"] is False, (
+        f"Expected is_question_page=False for theory page, got True\n"
+        f"Subject: {result['subject']}, Reasoning: {result['reasoning']}"
+    )
+    valid_subjects = {
+        "quantitative_reasoning", "logical_reasoning", "science_reasoning",
+        "reading_comprehension", "writing",
+    }
+    assert result["subject"] in valid_subjects, (
+        f"Theory page subject should be a real subject, got {result['subject']!r}"
+    )
