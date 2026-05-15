@@ -72,18 +72,46 @@ def run(
     rel_start = briefing_data["relevant_pages_start"]
     rel_end = briefing_data["relevant_pages_end"]
 
-    # Run Docling once on the full PDF
+    # Determine candidate relevant pages from briefing range.
+    # We don't know total_pages yet (that requires Docling), so we build
+    # a provisional list; Docling will clip if the PDF is shorter.
+    candidate_pages = list(range(rel_start, rel_end + 1))
+
+    # Full-book resumability: if every candidate page already has its .md file,
+    # skip Docling entirely and rebuild output from existing files.
+    if _all_pages_done(pages_dir, candidate_pages):
+        logger.info(
+            "All %d pages already processed — skipping Docling entirely",
+            len(candidate_pages),
+        )
+        pages_output = _rebuild_from_existing(pages_dir, images_dir, candidate_pages)
+        output = {
+            "book_id": book_id,
+            "total_pages": len(candidate_pages),
+            "pages": pages_output,
+        }
+        json_path = os.path.join(book_scratch, "docling_output.json")
+        with open(json_path, "w", encoding="utf-8") as fh:
+            json.dump(output, fh, indent=2, ensure_ascii=False)
+        logger.info(
+            "Phase 1 complete (resumed): %d pages from %s",
+            len(pages_output),
+            book_scratch,
+        )
+        return output
+
+    # Normal path: run Docling on the full PDF
     docling_result = _run_docling(pdf_path, briefing_data)
 
     doc = docling_result.document
     total_pages = doc.num_pages()
 
-    # Build the list of relevant pages to process
-    relevant_pages = [p for p in range(rel_start, rel_end + 1) if p <= total_pages]
+    # Clip candidate pages to what the PDF actually contains
+    relevant_pages = [p for p in candidate_pages if p <= total_pages]
 
     pages_output = []
     for page_n in relevant_pages:
-        # Resumability: skip pages already done
+        # Per-page resumability: skip pages already done (handles partial runs)
         md_path = os.path.join(pages_dir, f"{page_n}.md")
         if os.path.exists(md_path):
             logger.info("Skipping page %d (already done)", page_n)
@@ -125,6 +153,35 @@ def run(
 # ---------------------------------------------------------------------------
 # Internal helpers
 # ---------------------------------------------------------------------------
+
+def _all_pages_done(pages_dir: str, relevant_pages: list) -> bool:
+    """Return True if every page in relevant_pages already has a .md file."""
+    return bool(relevant_pages) and all(
+        os.path.exists(os.path.join(pages_dir, f"{n}.md"))
+        for n in relevant_pages
+    )
+
+
+def _rebuild_from_existing(pages_dir: str, images_dir: str, relevant_pages: list) -> list:
+    """
+    Rebuild a pages_output list from already-written .md (and optional .png) files.
+
+    Used by the full-book resumability path when Docling is skipped entirely.
+    elements is empty on resume — Phase 2 only needs markdown_path.
+    """
+    pages_output = []
+    for n in relevant_pages:
+        md_path = os.path.join(pages_dir, f"{n}.md")
+        img_path = os.path.join(images_dir, f"{n}.png")
+        entry = {
+            "page_number": n,
+            "markdown_path": md_path,
+            "image_path": img_path if os.path.exists(img_path) else None,
+            "elements": [],  # not re-extracted on resume; Phase 2 uses markdown only
+        }
+        pages_output.append(entry)
+    return pages_output
+
 
 def _require_briefing(briefing_path: str) -> dict:
     """Load the briefing file; raise FileNotFoundError (with 'briefing' in msg) if absent."""
