@@ -202,3 +202,24 @@ def test_p3_10_answer_key_pages_produce_no_output(p3_fixture_paths, tmp_path):
     ak_dir = output_dir / "answer_key"
     assert not ak_dir.exists(), "answer_key subject should produce no output directory"
     assert stats["skipped"] >= 1, "Expected at least 1 skipped page (answer_key)"
+
+
+# ── P3-11 ─────────────────────────────────────────────────────────────────────
+def test_p3_11_threshold_from_argument_not_hardcoded():
+    """[UNIT] detect_figure uses the threshold argument — different thresholds produce different results."""
+    question = {"type": "text", "text": "Q1", "x": 50, "y": 200, "width": 400, "height": 20}
+    figure   = {"type": "figure", "text": "", "x": 50, "y": 400, "width": 300, "height": 200,
+                "figure_path": "/tmp/fig.png"}
+    # distance = 400 - 200 = 200
+
+    # threshold=150: NOT linked (200 > 150)
+    r150 = p3.detect_figure(question, [question, figure], threshold=150)
+    assert r150["has_figure"] is False, "threshold=150 should NOT link (distance=200)"
+
+    # threshold=200: linked (distance == threshold, inclusive)
+    r200 = p3.detect_figure(question, [question, figure], threshold=200)
+    assert r200["has_figure"] is True, "threshold=200 SHOULD link (distance=200, inclusive)"
+
+    # threshold=199: NOT linked (200 > 199)
+    r199 = p3.detect_figure(question, [question, figure], threshold=199)
+    assert r199["has_figure"] is False, "threshold=199 should NOT link (distance=200 > 199)"
