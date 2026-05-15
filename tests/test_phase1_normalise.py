@@ -5,6 +5,39 @@ from pathlib import Path
 FIXTURES = Path(__file__).parent / "fixtures"
 
 
+def _ocr_available() -> bool:
+    """Return True if at least one Docling-compatible OCR engine is usable."""
+    import shutil, ctypes.util, importlib
+
+    # Tesseract binary on PATH
+    if shutil.which("tesseract"):
+        return True
+
+    # libGL required by rapidocr and cv2 backends
+    libgl = ctypes.util.find_library("GL")
+    if libgl:
+        try:
+            importlib.import_module("rapidocr_onnxruntime")
+            return True
+        except ImportError:
+            pass
+        try:
+            importlib.import_module("easyocr")
+            return True
+        except ImportError:
+            pass
+
+    # onnxruntime-based rapidocr (needs onnxruntime, not cv2)
+    try:
+        importlib.import_module("onnxruntime")
+        importlib.import_module("rapidocr")
+        return True
+    except ImportError:
+        pass
+
+    return False
+
+
 def test_p1_09_invalid_book_id_raises_value_error():
     """[UNIT] run() raises ValueError for book_id with invalid characters."""
     import pipeline.phase1_normalise as p1
@@ -204,3 +237,75 @@ def test_p1_07_resumable_second_run_skips_existing_pages(tmp_path):
     # Note: even if Docling IS called (current impl), per-page skip still works.
     # The time check is lenient to avoid flakiness.
     print(f"\nSecond run elapsed: {elapsed:.1f}s")
+
+
+@pytest.mark.slow
+def test_p1_08_scanned_pdf_ocr_works(tmp_path):
+    """[EDGE] scanned PDF processed via OCR produces non-empty markdown.
+
+    Verifies that the pipeline handles a real scanned (image-based) PDF:
+    - run() completes without raising
+    - exactly 3 .md files are written (one per page)
+    - docling_output.json has correct structure with book_id and 3 pages
+    - if an OCR engine is available, at least one page has non-empty text
+
+    The OCR text assertion is skipped when no OCR engine is installed in the
+    current environment (CI / minimal VM).  On a production VM with tesseract
+    or onnxruntime the check fires and catches regressions.
+    """
+    import json
+    import pipeline.phase1_normalise as p1
+
+    result = p1.run(
+        book_id="rsaggarwal",
+        pdf_path=str(FIXTURES / "rsaggarwal_3pages.pdf"),
+        scratch_dir=str(tmp_path),
+        briefing_path=str(FIXTURES / "sample_scanned_briefing.md"),
+    )
+
+    # --- Structural assertions (always enforced) ---
+    pages_dir = tmp_path / "rsaggarwal" / "pages"
+    md_files = sorted(pages_dir.glob("*.md"))
+    assert len(md_files) == 3, (
+        f"Expected 3 .md files (one per scanned page), got {len(md_files)}: "
+        f"{[f.name for f in md_files]}"
+    )
+
+    # docling_output.json must have correct schema
+    json_path = tmp_path / "rsaggarwal" / "docling_output.json"
+    assert json_path.exists(), "docling_output.json was not written"
+    data = json.loads(json_path.read_text(encoding="utf-8"))
+    assert data["book_id"] == "rsaggarwal", (
+        f"book_id mismatch: expected 'rsaggarwal', got {data['book_id']!r}"
+    )
+    assert data["total_pages"] == 3, (
+        f"total_pages should be 3, got {data['total_pages']}"
+    )
+    assert len(data["pages"]) == 3, (
+        f"Expected 3 page entries in docling_output.json, got {len(data['pages'])}"
+    )
+
+    # All .md files must be valid UTF-8 (no UnicodeDecodeError)
+    for md_file in md_files:
+        md_file.read_text(encoding="utf-8")  # raises on bad bytes
+
+    # --- OCR text assertion (conditional on engine availability) ---
+    ocr_available = _ocr_available()
+    non_empty = sum(
+        1 for f in md_files if f.read_text(encoding="utf-8").strip()
+    )
+    print(f"\nOCR engine available: {ocr_available}")
+    print(f"Non-empty pages: {non_empty}/3")
+
+    if ocr_available:
+        assert non_empty >= 1, (
+            "OCR engine is installed but produced no text on any of the 3 scanned pages. "
+            "Check that do_ocr=True is set in _run_docling()."
+        )
+    else:
+        # No OCR engine installed — pipeline should still complete cleanly.
+        # Empty .md files are acceptable: phase1 logs a warning per empty page.
+        pytest.skip(
+            f"OCR engine not available in this environment (non_empty={non_empty}/3). "
+            "Install tesseract or onnxruntime+rapidocr to enable the full OCR assertion."
+        )
