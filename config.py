@@ -26,6 +26,8 @@ QUESTIONS_PER_PAGE: int = int(os.getenv("QUESTIONS_PER_PAGE", "8"))
 FIGURE_QUESTIONS_PER_FIGURE: int = int(os.getenv("FIGURE_QUESTIONS_PER_FIGURE", "4"))
 API_DELAY_SECONDS: int = int(os.getenv("API_DELAY_SECONDS", "2"))
 CLAUDE_MODEL: str = os.getenv("CLAUDE_MODEL", "claude-sonnet-4-6")
+GEMINI_KEY: str = os.getenv("GEMINI_KEY", "")
+GEMINI_MODEL: str = os.getenv("GEMINI_MODEL", "gemini-2.0-flash")
 
 # Review server
 REVIEW_HOST: str = os.getenv("REVIEW_HOST", "0.0.0.0")
