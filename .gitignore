@@ -14,6 +14,7 @@ build/
 # All data — never commit
 /data/
 *.pdf
+!tests/fixtures/*.pdf
 *.db
 *.sqlite3
 

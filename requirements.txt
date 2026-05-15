@@ -1,6 +1,7 @@
 # Core pipeline
 anthropic>=0.30.0
 docling>=2.0.0
+pypdf>=4.0.0
 
 # Web framework (review server)
 fastapi>=0.111.0
