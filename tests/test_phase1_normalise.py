@@ -118,3 +118,47 @@ def test_p1_05_markdown_is_utf8_and_non_empty(tmp_path):
             non_empty += 1
 
     assert non_empty > 0, "All page markdown files are empty — OCR likely failed"
+
+
+@pytest.mark.slow
+def test_p1_06_figures_extracted(tmp_path):
+    """[INTEGRATION] figure crops are saved to figures/ when present on page."""
+    import os
+    import pipeline.phase1_normalise as p1
+    result = p1.run(
+        book_id="act_5pages",
+        pdf_path=str(FIXTURES / "act_5pages.pdf"),
+        scratch_dir=str(tmp_path),
+        briefing_path=str(FIXTURES / "sample_act_briefing.md"),
+    )
+    figures_dir = tmp_path / "act_5pages" / "figures"
+    fig_files = list(figures_dir.glob("*_fig_*.png")) if figures_dir.exists() else []
+
+    # Check in elements: collect all figure elements with figure_path
+    figure_elements = []
+    for page in result["pages"]:
+        for el in page.get("elements", []):
+            if el["type"] == "figure" and el.get("figure_path"):
+                figure_elements.append(el)
+
+    # If Docling found figures on these pages, they must be saved as PNGs
+    # If no figures were detected, the test is vacuously passing (valid for some pages)
+    for el in figure_elements:
+        assert os.path.exists(el["figure_path"]), (
+            f"figure_path {el['figure_path']} referenced in elements but not on disk"
+        )
+
+    # The ACT PDF contains figures — at least one must be detected and saved
+    assert len(figure_elements) > 0, (
+        "No figure elements found in result — Docling should have detected figures "
+        "on the ACT sample pages. Check that generate_picture_images=True is set."
+    )
+    assert len(fig_files) == len(figure_elements), (
+        f"Mismatch: {len(figure_elements)} figure elements but {len(fig_files)} PNG files on disk"
+    )
+
+    # Log what we found for debugging
+    print(f"\nFigures found: {len(figure_elements)} elements with figure_path")
+    print(f"PNG files in figures/: {len(fig_files)}")
+    for el in figure_elements:
+        print(f"  page={el.get('page_number', '?')} -> {el['figure_path']}")

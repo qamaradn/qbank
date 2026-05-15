@@ -144,8 +144,8 @@ def _run_docling(pdf_path: str, briefing_data: dict):
     Pipeline options:
     - OCR disabled (born-digital PDF; enabled on VM for real scanned books)
     - Table structure disabled (not needed for Phase 1 output)
-    - Page images disabled by default (saves memory; Phase 5 can render on demand)
-    - Picture images disabled (no disk space wasted for Phase 1 skeleton)
+    - Page images enabled so full-page PNGs are available for figure cropping
+    - Picture images enabled so PictureItem.image.pil_image is populated
 
     Returns:
         ConversionResult
@@ -157,8 +157,8 @@ def _run_docling(pdf_path: str, briefing_data: dict):
     pipeline_options = PdfPipelineOptions()
     pipeline_options.do_ocr = False
     pipeline_options.do_table_structure = False
-    pipeline_options.generate_page_images = False
-    pipeline_options.generate_picture_images = False
+    pipeline_options.generate_page_images = True
+    pipeline_options.generate_picture_images = True
 
     converter = DocumentConverter(
         format_options={
