@@ -146,3 +146,82 @@ def test_p2_10_garbled_page_flags_low_confidence():
         f"Reasoning: {result['reasoning']}"
     )
     assert result["needs_manual_review"] is True
+
+
+@pytest.mark.slow
+def test_p2_08_page_map_json_written_correctly(tmp_path):
+    """[INTEGRATION] run() writes page_map.json with correct structure."""
+    import pipeline.phase1_normalise as p1
+
+    # Run phase1 first to produce docling_output.json
+    p1.run(
+        book_id="act_5pages",
+        pdf_path=str(FIXTURES / "act_5pages.pdf"),
+        scratch_dir=str(tmp_path),
+        briefing_path=str(FIXTURES / "sample_act_briefing.md"),
+    )
+
+    # Run phase2 — all pages use briefing override (no API needed)
+    result = p2.run(
+        book_id="act_5pages",
+        scratch_dir=str(tmp_path),
+        briefing_path=str(FIXTURES / "sample_act_briefing.md"),
+    )
+
+    page_map_path = tmp_path / "act_5pages" / "page_map.json"
+    assert page_map_path.exists(), "page_map.json not written"
+
+    assert result["book_id"] == "act_5pages"
+    assert len(result["pages"]) > 0
+
+    for page in result["pages"]:
+        assert "page_number" in page, f"Missing page_number: {page}"
+        assert "subject" in page
+        assert "confidence" in page
+        assert "is_question_page" in page
+        assert isinstance(page["is_question_page"], bool)
+        assert "needs_manual_review" in page
+        assert "briefing_override" in page
+
+
+@pytest.mark.slow
+def test_p2_09_resumable_skips_pre_classified_pages(tmp_path):
+    """[UNIT] run() skips pages already present in page_map.json."""
+    import json
+    import pipeline.phase1_normalise as p1
+
+    # Run phase1 to produce docling_output.json
+    p1.run(
+        book_id="act_5pages",
+        pdf_path=str(FIXTURES / "act_5pages.pdf"),
+        scratch_dir=str(tmp_path),
+        briefing_path=str(FIXTURES / "sample_act_briefing.md"),
+    )
+
+    # Pre-populate page_map with a sentinel entry for page 1
+    pre_map = {
+        "book_id": "act_5pages",
+        "pages": [{
+            "page_number": 1,
+            "subject": "quantitative_reasoning",
+            "confidence": 1.0,
+            "is_question_page": True,
+            "reasoning": "pre-classified-sentinel",
+            "needs_manual_review": False,
+            "briefing_override": True,
+        }]
+    }
+    page_map_path = tmp_path / "act_5pages" / "page_map.json"
+    page_map_path.write_text(json.dumps(pre_map))
+
+    result = p2.run(
+        book_id="act_5pages",
+        scratch_dir=str(tmp_path),
+        briefing_path=str(FIXTURES / "sample_act_briefing.md"),
+    )
+
+    # Page 1 must retain its sentinel reasoning — was NOT re-classified
+    page1 = next(p for p in result["pages"] if p["page_number"] == 1)
+    assert page1["reasoning"] == "pre-classified-sentinel", (
+        f"Page 1 was re-classified (should be skipped). Got: {page1['reasoning']}"
+    )
