@@ -122,3 +122,27 @@ def test_p2_05_theory_page_is_question_page_false():
     assert result["subject"] in valid_subjects, (
         f"Theory page subject should be a real subject, got {result['subject']!r}"
     )
+
+
+@pytest.mark.slow
+@pytest.mark.skipif(not GEMINI_AVAILABLE, reason="GEMINI_KEY not set")
+def test_p2_07_outside_briefing_range_uses_api():
+    """[UNIT] page outside all briefing ranges: briefing_override=False, API used."""
+    data = briefing_module.load(str(FIXTURES / "sample_briefing.md"))
+    content = (FIXTURES / "sample_qr_page.md").read_text()
+    result = p2.classify_page(content, data, page_number=9999)  # 9999 outside all ranges
+    assert result["briefing_override"] is False, (
+        "Expected API path (briefing_override=False) for page 9999"
+    )
+
+
+def test_p2_10_garbled_page_flags_low_confidence():
+    """[EDGE] garbled OCR page → confidence < 0.5, needs_manual_review=True."""
+    data = briefing_module.load(str(FIXTURES / "sample_briefing.md"))
+    content = (FIXTURES / "sample_garbled_page.md").read_text()
+    result = p2.classify_page(content, data, page_number=9999)
+    assert result["confidence"] < 0.5, (
+        f"Expected confidence < 0.5 for garbled page, got {result['confidence']:.2f}\n"
+        f"Reasoning: {result['reasoning']}"
+    )
+    assert result["needs_manual_review"] is True

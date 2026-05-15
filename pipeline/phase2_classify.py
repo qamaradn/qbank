@@ -14,6 +14,27 @@ VALID_SUBJECTS = {
     "reading_comprehension", "writing", "answer_key", "skip",
 }
 
+# Minimum fraction of printable ASCII characters required to attempt classification.
+# Pages with fewer printable chars are considered garbled/unreadable.
+_GARBLED_ASCII_THRESHOLD = float(os.environ.get("GARBLED_ASCII_THRESHOLD", "0.5"))
+
+
+def _is_garbled(markdown: str) -> bool:
+    """
+    Return True when the page content is too corrupted to classify reliably.
+
+    Strategy: count characters in the ASCII printable range (0x20–0x7E, plus
+    common whitespace). If fewer than GARBLED_ASCII_THRESHOLD of all non-whitespace
+    characters are printable ASCII, the page is considered garbled.
+    """
+    # Strip whitespace for the ratio check
+    stripped = re.sub(r"\s+", "", markdown)
+    if not stripped:
+        return False  # Empty handled separately
+    printable = sum(1 for c in stripped if 0x20 <= ord(c) <= 0x7E)
+    ratio = printable / len(stripped)
+    return ratio < _GARBLED_ASCII_THRESHOLD
+
 _CLASSIFICATION_PROMPT = """\
 You are classifying pages from Australian selective school exam prep books.
 
@@ -54,6 +75,20 @@ def classify_page(markdown: str, briefing_data: dict, page_number: int = None) -
     """
     if not markdown or not markdown.strip():
         raise ValueError("Cannot classify empty page")
+
+    # Garbled-content early exit: severely corrupted pages cannot be classified.
+    if _is_garbled(markdown):
+        return {
+            "subject": "skip",
+            "confidence": 0.1,
+            "is_question_page": False,
+            "reasoning": (
+                "Page content is severely garbled (low printable-ASCII ratio). "
+                "Manual review required."
+            ),
+            "needs_manual_review": True,
+            "briefing_override": False,
+        }
 
     # Briefing override: page in known coverage range → no API call
     if page_number is not None:
