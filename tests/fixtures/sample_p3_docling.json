@@ -1,0 +1,38 @@
+{
+  "book_id": "test_book",
+  "total_pages": 3,
+  "pages": [
+    {
+      "page_number": 10,
+      "markdown_path": "",
+      "image_path": null,
+      "elements": [
+        {"type":"text","text":"1. What is 15% of 200?","x":50,"y":80,"width":400,"height":20},
+        {"type":"text","text":"2. A car travels at 60 km/h for 2 hours. How far does it travel?","x":50,"y":130,"width":400,"height":20},
+        {"type":"text","text":"3. Find the next term: 2, 6, 18, 54...","x":50,"y":180,"width":400,"height":20},
+        {"type":"text","text":"4. If x + 7 = 19, what is x?","x":50,"y":230,"width":400,"height":20},
+        {"type":"text","text":"5. A rectangle has length 12 cm and width 8 cm. What is its area?","x":50,"y":280,"width":400,"height":20}
+      ]
+    },
+    {
+      "page_number": 11,
+      "markdown_path": "",
+      "image_path": null,
+      "elements": [
+        {"type":"figure","text":"","x":50,"y":200,"width":300,"height":200,"figure_path":"SAMPLE_FIGURE_PLACEHOLDER"},
+        {"type":"text","text":"6. What does the diagram show?","x":50,"y":80,"width":400,"height":20},
+        {"type":"text","text":"7. Which bar is the tallest in the graph?","x":50,"y":130,"width":400,"height":20},
+        {"type":"text","text":"8. What is the difference between A and B in the figure?","x":50,"y":170,"width":400,"height":20}
+      ]
+    },
+    {
+      "page_number": 381,
+      "markdown_path": "",
+      "image_path": null,
+      "elements": [
+        {"type":"text","text":"Answer Key","x":200,"y":50,"width":200,"height":24},
+        {"type":"text","text":"1 C  2 A  3 B  4 D  5 A","x":50,"y":100,"width":500,"height":20}
+      ]
+    }
+  ]
+}
