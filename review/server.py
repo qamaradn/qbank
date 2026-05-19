@@ -53,7 +53,6 @@ def _row_to_dict(row: sqlite3.Row, figures_dir: str) -> dict:
     d = dict(row)
     d["has_figure"] = bool(d.get("has_figure", 0))
     d["edited"] = bool(d.get("edited", 0))
-    # Add figure_url — always present, null when no figure
     if d.get("has_figure") and d.get("figure_path"):
         fname = Path(d["figure_path"]).name
         d["figure_url"] = f"/figures/{fname}"
@@ -161,6 +160,28 @@ def create_app(db_path: str = _DEFAULT_DB, figures_dir: str = _DEFAULT_FIGURES) 
                 raise HTTPException(status_code=404, detail="Question not found")
         return {"id": qid, "review_status": "approved", "edited": True}
 
+    # ── Bulk approve ─────────────────────────────────────────────────────────
+    @app.post("/questions/bulk-approve")
+    def bulk_approve(min_confidence: float = Query(0.90, ge=0.0, le=1.0)):
+        """Approve all pending questions with confidence >= min_confidence."""
+        now = datetime.now(timezone.utc).isoformat()
+        with _get_conn(db_path) as conn:
+            cur = conn.execute(
+                "UPDATE questions SET review_status='approved', reviewed_at=? "
+                "WHERE review_status='pending' AND confidence >= ?",
+                (now, min_confidence),
+            )
+        return {"approved": cur.rowcount, "min_confidence": min_confidence}
+
+    # ── Delete ────────────────────────────────────────────────────────────────
+    @app.delete("/questions/{qid}")
+    def delete_question(qid: str):
+        with _get_conn(db_path) as conn:
+            cur = conn.execute("DELETE FROM questions WHERE id=?", (qid,))
+            if cur.rowcount == 0:
+                raise HTTPException(status_code=404, detail="Question not found")
+        return {"id": qid, "deleted": True}
+
     # ── Stats ─────────────────────────────────────────────────────────────────
     @app.get("/stats")
     def stats():
@@ -181,6 +202,31 @@ def create_app(db_path: str = _DEFAULT_DB, figures_dir: str = _DEFAULT_FIGURES) 
             "pending": row["pending"] or 0,
             "total": row["total"] or 0,
         }
+
+    # ── Topic coverage ────────────────────────────────────────────────────────
+    @app.get("/stats/topics")
+    def topic_stats():
+        """Question counts per topic per subject (approved + pending)."""
+        with _get_conn(db_path) as conn:
+            rows = conn.execute(
+                """SELECT subject, topic, review_status, COUNT(*) as count
+                   FROM questions
+                   WHERE topic IS NOT NULL AND topic != ''
+                   GROUP BY subject, topic, review_status
+                   ORDER BY subject, topic"""
+            ).fetchall()
+        # Nest as {subject: {topic: {status: count}}}
+        result: dict = {}
+        for row in rows:
+            subj, topic, status, count = row["subject"], row["topic"], row["review_status"], row["count"]
+            result.setdefault(subj, {}).setdefault(topic, {})[status] = count
+        return result
+
+    # ── UI ────────────────────────────────────────────────────────────────────
+    @app.get("/")
+    def serve_ui():
+        ui_path = Path(__file__).parent / "ui" / "index.html"
+        return FileResponse(str(ui_path), media_type="text/html")
 
     # ── Figures ───────────────────────────────────────────────────────────────
     @app.get("/figures/{filename}")

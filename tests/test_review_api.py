@@ -284,3 +284,63 @@ def test_r12_health_endpoint_accessible(client):
     """GET /health returns 200 (verifies server is up and responsive)."""
     resp = client.get("/health")
     assert resp.status_code == 200
+
+
+# ── R-17 ──────────────────────────────────────────────────────────────────────
+def test_r17_topic_stats_returns_nested_counts(db_path, tmp_path):
+    """GET /stats/topics returns {subject: {topic: {status: count}}} breakdown."""
+    conn = sqlite3.connect(db_path)
+    for _ in range(3):
+        _insert_question(conn, topic="percentages", review_status="approved")
+    for _ in range(2):
+        _insert_question(conn, topic="percentages", review_status="pending")
+    for _ in range(1):
+        _insert_question(conn, subject="logical_reasoning", topic="series", review_status="approved")
+    conn.close()
+
+    from review.server import create_app
+    app = create_app(db_path=db_path, figures_dir=str(tmp_path / "figures"))
+    tc = TestClient(app)
+
+    resp = tc.get("/stats/topics")
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["quantitative_reasoning"]["percentages"]["approved"] == 3
+    assert data["quantitative_reasoning"]["percentages"]["pending"] == 2
+    assert data["logical_reasoning"]["series"]["approved"] == 1
+
+
+# ── R-16 ──────────────────────────────────────────────────────────────────────
+def test_r16_bulk_approve_approves_high_confidence_pending(db_path, tmp_path):
+    """POST /questions/bulk-approve approves all pending questions >= min_confidence."""
+    conn = sqlite3.connect(db_path)
+    for _ in range(5):
+        _insert_question(conn, review_status="pending", confidence=0.95)
+    for _ in range(3):
+        _insert_question(conn, review_status="pending", confidence=0.75)
+    for _ in range(2):
+        _insert_question(conn, review_status="approved", confidence=0.98)  # already approved
+    conn.close()
+
+    from review.server import create_app
+    app = create_app(db_path=db_path, figures_dir=str(tmp_path / "figures"))
+    tc = TestClient(app)
+
+    resp = tc.post("/questions/bulk-approve?min_confidence=0.90")
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["approved"] == 5     # only the 5 pending >= 0.90
+    assert data["min_confidence"] == 0.90
+
+    # Verify DB state
+    conn = sqlite3.connect(db_path)
+    pending = conn.execute(
+        "SELECT COUNT(*) FROM questions WHERE review_status='pending'"
+    ).fetchone()[0]
+    approved = conn.execute(
+        "SELECT COUNT(*) FROM questions WHERE review_status='approved'"
+    ).fetchone()[0]
+    conn.close()
+    assert pending == 3    # the 0.75 confidence ones
+    assert approved == 7   # 5 newly approved + 2 already approved
+

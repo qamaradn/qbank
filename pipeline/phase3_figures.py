@@ -8,8 +8,39 @@ import os
 import json
 import shutil
 import logging
+from pathlib import Path
 
 logger = logging.getLogger(__name__)
+
+_MAX_WIDTH = 800
+_CONTRAST  = 1.6
+_PADDING   = 15
+
+
+def _postprocess_figure(src: str, dst: str) -> None:
+    """Copy figure PNG to dst with auto-crop, contrast boost, padding, resize."""
+    try:
+        from PIL import Image, ImageEnhance, ImageOps
+        img = Image.open(src).convert("RGB")
+        # Auto-crop pure-white margins
+        bbox = img.getbbox()
+        if bbox:
+            img = img.crop(bbox)
+        # Contrast boost for scanned/greyscale originals
+        img = ImageEnhance.Contrast(img).enhance(_CONTRAST)
+        # Uniform white padding
+        img = ImageOps.expand(img, border=_PADDING, fill="white")
+        # Cap width — preserve aspect ratio
+        if img.width > _MAX_WIDTH:
+            ratio = _MAX_WIDTH / img.width
+            img = img.resize(
+                (int(img.width * ratio), int(img.height * ratio)),
+                Image.LANCZOS,
+            )
+        img.save(dst, format="PNG", optimize=True)
+    except Exception as e:
+        logger.warning(f"Figure post-processing failed ({src}): {e} — using raw copy")
+        shutil.copy2(src, dst)
 
 
 def detect_figure(
@@ -86,12 +117,16 @@ def run(
     with open(_page_map_path, encoding="utf-8") as f:
         page_map = json.load(f)
 
-    # Briefing hint for figure_position
+    # Briefing hints
     figure_position = "below_question"
+    do_extract_figures = True
     if briefing_path and os.path.exists(briefing_path):
         import pipeline.briefing as briefing_module
         bd = briefing_module.load(briefing_path)
         figure_position = bd.get("figure_position", "below_question")
+        do_extract_figures = bd.get("extract_figures", True)
+        if not do_extract_figures:
+            logger.info(f"extract_figures=no in briefing — text-only mode for {book_id}")
 
     # Threshold from env/config
     threshold = int(os.environ.get("FIGURE_PROXIMITY_PX", "150"))
@@ -125,7 +160,11 @@ def run(
         text_elements = [e for e in elements if e.get("type") == "text"]
 
         for idx, el in enumerate(text_elements):
-            fig_result = detect_figure(el, elements, threshold, figure_position)
+            fig_result = (
+                detect_figure(el, elements, threshold, figure_position)
+                if do_extract_figures
+                else {"has_figure": False, "figure_path": None}
+            )
             source_id  = f"{book_id}_p{page_n}_e{idx}"
 
             record = {
@@ -148,12 +187,11 @@ def run(
                 os.makedirs(out_dir, exist_ok=True)
                 json_path = os.path.join(out_dir, f"{source_id}.json")
 
-                # Copy figure PNG to output dir
+                # Post-process and copy figure PNG to output dir
                 src_fig = fig_result["figure_path"]
                 if src_fig and os.path.exists(src_fig):
-                    ext = os.path.splitext(src_fig)[1] or ".png"
-                    dst_fig = os.path.join(out_dir, f"{source_id}_fig{ext}")
-                    shutil.copy2(src_fig, dst_fig)
+                    dst_fig = os.path.join(out_dir, f"{source_id}_fig.png")
+                    _postprocess_figure(src_fig, dst_fig)
                     record["figure_path"] = dst_fig
 
                 stats["figures"] += 1

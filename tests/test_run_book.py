@@ -68,6 +68,7 @@ def test_rb_05_get_status_unprocessed_book(tmp_path):
     assert status["phase2"] == "not_started"
     assert status["phase3"] == "not_started"
     assert status["phase4"] == "not_started"
+    assert status["phase5"] == "not_started"
 
 
 # ── RB-06 ──────────────────────────────────────────────────────────────────────
@@ -86,11 +87,12 @@ def test_rb_06_get_status_detects_completed_phases(tmp_path):
     assert status["phase2"] == "complete"
     assert status["phase3"] == "not_started"
     assert status["phase4"] == "not_started"
+    assert status["phase5"] == "not_started"
 
 
 # ── RB-07 ──────────────────────────────────────────────────────────────────────
 def test_rb_07_run_calls_phases_in_order(tmp_path, monkeypatch):
-    """run() calls phase1 → phase2 → phase3 → phase4 in that order."""
+    """run() calls phase1 → phase2 → phase3 → phase4 → phase5 in that order."""
     call_order = []
 
     def fake_p1(book_id, pdf_path, scratch_dir=None, briefing_path=None):
@@ -105,10 +107,15 @@ def test_rb_07_run_calls_phases_in_order(tmp_path, monkeypatch):
     def fake_p4(book_id, output_dir=None, scratch_dir=None, briefing_path=None):
         call_order.append("phase4")
 
+    def fake_p5(book_id, output_dir=None, db_path=None):
+        call_order.append("phase5")
+        return {"auto_approved": 0, "claude_approved": 0, "pending": 0, "skipped": 0, "duplicate": 0, "failed": 0}
+
     monkeypatch.setattr(rb, "_run_phase1", fake_p1)
     monkeypatch.setattr(rb, "_run_phase2", fake_p2)
     monkeypatch.setattr(rb, "_run_phase3", fake_p3)
     monkeypatch.setattr(rb, "_run_phase4", fake_p4)
+    monkeypatch.setattr(rb, "_run_phase5", fake_p5)
 
     # Set up a valid PDF + briefing
     pdf = tmp_path / "mybook.pdf"
@@ -123,7 +130,7 @@ def test_rb_07_run_calls_phases_in_order(tmp_path, monkeypatch):
         output_dir=str(tmp_path / "output"),
     )
 
-    assert call_order == ["phase1", "phase2", "phase3", "phase4"]
+    assert call_order == ["phase1", "phase2", "phase3", "phase4", "phase5"]
 
 
 # ── RB-08 ──────────────────────────────────────────────────────────────────────

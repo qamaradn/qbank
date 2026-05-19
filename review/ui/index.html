@@ -4,6 +4,10 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>QBank Review</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"
+    onload="renderMathInElement(document.body, {delimiters: [{left:'$',right:'$',display:false},{left:'$$',right:'$$',display:true}]})"></script>
   <style>
     /* Design system: design-system/MASTER.md — Data-Dense Dark Dashboard */
     :root {
@@ -124,7 +128,7 @@
     .main { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
     .question-area { flex: 1; overflow-y: auto; padding: 24px 32px; }
 
-    /* Figure */
+    /* Figure — single or side-by-side */
     .figure-container { margin-bottom: 20px; }
     .figure-container img {
       max-height: 320px;
@@ -133,7 +137,6 @@
       border-radius: 4px;
       display: block;
     }
-
     /* Stem */
     .question-stem {
       font-size: 16px;
@@ -459,10 +462,7 @@
 </div><!-- /.layout -->
 
 <script>
-  const API = (window.location.port === '8000' || window.location.port === '') &&
-              window.location.hostname !== ''
-    ? ''
-    : 'http://localhost:8000';
+  const API = '';
 
   // ── State ─────────────────────────────────────────────────────────────────────
   let queue        = [];
@@ -503,7 +503,7 @@
     const area = document.getElementById('question-area');
     area.innerHTML = '';
 
-    // Figure — above stem when has_figure=true and figure_url present
+    // Figure
     if (q.has_figure && q.figure_url) {
       const fig = document.createElement('div');
       fig.className = 'figure-container';
@@ -563,6 +563,17 @@
       `<span>${esc(q.source_book || '')} p.${q.source_page ?? '—'}</span>` +
       `<span>${(q.subject || '').replace(/_/g, ' ')}</span>`;
     area.appendChild(meta);
+
+    // Re-render LaTeX after DOM update
+    if (window.renderMathInElement) {
+      renderMathInElement(area, {
+        delimiters: [
+          {left: '$', right: '$', display: false},
+          {left: '$$', right: '$$', display: true}
+        ],
+        throwOnError: false
+      });
+    }
   }
 
   function showEmpty(msg) {

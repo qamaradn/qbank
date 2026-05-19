@@ -89,12 +89,28 @@ def get_status(book_id: str, scratch_dir: str = None, output_dir: str = None) ->
                 p4 = "complete"
                 break
 
+    # Phase 5: any rows for this book in the DB
+    db_path = os.getenv("DB_PATH", "/data/db/qbank.db")
+    p5 = "not_started"
+    if os.path.exists(db_path):
+        try:
+            import sqlite3
+            conn = sqlite3.connect(db_path)
+            count = conn.execute(
+                "SELECT COUNT(*) FROM questions WHERE source_book=?", (book_id,)
+            ).fetchone()[0]
+            conn.close()
+            p5 = "complete" if count > 0 else "not_started"
+        except Exception:
+            p5 = "unknown"
+
     return {
         "book_id": book_id,
         "phase1": p1,
         "phase2": p2,
         "phase3": p3,
         "phase4": p4,
+        "phase5": p5,
     }
 
 
@@ -122,14 +138,20 @@ def _run_phase4(book_id, output_dir=None, scratch_dir=None, briefing_path=None):
            briefing_path=briefing_path)
 
 
+def _run_phase5(book_id, output_dir=None, db_path=None):
+    import pipeline.phase5_verify as p5
+    return p5.run(book_id, output_dir=output_dir, db_path=db_path)
+
+
 def run(
     book_id: str,
     pdf_path: str,
     scratch_dir: str = None,
     output_dir: str = None,
+    db_path: str = None,
     briefing_path: str = None,
 ) -> None:
-    """Orchestrate all 4 pipeline phases for a single book."""
+    """Orchestrate all 5 pipeline phases for a single book."""
     validate_book_id(book_id)
 
     if not os.path.exists(pdf_path):
@@ -154,6 +176,10 @@ def run(
     _run_phase4(book_id, output_dir=output_dir, scratch_dir=scratch_dir,
                 briefing_path=briefing_path)
 
+    logger.info(f"[{book_id}] Phase 5: Verify and Load DB")
+    stats = _run_phase5(book_id, output_dir=output_dir, db_path=db_path)
+    logger.info(f"[{book_id}] Phase 5 stats: {stats}")
+
     logger.info(f"[{book_id}] Pipeline complete.")
 
 
@@ -171,6 +197,7 @@ def _cli():
 
     scratch_dir = os.getenv("SCRATCH_DIR", "/data/scratch")
     output_dir = os.getenv("OUTPUT_DIR", "/data/output")
+    db_path = os.getenv("DB_PATH", "/data/db/qbank.db")
 
     if args.status:
         status = get_status(args.book_id, scratch_dir=scratch_dir, output_dir=output_dir)
@@ -186,6 +213,7 @@ def _cli():
         pdf_path=args.pdf_path,
         scratch_dir=scratch_dir,
         output_dir=output_dir,
+        db_path=db_path,
     )
 
 

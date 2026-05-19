@@ -118,6 +118,7 @@ level BEFORE reading anything. Misclassification drops dramatically.
 - **answer_key_pages:** 381–395
 - **answer_key_format:** grid | inline | end_of_chapter
 - **has_figures:** yes | no
+- **extract_figures:** yes | no        ← default yes; set no for text-only extraction
 - **figure_position:** below_question | above_question | beside_question
 
 ## Subject Coverage
@@ -929,32 +930,35 @@ git add -A && git commit -m "<msg>" && git push
 
 ## PROGRESS CHECKLIST (update each session)
 
-- [ ] GitHub repo created and cloned to VM
-- [ ] VM setup complete (venv, /data dirs, .env configured)
-- [ ] Project folder structure created
-- [ ] .gitignore committed
-- [ ] requirements.txt committed
-- [ ] config.py committed
-- [ ] .env.example committed
-- [ ] schema.sql committed and DB initialised on VM
-- [ ] briefing.py parser written and tested
-- [ ] phase1_normalise.py written and tested
-- [ ] phase2_classify.py written and tested
-- [ ] phase3_figures.py written and tested
-- [ ] phase4_generate.py written and tested
-- [ ] run_book.py orchestrator written and tested
-- [ ] review/server.py written and tested
-- [ ] review/ui/index.html built
-- [ ] review/sync.py written and tested
-- [ ] All tests passing
-- [ ] First book processed end-to-end on VM
+- [x] GitHub repo created and cloned to VM
+- [x] VM setup complete (venv, /data dirs, .env configured)
+- [x] Project folder structure created
+- [x] .gitignore committed
+- [x] requirements.txt committed
+- [x] config.py committed
+- [x] .env.example committed
+- [x] schema.sql committed and DB initialised on VM
+- [x] briefing.py parser written and tested
+- [x] phase1_normalise.py written and tested
+- [x] phase2_classify.py written and tested
+- [x] phase3_figures.py written and tested
+- [x] phase4_generate.py written and tested
+- [x] phase5_verify.py written and tested (3-tier: auto-approve/Claude-verify/pending + near-dup detection)
+- [x] run_book.py orchestrator written and tested (phases 1–5)
+- [x] review/server.py written and tested (approve/reject/edit/bulk-approve/stats/topics/figures)
+- [x] review/ui/index.html built (dark dashboard, keyboard A/R/E/←→)
+- [x] review/sync.py written and tested
+- [x] All tests passing (130 fast + integration)
+- [x] ACT Math pages 50–51 processed end-to-end (test run — 24 questions in DB)
+- [ ] First full book processed end-to-end on VM
 - [ ] First batch synced to Supabase
 
 ---
 
 ## CURRENT STATUS
 
-**Last worked on:** Not started
-**Next task:** Create GitHub repo → VM setup → project structure → briefing.py parser
+**Last worked on:** 2026-05-19
+**Next task:** Process first full book through complete pipeline (phases 1–5)
 **Blockers:** None
+**Notes:** Pipeline fully built. Phase 3b (figure redraw via Gemini) was built and removed — original figure crops are used directly. Review UI live at port 8000.
 **Notes:** —

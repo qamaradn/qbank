@@ -8,6 +8,7 @@ import time
 import uuid
 import warnings
 from datetime import datetime, timezone
+from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
@@ -23,6 +24,12 @@ _SUBJECT_NAMES = {
     "reading_comprehension": "Reading Comprehension",
     "writing": "Writing",
 }
+
+_LATEX_RULE = """\
+- Use LaTeX for ALL mathematical expressions: inline math between $...$ delimiters
+  Examples: $x^2$, $\\sqrt{113}$, $\\frac{4}{3}\\pi r^3$, $\\sin\\theta$, $a_n$
+  Do NOT use plain text like x^2, sqrt(x), or unicode like √
+"""
 
 _TEXT_PROMPT = """\
 You are generating Australian selective school exam practice questions.
@@ -41,7 +48,7 @@ Rules:
 - Australian context ($AUD, km, Australian names where natural)
 - One-sentence explanation for correct answer
 - Do not copy or closely paraphrase any original question
-
+{latex_rule}
 Return ONLY a valid JSON array, no markdown, no preamble:
 [{{"stem":"...","option_a":"...","option_b":"...","option_c":"...","option_d":"...","correct_answer":"A|B|C|D","explanation":"...","topic":"...","difficulty":"easy|medium|hard","confidence":0.0}}]
 
@@ -84,7 +91,7 @@ Rules:
 - Exactly 4 options (A B C D), exactly one correct
 - Each stem must reference the figure ("the diagram", "the graph", "the table", "the figure")
 - One-sentence explanation for correct answer
-
+{latex_rule}
 ORIGINAL QUESTIONS THAT USED THIS FIGURE:
 {original_questions}
 
@@ -93,10 +100,14 @@ Return ONLY a valid JSON array, no markdown, no preamble:
 """
 
 
+_MATH_SUBJECTS = {"quantitative_reasoning", "science_reasoning", "logical_reasoning"}
+
+
 def _build_text_prompt(markdown: str, subject: str, briefing_data: dict, n: int) -> str:
     year_level = briefing_data.get("target_year", "7-9")
     difficulty = briefing_data.get("difficulty", "medium")
     subject_name = _SUBJECT_NAMES.get(subject, subject)
+    latex_rule = _LATEX_RULE if subject in _MATH_SUBJECTS else ""
     if subject == "writing":
         return _WRITING_PROMPT.format(
             year_level=year_level, difficulty=difficulty,
@@ -105,6 +116,7 @@ def _build_text_prompt(markdown: str, subject: str, briefing_data: dict, n: int)
     return _TEXT_PROMPT.format(
         subject_name=subject_name, year_level=year_level,
         difficulty=difficulty, n=n, page_markdown=markdown,
+        latex_rule=latex_rule,
     )
 
 
@@ -114,9 +126,10 @@ def _build_figure_prompt(
     year_level = briefing_data.get("target_year", "7-9")
     subject_name = _SUBJECT_NAMES.get(subject, subject)
     orig_text = "\n".join(f"- {q.get('stem', '')}" for q in original_qs[:5]) or "(none)"
+    latex_rule = _LATEX_RULE if subject in _MATH_SUBJECTS else ""
     return _FIGURE_PROMPT.format(
         subject_name=subject_name, year_level=year_level,
-        n=n, original_questions=orig_text,
+        n=n, original_questions=orig_text, latex_rule=latex_rule,
     )
 
 
@@ -131,6 +144,26 @@ def _get_gemini_model(model_name: str = None):
         import google.generativeai as genai
         genai.configure(api_key=key)
         return genai.GenerativeModel(model_name)
+
+
+def normalise_math(text: str) -> str:
+    """Wrap bare math expressions in $...$ if Gemini forgot LaTeX delimiters."""
+    if not isinstance(text, str):
+        return text
+    # Already wrapped — leave alone (avoid double-wrapping)
+    if "$" in text:
+        return text
+    # sqrt(x) → $\sqrt{x}$
+    text = re.sub(r'\bsqrt\(([^)]+)\)', r'$\\sqrt{\1}$', text)
+    # x^2 or x^{2} bare → $x^2$
+    text = re.sub(r'(?<!\$)(\b[\w]+\^[\w{}]+)(?!\$)', r'$\1$', text)
+    return text
+
+
+def _normalise_fields(q: dict) -> dict:
+    """Apply normalise_math to all text fields of a question."""
+    text_fields = ("stem", "option_a", "option_b", "option_c", "option_d", "explanation")
+    return {k: (normalise_math(v) if k in text_fields else v) for k, v in q.items()}
 
 
 def _validate_question(q: dict, subject: str) -> dict:
@@ -179,6 +212,25 @@ def parse_llm_response(
     stripped = re.sub(r"\s*```$", "", stripped)
     stripped = stripped.strip()
 
+    # Fix LaTeX backslashes Gemini sometimes emits without doubling.
+    # Walk char by char: \\ → keep as \\, \" → keep as \", lone \ → double to \\
+    # This handles both already-correct (\\frac) and bare (\frac) in one pass.
+    buf = []
+    i = 0
+    while i < len(stripped):
+        ch = stripped[i]
+        if ch != "\\":
+            buf.append(ch)
+            i += 1
+        elif i + 1 < len(stripped) and stripped[i + 1] in ("\\", '"'):
+            buf.append("\\")
+            buf.append(stripped[i + 1])
+            i += 2
+        else:
+            buf.append("\\\\")
+            i += 1
+    stripped = "".join(buf)
+
     try:
         data = json.loads(stripped)
     except json.JSONDecodeError as e:
@@ -195,7 +247,8 @@ def parse_llm_response(
     valid = []
     for item in data:
         try:
-            valid.append(_validate_question(item, subject))
+            validated = _validate_question(item, subject)
+            valid.append(_normalise_fields(validated))
         except (ValueError, TypeError, KeyError) as e:
             logger.warning(f"Skipping malformed question (book={book_id!r}, page={page}): {e}")
 
@@ -311,11 +364,13 @@ def run(
         )
 
         now = datetime.now(timezone.utc).isoformat()
+        year_level = briefing_data.get("target_year", "7-9")
         enriched = [
             {
                 "id": str(uuid.uuid4()),
                 "source_book": book_id,
                 "source_page": page_n,
+                "year_level": year_level,
                 "has_figure": False,
                 "figure_path": None,
                 "created_at": now,
@@ -342,6 +397,70 @@ def run(
             stats["generated"] += len(enriched)
 
         time.sleep(api_delay)
+
+    # ── Figure track ──────────────────────────────────────────────────────────
+    # For each subject, scan output/{subject}/figures/*.json for figure items
+    subjects_seen = {e["subject"] for e in page_map["pages"]
+                     if e.get("is_question_page") and e["subject"] not in ("answer_key", "skip")}
+    for subject in subjects_seen:
+        figures_dir_path = os.path.join(output_dir, subject, "figures")
+        if not os.path.isdir(figures_dir_path):
+            continue
+        for fig_json in sorted(Path(figures_dir_path).glob(f"{book_id}_*.json")):
+            with open(fig_json, encoding="utf-8") as f:
+                fig_item = json.load(f)
+
+            if not fig_item.get("has_figure"):
+                continue
+
+            fig_png = fig_item.get("figure_path", "")
+            if not fig_png or not os.path.exists(fig_png):
+                logger.warning(f"Figure PNG missing: {fig_png}")
+                continue
+
+            output_path = str(fig_json).replace(".json", "_generated.json")
+            if os.path.exists(output_path):
+                logger.info(f"Skipping already generated figure: {fig_json.name}")
+                stats["skipped"] += 1
+                continue
+
+            # content is raw page text; wrap as a minimal list for the prompt builder
+            raw_content = fig_item.get("content", "")
+            original_qs = [{"stem": raw_content}] if raw_content else []
+            try:
+                n_fig = int(os.getenv("FIGURE_QUESTIONS_PER_FIGURE", "4"))
+                questions = generate_figure_questions(
+                    fig_png, original_qs, subject, briefing_data,
+                    n=n_fig, _gemini_model=model
+                )
+            except Exception as e:
+                logger.error(f"Figure generation failed for {fig_json.name}: {e}")
+                stats["failed"] += 1
+                continue
+
+            now = datetime.now(timezone.utc).isoformat()
+            year_level = briefing_data.get("target_year", "7-9")
+            enriched = [
+                {
+                    "id": str(uuid.uuid4()),
+                    "source_book": book_id,
+                    "source_page": fig_item.get("page_number"),
+                    "year_level": year_level,
+                    "has_figure": True,
+                    "figure_path": fig_png,
+                    "created_at": now,
+                    "reviewed_at": None,
+                    "edited": False,
+                    **q,
+                }
+                for q in questions
+            ]
+
+            with open(output_path, "w", encoding="utf-8") as f:
+                json.dump(enriched, f, indent=2, ensure_ascii=False)
+            stats["generated"] += len(enriched)
+            logger.info(f"Figure {fig_json.name}: {len(enriched)} questions generated")
+            time.sleep(api_delay)
 
     logger.info(f"Phase 4 complete: {stats}")
     return stats

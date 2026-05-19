@@ -156,6 +156,7 @@ def load(path: str) -> dict:
     # ── Layout ────────────────────────────────────────────────────────────────
     column_format = "single_column"
     has_figures = False
+    extract_figures = True  # default on — user must explicitly set no
     figure_position = "below_question"
     answer_key_start = 0
     answer_key_end = 0
@@ -169,6 +170,8 @@ def load(path: str) -> dict:
             column_format = v.split("|")[0].strip()
         elif key == "has_figures":
             has_figures = v.lower().startswith("y")
+        elif key == "extract_figures":
+            extract_figures = not v.lower().startswith("n")
         elif key == "figure_position":
             figure_position = v.split("|")[0].strip()
         elif key == "answer_key_pages":
@@ -214,6 +217,7 @@ def load(path: str) -> dict:
         "relevant_pages_end": relevant_end,
         "column_format": column_format,
         "has_figures": has_figures,
+        "extract_figures": extract_figures,
         "figure_position": figure_position,
         "answer_key_pages_start": answer_key_start,
         "answer_key_pages_end": answer_key_end,
