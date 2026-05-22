@@ -35,16 +35,16 @@ GitHub (personal account)
     └── repo: qbank
             ├── All pipeline code
             ├── CLAUDE.md + TESTS.md
-            ├── schema.sql, config.py, requirements.txt
+            ├── db/schema.sql, requirements.txt
             └── NO PDFs, NO generated files, NO API keys, NO data
 
 Linux VM (Ubuntu 22.04+)
     ├── Git clone of qbank repo  ~/qbank/
     ├── Python venv              ~/qbank/.venv/
     ├── /data/pdfs/              ← input PDFs + briefing .md files
-    ├── /data/scratch/           ← Docling working files (large)
+    ├── /data/scratch/           ← extracted PNG page images
     ├── /data/output/            ← generated question JSON files
-    └── /data/db/                ← SQLite database + figure images
+    └── /data/db/                ← SQLite database
 
 Your local machine
     ├── Claude Code              ← all development happens here
@@ -52,10 +52,16 @@ Your local machine
 ```
 
 **VM minimum specs:**
-- 4 GB RAM (Docling layout AI needs headroom)
-- 50 GB disk (PDFs + page images + figures accumulate)
+- 2 GB RAM (no heavy AI models — just pdf2image + Gemini API)
+- 20 GB disk (PDFs + page PNGs accumulate)
 - Python 3.11+
 - Ubuntu 22.04 or 24.04
+
+**CRITICAL — always use these exact commands on VM:**
+- Python: `.venv/bin/python3.11` — NEVER `python` or `python3`
+- Git remote: `git@github-personal:qamaradn/qbank.git` — NEVER `git@github.com`
+- Git identity: `qamar.adn@gmail.com` — personal, NEVER CSIRO identity
+- GEMINI_KEY is set in shell env — there is no `.env` file on the VM
 
 ---
 
@@ -70,22 +76,23 @@ Your local machine
 | WR | Writing | writing |
 
 These are the ONLY valid subject values in the entire codebase.
-Every classifier output, database column, folder name, and UI label
-must use exactly these values. No exceptions. No additions.
+Every database column, folder name, and UI label must use exactly these values.
+No exceptions. No additions.
 
 ---
 
 ## PDF METADATA BRIEFING FILES — THE MOST IMPORTANT INPUT
 
-Before the pipeline runs on any PDF, a human-written `.md` briefing
-file MUST exist alongside it. This is the single biggest accuracy
-improvement in the entire system.
+Before the pipeline runs on any PDF, a human-written `.md` briefing file MUST
+exist. This tells the pipeline which pages to extract and what subject each page
+range covers. There is NO automatic subject classification — the briefing is the
+sole source of truth.
 
 ### Why it matters
 
-Without it: classifier guesses subject and structure from raw content alone.
-With it: classifier knows page ranges, layout, figure positions, and year
-level BEFORE reading anything. Misclassification drops dramatically.
+- Without it: pipeline refuses to run.
+- With it: every page gets the correct subject label before Gemini ever sees it.
+  Gemini is told "this is a science reasoning page" and generates accordingly.
 
 ### Naming convention — same name as PDF, .md extension
 
@@ -93,168 +100,114 @@ level BEFORE reading anything. Misclassification drops dramatically.
 /data/pdfs/
     rs_aggarwal_reasoning.pdf
     rs_aggarwal_reasoning.md        ← briefing file
-    excel_science_grade7.pdf
-    excel_science_grade7.md
-    selective_school_practice.pdf
-    selective_school_practice.md
+    10_ACT_Practice_Tests.pdf
+    10_ACT_Practice_Tests.md
 ```
 
-### Briefing file template — copy this for every new PDF
+### Briefing file format — MINIMAL. Only these fields.
 
 ```markdown
 # PDF BRIEFING: <book_title>
 
 ## Basic Info
-- **file:** rs_aggarwal_reasoning.pdf
-- **publisher:** S. Chand
-- **edition:** 2023
-- **total_pages:** 412
-- **relevant_pages:** 45–380
-
-## Layout
-- **column_format:** single_column | double_column | mixed
-- **question_numbering:** 1,2,3 | Q1,Q2 | (i),(ii)
-- **options_format:** (A)(B)(C)(D) | A.B.C.D. | a)b)c)d)
-- **answer_key_pages:** 381–395
-- **answer_key_format:** grid | inline | end_of_chapter
-- **has_figures:** yes | no
-- **extract_figures:** yes | no        ← default yes; set no for text-only extraction
-- **figure_position:** below_question | above_question | beside_question
+- **file:** <pdf_filename>.pdf
+- **relevant_pages:** <start>–<end>
+- **target_year:** 9–10
+- **difficulty:** medium
 
 ## Subject Coverage
-- **pages 1–45:** logical_reasoning
-- **pages 46–120:** quantitative_reasoning
-- **pages 121–200:** quantitative_reasoning
-- **pages 201–280:** skip (not relevant to target exams)
-- **pages 281–380:** logical_reasoning
-
-## Sample Questions
-- **has_samples:** yes
-- **sample_pages:** 12, 67, 145
-
-## Known Issues
-- pages 78–82: poor scan quality, expect low OCR confidence
-- pages 201–280: not relevant, mark entire range as skip
-- double column layout begins page 121
-- answer options sometimes wrap to next line pages 300–340
-
-## Year Level
-- **target_year:** 7–9
-- **difficulty:** medium to hard
-
-## Notes
-Any other info useful for the pipeline. Free text.
+- **pages 45–54:** quantitative_reasoning
+- **pages 55–60:** reading_comprehension
+- **pages 61–74:** science_reasoning
+- **pages 75–80:** logical_reasoning
+- **pages 81–90:** skip
 ```
 
-### How each phase uses the briefing file
+**Valid subject IDs for Subject Coverage:**
+`quantitative_reasoning` | `logical_reasoning` | `science_reasoning` |
+`reading_comprehension` | `writing` | `skip`
 
-```
-briefing.py        → parses the .md file into a structured dict
-                     all phases call briefing.load(book_id)
+**`skip` means:** cover pages, answer keys, indexes, ads, worked examples —
+anything Gemini should NOT generate questions from.
 
-phase1_normalise   → reads column_format → configures Docling reading order
-                     reads relevant_pages → skips cover/index/appendix
+### Real example — run_data/pdfs/act_test1.md
 
-phase2_classify    → reads subject_coverage page ranges as strong prior
-                     if briefing says pages 46–120 are QR AND
-                     classifier confidence >= BRIEFING_OVERRIDE_THRESHOLD
-                     → use briefing label, skip API call (saves cost)
-                     if confidence < threshold → use Claude, flag for review
-                     reads sample_pages → marks as skip, no generation
+```markdown
+# PDF BRIEFING: ACT Practice Test 1 (Math + Reading + Science)
 
-phase3_figures     → reads figure_position → tunes proximity direction
-                     (above_question → check y ABOVE, not below)
+## Basic Info
+- **file:** 10_ACT_Practice_Tests.pdf
+- **relevant_pages:** 45–74
+- **target_year:** 11–12
+- **difficulty:** hard
 
-phase4_generate    → reads target_year and difficulty → injects into prompt
-                     reads has_samples → skips sample/worked-example pages
-                     reads answer_key_pages → skips those pages entirely
-
-run_book.py        → REFUSES TO RUN if briefing file does not exist
+## Subject Coverage
+- **pages 45–54:** quantitative_reasoning
+- **pages 55–60:** reading_comprehension
+- **pages 61–74:** science_reasoning
 ```
 
-### Pipeline refuses to run without briefing file — enforced in code
+### Pipeline refuses to run without briefing file
 
-```python
-def require_briefing(book_id: str, pdf_path: str) -> dict:
-    briefing_path = pdf_path.replace('.pdf', '.md')
-    if not os.path.exists(briefing_path):
-        raise FileNotFoundError(
-            f"\n\nBRIEFING FILE MISSING: {briefing_path}\n"
-            f"You must create this file before running the pipeline.\n"
-            f"Template: see CLAUDE.md → PDF METADATA BRIEFING FILES\n"
-        )
-    return briefing.load(briefing_path)
-```
+`run_book.py` checks for the briefing file before doing anything. If it is
+missing it raises `FileNotFoundError` with a clear message pointing here.
 
 ---
 
-## PIPELINE ARCHITECTURE — 6 PHASES
+## PIPELINE ARCHITECTURE — 4 PHASES
 
 ```
 /data/pdfs/<book_id>.pdf  +  /data/pdfs/<book_id>.md  (briefing)
     │
     ▼  run_book.py orchestrates all phases
     │
-PHASE 1 — NORMALISE (Docling — runs locally on VM)
-├── Reads briefing: column_format, relevant_pages
-├── Converts PDF → markdown + page images + figure crops
-├── Handles born-digital and scanned PDFs identically
+PHASE 1 — PDF → PNG (pdf2image, no AI)
+├── Reads briefing: relevant_pages, subject_coverage
+├── Extracts each relevant page as a PNG at 150 DPI
 ├── Skips pages outside relevant_pages range
-├── Records (x, y, width, height) for every element
-└── Output:
-    /data/scratch/<book_id>/pages/<page_n>.md
-    /data/scratch/<book_id>/images/<page_n>.png
-    /data/scratch/<book_id>/figures/<page_n>_fig_<n>.png
-    /data/scratch/<book_id>/docling_output.json
+├── Skips pages whose subject is "skip"
+└── Output per page:
+    /data/scratch/<book_id>/images/<subject>/<book_id>_<DDMMYY>_p<n>.png
     │
     ▼
-PHASE 2 — CLASSIFY SUBJECT (Claude API — one call per page)
-├── Reads briefing: subject_coverage ranges as strong prior
-├── If briefing range matches AND confidence >= 0.85 → use briefing
-├── Else → Claude API call with page markdown
-├── Handles: answer_key, skip, theory-only, low-confidence flags
+PHASE 2 — BRIEFING → PAGE MAP (no AI, no API)
+├── Reads briefing subject_coverage ranges
+├── Builds page_map.json: [{page_number, subject}] for all relevant pages
+├── No Claude, no Gemini — pure briefing lookup
 └── Output: /data/scratch/<book_id>/page_map.json
     │
-    ▼  *** HUMAN CHECKPOINT — review page_map.json here ***
+    ▼  *** HUMAN CHECKPOINT — review page_map.json if needed ***
     │
-PHASE 3 — FIGURE DETECTION + SORT (coordinate maths — no AI)
-├── Reads briefing: figure_position hint
-├── Uses Docling (x, y) positions — proximity threshold from config
-├── One figure shared by multiple questions → linked to ALL of them
-├── Sorts into text/ or figures/ per subject
-└── Output:
-    /data/output/<subject>/text/<q_id>.json
-    /data/output/<subject>/figures/<q_id>.json
-    /data/output/<subject>/figures/<q_id>_fig.png
-    │
-    ▼
-PHASE 4 — GENERATE QUESTIONS (Claude API)
+PHASE 3 — GENERATE QUESTIONS (Gemini Vision API)
 ├── Reads briefing: target_year, difficulty → injected into prompt
-├── TEXT TRACK: markdown → 8–10 new questions per page
-├── FIGURE TRACK: figure PNG + originals → 3–5 new questions per figure
-├── All questions: confidence score, review_status="pending"
+├── For each page PNG: sends image + subject label to Gemini
+├── PASSAGE SUBJECTS (science_reasoning, reading_comprehension):
+│   Gemini invents a new scenario/passage FIRST, then generates
+│   10 questions that reference it — questions cite "the passage",
+│   "Study 1", "Study 2", etc.
+├── STANDALONE SUBJECTS (quantitative_reasoning, logical_reasoning):
+│   Gemini generates 10 standalone MCQs inspired by the page style
+├── Resumable: skips pages whose output JSON already exists
 ├── API_DELAY_SECONDS between calls
-├── Resumable: skips already-generated pages
-└── Output: /data/output/<subject>/generated/<q_id>.json
+└── Output: /data/output/<subject>/generated/<book_id>_p<n>.json
     │
     ▼
-PHASE 5 — HUMAN REVIEW UI
-├── FastAPI server on VM: uvicorn review.server:app --host 0.0.0.0 --port 8000
-├── Access from local machine: http://<VM_IP>:8000
+PHASE 4 — DEDUP + LOAD INTO DB (no AI)
+├── Scans output/*/generated/<book_id>_p*.json
+├── For each question: SequenceMatcher dedup against existing stems
+│   (threshold 0.85, subject-scoped — no cross-subject dedup)
+├── Inserts non-duplicate questions as review_status='pending'
+├── Confidence score stored for display only — NOT used for auto-approval
+└── ALL questions go to human review regardless of confidence
+    │
+    ▼
+HUMAN REVIEW UI
+├── FastAPI server: uvicorn review.server:app --host 0.0.0.0 --port 8000
+├── Access: http://<VM_IP>:8000
 ├── Keyboard: A=Approve  R=Reject  E=Edit  ←→=Navigate
-├── Figure shown above question when has_figure=True
-├── Correct answer pre-highlighted green
-├── High confidence (>=0.90) → fast-track queue
-├── Low confidence (<0.90) → flagged queue
+├── Passage shown above question for SR and RC questions
+├── Confidence shown as triage signal (high/low) — reviewer decides
 └── Approved → SQLite at /data/db/qbank.db
-    │
-    ▼
-PHASE 6 — SYNC TO SUPABASE (manual trigger only)
-├── python review/sync.py --dry-run   ← preview, no changes
-├── python review/sync.py             ← execute sync
-├── Upserts approved questions to Supabase
-├── Uploads figures to Supabase Storage
-└── Run only when a batch is ready to go live
 ```
 
 ---
@@ -264,93 +217,84 @@ PHASE 6 — SYNC TO SUPABASE (manual trigger only)
 ```json
 {
   "id": "uuid-v4",
-  "subject": "quantitative_reasoning",
-  "stem": "A shopkeeper bought a bicycle for $640 and sold it at 12.5% profit. What was the selling price?",
-  "option_a": "$700",
-  "option_b": "$720",
-  "option_c": "$740",
-  "option_d": "$760",
-  "correct_answer": "B",
-  "explanation": "12.5% of $640 = $80. Selling price = $640 + $80 = $720.",
-  "writing_prompt": null,
-  "year_level": "7-8",
+  "subject": "science_reasoning",
+  "stem": "According to Study 2, at which temperature did the reaction rate peak?",
+  "option_a": "20°C",
+  "option_b": "30°C",
+  "option_c": "40°C",
+  "option_d": "50°C",
+  "correct_answer": "C",
+  "explanation": "Study 2 shows reaction rate peaked at 40°C with a value of 0.82 mol/s.",
+  "topic": "Chemical Reactions",
   "difficulty": "medium",
-  "topic": "percentages",
-  "has_figure": false,
-  "figure_path": null,
   "confidence": 0.95,
-  "source_book": "rs_aggarwal_reasoning",
-  "source_page": 23,
+  "source_book": "act_test1",
+  "source_page": 63,
+  "source_page_description": "A page showing an experiment on enzyme activity at varying temperatures.",
+  "passage": "Researchers at CSIRO in Melbourne investigated enzyme activity...\n\nStudy 1: ...\nStudy 2: ...",
   "review_status": "pending",
-  "created_at": "2025-05-15T10:30:00Z",
+  "created_at": "2026-05-22T10:30:00Z",
   "reviewed_at": null,
   "edited": false
 }
 ```
 
-**Strict rules — enforced everywhere:**
+**Strict rules:**
 - `subject` → exactly one of 5 valid IDs
 - `correct_answer` → exactly "A", "B", "C", or "D"
-- `confidence` → float 0.0–1.0
+- `difficulty` → exactly "medium" or "hard" — no "easy"
+- `confidence` → float 0.0–1.0 (display-only triage signal)
 - `review_status` → "pending" | "approved" | "rejected"
-- `has_figure` → boolean, never null
-- `figure_path` → null when has_figure=false
-- `edited` → boolean, true if reviewer changed any field
-- Writing questions → option_a/b/c/d and correct_answer are null,
-  writing_prompt is populated instead
+- `passage` → populated for science_reasoning and reading_comprehension; null for others
+- `source_page_description` → Gemini's one-sentence description of the PDF page it saw
 
 ---
 
 ## DATABASE SCHEMA
 
 ```sql
--- db/schema.sql — source of truth, mirrors Supabase exactly
+-- db/schema.sql — source of truth
 
-CREATE TABLE questions (
-    id              TEXT PRIMARY KEY,
-    subject         TEXT NOT NULL CHECK (subject IN (
-                        'quantitative_reasoning','logical_reasoning',
-                        'science_reasoning','reading_comprehension','writing'
-                    )),
-    stem            TEXT NOT NULL,
-    option_a        TEXT,
-    option_b        TEXT,
-    option_c        TEXT,
-    option_d        TEXT,
-    correct_answer  TEXT CHECK (correct_answer IN ('A','B','C','D')),
-    explanation     TEXT,
-    writing_prompt  TEXT,
-    year_level      TEXT,
-    difficulty      TEXT CHECK (difficulty IN ('easy','medium','hard')),
-    topic           TEXT,
-    has_figure      INTEGER NOT NULL DEFAULT 0,
-    figure_path     TEXT,
-    confidence      REAL NOT NULL DEFAULT 0.0,
-    source_book     TEXT,
-    source_page     INTEGER,
-    review_status   TEXT NOT NULL DEFAULT 'pending'
-                        CHECK (review_status IN ('pending','approved','rejected')),
-    created_at      TEXT NOT NULL,
-    reviewed_at     TEXT,
-    edited          INTEGER NOT NULL DEFAULT 0
+CREATE TABLE IF NOT EXISTS questions (
+    id                      TEXT PRIMARY KEY,
+    subject                 TEXT NOT NULL CHECK (subject IN (
+                                'quantitative_reasoning','logical_reasoning',
+                                'science_reasoning','reading_comprehension','writing'
+                            )),
+    stem                    TEXT NOT NULL,
+    option_a                TEXT,
+    option_b                TEXT,
+    option_c                TEXT,
+    option_d                TEXT,
+    correct_answer          TEXT CHECK (correct_answer IN ('A','B','C','D')),
+    explanation             TEXT,
+    topic                   TEXT,
+    difficulty              TEXT CHECK (difficulty IN ('medium','hard')),
+    confidence              REAL NOT NULL DEFAULT 0.0,
+    source_book             TEXT,
+    source_page             INTEGER,
+    source_page_description TEXT,
+    passage                 TEXT,
+    review_status           TEXT NOT NULL DEFAULT 'pending'
+                                CHECK (review_status IN ('pending','approved','rejected')),
+    created_at              TEXT NOT NULL,
+    reviewed_at             TEXT,
+    edited                  INTEGER NOT NULL DEFAULT 0
 );
 
-CREATE TABLE books (
+CREATE TABLE IF NOT EXISTS books (
     id              TEXT PRIMARY KEY,
     pdf_filename    TEXT NOT NULL,
     briefing_path   TEXT NOT NULL,
-    total_pages     INTEGER,
-    relevant_pages  TEXT,
-    layout          TEXT CHECK (layout IN ('single_column','double_column','mixed')),
     processed_at    TEXT,
     status          TEXT NOT NULL DEFAULT 'pending'
                         CHECK (status IN ('pending','processing','complete','failed'))
 );
 
-CREATE INDEX idx_subject       ON questions(subject);
-CREATE INDEX idx_review_status ON questions(review_status);
-CREATE INDEX idx_confidence    ON questions(confidence);
-CREATE INDEX idx_source_book   ON questions(source_book);
+CREATE INDEX IF NOT EXISTS idx_subject       ON questions(subject);
+CREATE INDEX IF NOT EXISTS idx_review_status ON questions(review_status);
+CREATE INDEX IF NOT EXISTS idx_confidence    ON questions(confidence);
+CREATE INDEX IF NOT EXISTS idx_source_book   ON questions(source_book);
 ```
 
 ---
@@ -361,53 +305,46 @@ CREATE INDEX idx_source_book   ON questions(source_book);
 qbank/                               ← GitHub repo root
 ├── CLAUDE.md                        ← READ EVERY SESSION
 ├── TESTS.md                         ← READ BEFORE ANY CODING
-├── README.md
 ├── .gitignore
-├── config.py                        ← all config, reads .env
 ├── requirements.txt
 ├── .env.example                     ← committed (no real values)
-├── .env                             ← gitignored (real values, VM only)
+├── pytest.ini
 │
 ├── pipeline/
 │   ├── __init__.py
 │   ├── briefing.py                  ← parses PDF .md briefing files
-│   ├── phase1_normalise.py
-│   ├── phase2_classify.py
-│   ├── phase3_figures.py
-│   ├── phase4_generate.py
-│   └── run_book.py
+│   ├── phase1_normalise.py          ← PDF → PNG via pdf2image
+│   ├── phase2_classify.py           ← briefing → page_map.json
+│   ├── phase3_generate.py           ← PNG + subject → Gemini → MCQs
+│   ├── phase4_load.py               ← dedup + insert into SQLite
+│   └── run_book.py                  ← orchestrates phases 1–4
 │
 ├── review/
 │   ├── server.py                    ← FastAPI, binds 0.0.0.0:8000
-│   ├── sync.py
 │   └── ui/
-│       └── index.html               ← single-file review UI
+│       └── index.html               ← single-file review UI (dark dashboard)
 │
 ├── db/
-│   └── schema.sql                   ← committed (structure only, no data)
+│   ├── __init__.py
+│   ├── init.py                      ← create_tables() helper
+│   └── schema.sql                   ← source of truth (structure only)
 │
-└── tests/
-    ├── __init__.py
-    ├── test_briefing.py             ← briefing parser tests
-    ├── test_phase1_normalise.py
-    ├── test_phase2_classify.py
-    ├── test_phase3_figures.py
-    ├── test_phase4_generate.py
-    ├── test_review_api.py
-    ├── test_sync.py
-    └── fixtures/
-        ├── sample_briefing.md
-        ├── sample_qr_page.md
-        ├── sample_lr_page.md
-        ├── sample_sr_page.md
-        ├── sample_rc_page.md
-        ├── sample_wr_page.md
-        ├── sample_theory_page.md
-        ├── sample_answer_key_page.md
-        ├── sample_mixed_page.md     ← figure shared by 3 questions
-        ├── sample_figure.png
-        ├── sample_docling_output.json
-        └── sample_garbled_page.md
+├── tests/
+│   ├── __init__.py
+│   ├── test_briefing.py
+│   ├── test_phase1_normalise.py     ← (if exists)
+│   ├── test_phase2_classify.py
+│   ├── test_phase3_generate.py
+│   ├── test_phase4_load.py
+│   ├── test_review_api.py
+│   ├── test_review_ui.py
+│   └── test_run_book.py
+│
+└── run_data/                        ← VM runtime data (gitignored)
+    ├── pdfs/                        ← PDFs + briefing .md files
+    ├── scratch/                     ← extracted PNGs per book
+    ├── output/                      ← generated question JSONs
+    └── db/                          ← SQLite database
 ```
 
 ---
@@ -430,6 +367,7 @@ build/
 
 # All data — never commit
 /data/
+/run_data/
 *.pdf
 *.db
 *.sqlite3
@@ -437,12 +375,6 @@ build/
 # Pipeline working files
 /scratch/
 /output/
-
-# Figure images (except test fixture)
-*.png
-*.jpg
-*.jpeg
-!tests/fixtures/sample_figure.png
 
 # OS / IDE
 .DS_Store
@@ -457,26 +389,24 @@ Thumbs.db
 
 ```bash
 # .env.example — commit this, placeholder values only
+# On VM: GEMINI_KEY is set in shell environment, not in a file
+
+GEMINI_KEY=your_gemini_api_key_here
+GEMINI_MODEL=gemini-2.5-flash
 
 ANTHROPIC_API_KEY=your_anthropic_api_key_here
+
 SUPABASE_URL=https://your-project.supabase.co
 SUPABASE_KEY=your_supabase_anon_key_here
 SUPABASE_STORAGE_BUCKET=figures
 
-DATA_DIR=/data
-PDF_DIR=/data/pdfs
 SCRATCH_DIR=/data/scratch
 OUTPUT_DIR=/data/output
 DB_PATH=/data/db/qbank.db
-FIGURES_DIR=/data/db/figures
 
-FIGURE_PROXIMITY_PX=150
-CONFIDENCE_THRESHOLD=0.90
-BRIEFING_OVERRIDE_THRESHOLD=0.85
-QUESTIONS_PER_PAGE=8
-FIGURE_QUESTIONS_PER_FIGURE=4
+QUESTIONS_PER_PAGE=10
 API_DELAY_SECONDS=2
-CLAUDE_MODEL=claude-sonnet-4-6
+DEDUP_THRESHOLD=0.85
 
 REVIEW_HOST=0.0.0.0
 REVIEW_PORT=8000
@@ -484,115 +414,80 @@ REVIEW_PORT=8000
 
 ---
 
-## SUBJECT CLASSIFICATION PROMPT
+## GEMINI GENERATION PROMPTS
+
+### Passage subjects (science_reasoning, reading_comprehension)
+
+Gemini receives the page PNG + this instruction:
 
 ```
-You are classifying pages from Australian selective school exam prep books.
+You are an expert Australian curriculum exam question writer for selective school entry.
 
-BOOK CONTEXT (from briefing file):
-{briefing_subject_coverage}
-Layout: {briefing_column_format}
+The subject of this page is: <subject_name>.
 
-Classify this page into EXACTLY ONE of:
-- quantitative_reasoning: maths, arithmetic, algebra, percentages, ratios,
-  number patterns, sequences, word problems requiring calculation
-- logical_reasoning: patterns, series, analogies, coding-decoding, puzzles,
-  spatial reasoning, seating arrangements, deductive reasoning
-- science_reasoning: biology, chemistry, physics, earth science,
-  data interpretation, experiments, scientific method
-- reading_comprehension: passages with questions, vocabulary, inference,
-  main idea, author purpose, tone analysis
-- writing: creative prompts, essay structure, grammar, punctuation,
-  persuasive writing tasks
+STEP 1 — INVENT A NEW SCENARIO (science) / WRITE A NEW PASSAGE (reading):
+  [Science] Create a brand-new experiment scenario with 2-3 named Studies,
+  specific data, Australian context (CSIRO, Australian locations, species).
+  [Reading] Write a 250–300 word passage: Australian setting, clear topic,
+  vocabulary appropriate for Year <year_level>.
 
-Special returns (not subjects):
-- answer_key   → page is an answer grid or answer listing
-- skip         → cover, contents, index, ads, instructions, not relevant range
+STEP 2 — GENERATE 10 QUESTIONS about your scenario/passage.
+  Every question stem must reference the passage
+  (e.g. "According to Study 2...", "The author suggests...").
 
-Return ONLY valid JSON, no markdown, no explanation:
+DIFFICULTY: 8 medium, 2 hard.
+AUSTRALIAN CONTEXT mandatory throughout.
+
+Return ONLY a valid JSON object:
 {
-  "subject": "<subject_id or answer_key or skip>",
-  "is_question_page": true,
-  "confidence": 0.0-1.0,
-  "reasoning": "<one sentence>"
+  "passage": "...(full passage/scenario)...",
+  "questions": [
+    {
+      "stem": "...",
+      "option_a": "...", "option_b": "...", "option_c": "...", "option_d": "...",
+      "correct_answer": "A|B|C|D",
+      "explanation": "...",
+      "topic": "...",
+      "difficulty": "medium|hard",
+      "confidence": 0.95,
+      "source_page_description": "one sentence describing the PDF page"
+    }
+  ]
 }
-
-PAGE CONTENT:
-{page_markdown}
 ```
 
----
+### Standalone subjects (quantitative_reasoning, logical_reasoning)
 
-## GENERATION PROMPTS
-
-### Text track
 ```
-You are generating Australian selective school exam practice questions.
-SUBJECT: {subject_name}
-YEAR LEVEL: {year_level}
-DIFFICULTY: {difficulty}
+You are an expert Australian curriculum exam question writer for selective school entry.
 
-Study this page carefully — the style, difficulty, and question structure.
-Generate exactly {n} NEW questions.
+The subject of this page is: <subject_name>.
 
-Rules:
-- Answerable from knowledge alone, no figure needed
-- Different numbers/names/contexts from originals
-- Same difficulty as the examples shown
-- Exactly 4 options (A B C D), exactly one correct
-- Australian context ($AUD, km, Australian names where natural)
-- One-sentence explanation for correct answer
-- Do not copy or closely paraphrase any original question
+Generate exactly 10 NEW multiple-choice questions inspired by this page.
+Do NOT copy or closely paraphrase any question visible on the page.
 
-Return ONLY a valid JSON array, no markdown, no preamble:
-[{"stem":"...","option_a":"...","option_b":"...","option_c":"...",
-"option_d":"...","correct_answer":"A|B|C|D","explanation":"...",
-"topic":"...","difficulty":"easy|medium|hard","confidence":0.0}]
+DIFFICULTY: 8 medium, 2 hard.
+AUSTRALIAN CONTEXT mandatory.
 
-SOURCE PAGE:
-{page_markdown}
-```
-
-### Figure track
-```
-You are generating Australian selective school exam questions from a figure.
-SUBJECT: {subject_name}
-YEAR LEVEL: {year_level}
-
-The attached image is a figure from an exam prep book.
-Generate exactly {n} NEW questions using this SAME figure.
-
-Rules:
-- Every question answerable purely from the figure
-- Do not require knowledge not visible in the figure
-- Do not repeat what original questions already asked
-- Exactly 4 options (A B C D), exactly one correct
-- Each stem must reference the figure ("the diagram", "the graph", "the table")
-- One-sentence explanation for correct answer
-
-ORIGINAL QUESTIONS THAT USED THIS FIGURE:
-{original_questions}
-
-Return ONLY a valid JSON array, no markdown, no preamble:
-[{"stem":"...","option_a":"...","option_b":"...","option_c":"...",
-"option_d":"...","correct_answer":"A|B|C|D","explanation":"...",
-"topic":"...","difficulty":"easy|medium|hard","confidence":0.0}]
+Return ONLY a valid JSON object:
+{
+  "passage": null,
+  "questions": [...]
+}
 ```
 
 ---
 
 ## KNOWN EDGE CASES — HANDLE EXPLICITLY
 
-1. **One figure shared by multiple questions** — link to ALL nearby questions
-2. **Answer key pages** — skip all phases, never generate from these
-3. **Theory-only pages** — is_question_page=False, skip Phase 4
-4. **Low-quality scan** — confidence < 0.5, flag for manual review, skip generation
-5. **Writing subject** — no MCQ fields, writing_prompt field instead
-6. **Double-column layout** — declared in briefing, passed to Docling
-7. **Sample/worked example pages** — declared in briefing, skipped by Phase 4
-8. **Pages outside relevant_pages range** — skipped by Phase 1
-9. **Chapter boundary pages** — subject changes, Phase 2 reviews carefully
-10. **Options wrapping to next line** — Docling may split option text, Phase 3 merges
+1. **Pages marked `skip` in briefing** — Phase 1 never extracts them; Phase 3 never generates from them
+2. **Gemini returns array instead of object** — `_call_gemini` handles gracefully: `if isinstance(result, list): return {"passage": None, "questions": result}`
+3. **Gemini wraps JSON in markdown fences** — `_strip_fences()` strips ` ```json ` or ` ``` ` wrappers
+4. **Near-duplicate questions** — `_is_duplicate()` at Phase 4 with 0.85 threshold, subject-scoped
+5. **All qualities go to review** — confidence is display-only; never auto-approve
+6. **Multiple books, same subject** — dedup is always subject-scoped, cross-book collisions caught
+7. **Pages outside relevant_pages range** — Phase 1 skips them entirely
+8. **Resumable pipeline** — Phase 3 skips pages whose output JSON already exists
 
 ---
 
@@ -602,10 +497,10 @@ Return ONLY a valid JSON array, no markdown, no preamble:
 # On the Linux VM
 
 # 1. System packages
-sudo apt update && sudo apt install -y python3.11 python3.11-venv git curl
+sudo apt update && sudo apt install -y python3.11 python3.11-venv git curl poppler-utils
 
 # 2. Clone repo
-git clone https://github.com/<your-username>/qbank.git ~/qbank
+git clone git@github-personal:qamaradn/qbank.git ~/qbank
 cd ~/qbank
 
 # 3. Virtual environment
@@ -613,23 +508,21 @@ python3.11 -m venv .venv
 source .venv/bin/activate
 
 # 4. Install dependencies
-pip install -r requirements.txt
+.venv/bin/python3.11 -m pip install -r requirements.txt
 
 # 5. Create data directories (VM-only, not in repo)
-sudo mkdir -p /data/pdfs /data/scratch /data/output /data/db/figures
+sudo mkdir -p /data/pdfs /data/scratch /data/output /data/db
 sudo chown -R $USER:$USER /data
 
-# 6. Environment
-cp .env.example .env
-nano .env    # add real API keys
+# 6. Set GEMINI_KEY in shell (add to ~/.bashrc)
+export GEMINI_KEY=your_key_here
 
 # 7. Initialise database
-python -c "from db.init import create_tables; create_tables()"
+.venv/bin/python3.11 -c "from db.init import create_tables; create_tables()"
 
 # 8. Verify
-python -c "import docling; print('Docling OK')"
-python -c "import anthropic; print('Anthropic OK')"
-pytest tests/test_schema.py -v
+.venv/bin/python3.11 -c "from pdf2image import convert_from_path; print('pdf2image OK')"
+pytest tests/ -v
 ```
 
 ---
@@ -642,245 +535,48 @@ cd ~/qbank && git pull && source .venv/bin/activate
 
 # Add new book
 cp /path/to/book.pdf /data/pdfs/<book_id>.pdf
-nano /data/pdfs/<book_id>.md        # write briefing using template
+nano /data/pdfs/<book_id>.md        # write briefing using template above
 
 # Run full pipeline
-python pipeline/run_book.py --book_id <book_id>
+.venv/bin/python3.11 -m pipeline.run_book --book_id <book_id> \
+  --pdf /data/pdfs/<book_id>.pdf --briefing /data/pdfs/<book_id>.md
 
-# Run specific pages for testing
-python pipeline/run_book.py --book_id <book_id> --pages 70 85
+# Test on specific pages only (skips Phase 1 + 2 if PNGs + page_map exist)
+.venv/bin/python3.11 -m pipeline.run_book --book_id <book_id> \
+  --pdf /data/pdfs/<book_id>.pdf --briefing /data/pdfs/<book_id>.md \
+  --test-pages 61 62
 
-# Check progress
-python pipeline/run_book.py --book_id <book_id> --status
+# Check status
+.venv/bin/python3.11 -m pipeline.run_book --book_id <book_id> --status
 
-# Start review server (background)
+# Start review server
 nohup uvicorn review.server:app --host 0.0.0.0 --port 8000 &
 
 # Access review UI from local machine
 # Browser → http://<VM_IP>:8000
 
-# Sync when batch is ready
-python review/sync.py --dry-run
-python review/sync.py
-
-# Push code changes
-git add -A && git commit -m "description" && git push
+# Tests
+pytest tests/ -v
+pytest tests/test_phase3_generate.py -v
 ```
 
 ---
 
-## GIT BRANCH WORKFLOW
+## GIT WORKFLOW
 
 ```bash
-# Never commit directly to main
-# One branch per feature/phase
+# Never commit directly to main — one branch per feature
 
-git checkout -b feature/phase1-normalise
+git checkout -b feature/<name>
 # ... build, test ...
-git add pipeline/phase1_normalise.py tests/test_phase1_normalise.py
-git commit -m "phase1: Docling normalisation, all 9 tests passing"
-git push origin feature/phase1-normalise
+git add pipeline/phase3_generate.py tests/test_phase3_generate.py
+git commit -m "phase3: passage-first generation, all 8 tests passing"
+git push git@github-personal:qamaradn/qbank.git feature/<name>
 
 # When complete and all tests green
-git checkout main && git merge feature/phase1-normalise && git push
-```
-
-**Branch naming:**
-`feature/briefing-parser` → `feature/phase1-normalise` →
-`feature/phase2-classify` → `feature/phase3-figures` →
-`feature/phase4-generate` → `feature/review-ui` → `feature/sync`
-
----
-
-## SUPERPOWERS + UI UX PRO MAX — SETUP AND USAGE
-
-These two tools are installed into Claude Code before writing any project code.
-They are NOT optional. They change how Claude Code thinks and builds.
-
----
-
-### 1. SUPERPOWERS (obra/superpowers) — 176k stars
-
-**What it does:**
-Superpowers is a complete software development methodology for your coding
-agents. As soon as it sees you're building something, it doesn't jump into
-writing code. Instead it steps back, asks what you're really trying to do,
-refines a spec, writes a detailed implementation plan, then executes via
-subagent-driven development — dispatching fresh subagents per task with
-two-stage review (spec compliance, then code quality).
-
-**The 7 skills it activates automatically:**
-1. `brainstorming` — refines ideas before any code is written
-2. `using-git-worktrees` — isolated workspace on new branch
-3. `writing-plans` — bite-sized tasks (2–5 min each) with exact file paths
-4. `subagent-driven-development` — fresh subagent per task, two-stage review
-5. `test-driven-development` — RED→GREEN→REFACTOR, deletes code written before tests
-6. `requesting-code-review` — reviews between tasks, critical issues block progress
-7. `finishing-a-development-branch` — verifies tests, merge/PR options, cleanup
-
-**Installation in Claude Code (do this once, on your local machine):**
-
-```bash
-# Option 1 — Official Claude Marketplace (recommended)
-/plugin install superpowers@claude-plugins-official
-
-# Option 2 — Superpowers own marketplace
-/plugin marketplace add obra/superpowers-marketplace
-/plugin install superpowers@superpowers-marketplace
-```
-
-**How it changes your workflow for this project:**
-
-Without Superpowers: you say "build phase1_normalise.py" → Claude Code writes code immediately.
-
-With Superpowers: you say "build phase1_normalise.py" →
-- Claude Code asks clarifying questions about what it should do
-- Writes a spec → you review and approve
-- Writes an implementation plan broken into 2–5 min tasks
-- Dispatches subagents to execute each task
-- Reviews each subagent's output before continuing
-- Only writes tests FIRST (red), then code (green), then refactors
-- Can run autonomously for hours without deviating from the plan
-
-**What to say at the start of each Claude Code session:**
-
-```
-Read CLAUDE.md and TESTS.md fully.
-Then use the brainstorming skill to plan the next unchecked item
-in the PROGRESS CHECKLIST before writing any code.
-```
-
----
-
-### 2. UI UX PRO MAX (nextlevelbuilder/ui-ux-pro-max-skill) — 78k stars
-
-**What it does:**
-An AI skill that provides design intelligence for building professional UI/UX
-across multiple platforms. It automatically generates a complete design system
-using a reasoning engine that runs 5 parallel searches across 161 industry
-categories, 67 UI styles, 161 colour palettes, 57 font pairings, and 25 chart
-types — then outputs a complete design system with recommended pattern, style,
-colours, typography, key effects, anti-patterns to avoid, and a pre-delivery
-checklist.
-
-**Installation — two options:**
-
-```bash
-# Option 1 — Claude Marketplace (inside Claude Code)
-/plugin marketplace add nextlevelbuilder/ui-ux-pro-max-skill
-/plugin install ui-ux-pro-max@ui-ux-pro-max-skill
-
-# Option 2 — CLI (run on your local machine, then it's available to Claude Code)
-npm install -g uipro-cli
-cd ~/qbank                      # your project root
-uipro init --ai claude          # installs into .claude/skills/
-```
-
-**What it generates for YOUR review UI specifically:**
-
-When you ask Claude Code to build `review/ui/index.html`, UI UX Pro Max will:
-
-1. Detect the product type: "internal data annotation tool / admin dashboard"
-2. Select the right style from 67 options — for an internal tool it will pick
-   something like "Data-Dense Dashboard" or "Minimalism" — dark mode, monospace
-   data fonts, high information density
-3. Generate a design system with exact colours, typography, spacing
-4. Apply anti-patterns: no AI purple gradients, no decorative noise, no emojis
-   as icons, WCAG AA contrast minimum
-5. Output code that looks like a professional tool, not a generic AI app
-
-**How to trigger it for the review UI:**
-
-```
-Build the review UI at review/ui/index.html.
-It is an internal data annotation tool for reviewing exam questions.
-Users: solo reviewer on desktop.
-Key interactions: keyboard-first (A/R/E keys), figure image display,
-approve/reject/edit flow, progress stats sidebar.
-Stack: single HTML file, vanilla JS, no framework, connects to FastAPI on port 8000.
-```
-
-UI UX Pro Max activates automatically when you mention UI/UX work — no slash
-command needed in Claude Code.
-
-**Persisting the design system across sessions:**
-
-```bash
-# Generate and save design system for the review UI
-python3 .claude/skills/ui-ux-pro-max/scripts/search.py \
-  "internal data annotation tool dark dashboard" \
-  --design-system --persist -p "QBank Review UI"
-```
-
-This creates `design-system/MASTER.md` in your project — Claude Code reads this
-at the start of any UI session so colours, fonts, and spacing stay consistent.
-
----
-
-### HOW BOTH TOOLS WORK TOGETHER IN PRACTICE
-
-```
-You open Claude Code
-    ↓
-Say: "Read CLAUDE.md and TESTS.md. Use brainstorming skill.
-      Next task: build briefing.py parser."
-    ↓
-SUPERPOWERS activates:
-    - Asks clarifying questions about briefing.py requirements
-    - Writes spec → you approve
-    - Breaks into tasks: parse_basic_fields, parse_subject_coverage,
-      get_subject_for_page, is_relevant_page, error handling
-    - Dispatches subagent for task 1
-    - Subagent writes FAILING TEST first (red)
-    - Subagent writes minimal code to pass test (green)
-    - Superpowers reviews: spec compliance, then code quality
-    - Moves to task 2, repeat
-    ↓
-When you reach: "Build review/ui/index.html"
-    ↓
-UI UX PRO MAX activates:
-    - Runs design system generator for "internal annotation tool"
-    - Selects: dark mode, monospace data, minimal chrome, high density
-    - Generates colour palette, typography, spacing system
-    - Produces checklist: keyboard nav, WCAG AA, hover states, focus states
-    ↓
-SUPERPOWERS takes the design system output and:
-    - Writes spec for the HTML file
-    - Breaks into tasks: layout skeleton, question display, action bar,
-      sidebar stats, figure display, keyboard handlers, API integration
-    - Builds each piece with TDD
-    - Reviews output between each task
-    ↓
-Result: production-grade review UI built systematically,
-        not in one chaotic dump
-```
-
----
-
-### QUICK INSTALL CHECKLIST (do before first Claude Code session)
-
-```bash
-# On your local machine where Claude Code runs
-
-# 1. Install Superpowers
-# In Claude Code terminal:
-/plugin install superpowers@claude-plugins-official
-
-# 2. Install UI UX Pro Max CLI
-npm install -g uipro-cli
-
-# 3. In your project folder (after cloning the repo)
-cd ~/qbank
-uipro init --ai claude
-
-# 4. Verify both installed
-ls .claude/skills/          # should show ui-ux-pro-max folder
-# Superpowers shows automatically when you start a Claude Code session
-
-# 5. Generate and persist design system for review UI
-python3 .claude/skills/ui-ux-pro-max/scripts/search.py \
-  "internal data annotation tool dark dashboard keyboard-driven" \
-  --design-system --persist -p "QBank Review UI"
+git checkout main
+git merge feature/<name>
+git push git@github-personal:qamaradn/qbank.git main
 ```
 
 ---
@@ -888,42 +584,43 @@ python3 .claude/skills/ui-ux-pro-max/scripts/search.py \
 ## DEVELOPMENT RULES
 
 1. Read TESTS.md before writing any code
-2. Briefing file must exist — run_book.py enforces this, no exceptions
-3. Never modify a phase without testing on 5 real pages first
-4. Always review page_map.json after Phase 2 before running Phase 3
-5. Never auto-approve questions — humans only set approved
-6. API_DELAY_SECONDS between every Claude API call — no tight loops
-7. Every phase is resumable — skip already-processed pages
-8. All config in config.py — no magic numbers anywhere
-9. Validate every LLM JSON response before writing to disk
-10. Commit only when all tests for that phase are green
-11. Never commit to main directly — feature branches only
-12. Never commit .env or any API key — ever
+2. Briefing file must exist — `run_book.py` enforces this, no exceptions
+3. Never auto-approve questions — humans only set `approved`
+4. `API_DELAY_SECONDS` between every Gemini API call — no tight loops
+5. Every phase is resumable — skip already-processed pages
+6. Validate every LLM JSON response before writing to disk
+7. Commit only when all tests for that phase are green
+8. Never commit to main directly — feature branches only
+9. Never commit `.env` or any API key — ever
+10. Use `.venv/bin/python3.11` on VM, never bare `python` or `python3`
 
 ---
 
 ## QUICK REFERENCE
 
 ```bash
-# Pipeline
-python pipeline/run_book.py --book_id <id>
-python pipeline/run_book.py --book_id <id> --pages 70 85
-python pipeline/run_book.py --book_id <id> --status
-python pipeline/phase2_classify.py --book_id <id>   # run single phase
+# Pipeline — full run
+.venv/bin/python3.11 -m pipeline.run_book \
+  --book_id <id> --pdf /data/pdfs/<id>.pdf --briefing /data/pdfs/<id>.md
 
-# Review
+# Pipeline — test pages only
+.venv/bin/python3.11 -m pipeline.run_book \
+  --book_id <id> --pdf /data/pdfs/<id>.pdf --briefing /data/pdfs/<id>.md \
+  --test-pages 61 62 63
+
+# Status check
+.venv/bin/python3.11 -m pipeline.run_book --book_id <id> --status
+
+# Review server
 uvicorn review.server:app --host 0.0.0.0 --port 8000
-python review/sync.py --dry-run
-python review/sync.py
 
 # Tests
 pytest tests/ -v
-pytest tests/test_briefing.py -v
-pytest tests/test_phase2_classify.py -v
+pytest tests/test_phase3_generate.py -v
+pytest tests/test_review_api.py -v
 
-# Git
-git checkout -b feature/<name>
-git add -A && git commit -m "<msg>" && git push
+# DB — count questions
+sqlite3 /data/db/qbank.db "SELECT subject, review_status, COUNT(*) FROM questions GROUP BY 1,2;"
 ```
 
 ---
@@ -931,34 +628,32 @@ git add -A && git commit -m "<msg>" && git push
 ## PROGRESS CHECKLIST (update each session)
 
 - [x] GitHub repo created and cloned to VM
-- [x] VM setup complete (venv, /data dirs, .env configured)
+- [x] VM setup complete (venv, /data dirs, GEMINI_KEY in shell)
 - [x] Project folder structure created
 - [x] .gitignore committed
 - [x] requirements.txt committed
-- [x] config.py committed
 - [x] .env.example committed
-- [x] schema.sql committed and DB initialised on VM
-- [x] briefing.py parser written and tested
-- [x] phase1_normalise.py written and tested
-- [x] phase2_classify.py written and tested
-- [x] phase3_figures.py written and tested
-- [x] phase4_generate.py written and tested
-- [x] phase5_verify.py written and tested (3-tier: auto-approve/Claude-verify/pending + near-dup detection)
-- [x] run_book.py orchestrator written and tested (phases 1–5)
-- [x] review/server.py written and tested (approve/reject/edit/bulk-approve/stats/topics/figures)
-- [x] review/ui/index.html built (dark dashboard, keyboard A/R/E/←→)
-- [x] review/sync.py written and tested
-- [x] All tests passing (130 fast + integration)
-- [x] ACT Math pages 50–51 processed end-to-end (test run — 24 questions in DB)
-- [ ] First full book processed end-to-end on VM
+- [x] db/schema.sql committed and DB initialised on VM
+- [x] briefing.py parser written and tested (7 tests)
+- [x] phase1_normalise.py written and tested (pdf2image PNG extraction)
+- [x] phase2_classify.py written and tested (briefing → page_map, 3 tests)
+- [x] phase3_generate.py written and tested (Gemini Vision, passage-first, 8 tests)
+- [x] phase4_load.py written and tested (dedup + DB load, 6 tests)
+- [x] run_book.py orchestrator written and tested (phases 1–4)
+- [x] review/server.py written and tested (approve/reject/edit/stats, 14 tests)
+- [x] review/ui/index.html built (dark dashboard, keyboard A/R/E/←→, passage display)
+- [x] All tests passing (61 tests)
+- [x] ACT Science page 61 processed end-to-end — passage-based questions confirmed working
+- [ ] First full book processed end-to-end on VM (all 30 pages of act_test1)
 - [ ] First batch synced to Supabase
 
 ---
 
 ## CURRENT STATUS
 
-**Last worked on:** 2026-05-19
-**Next task:** Process first full book through complete pipeline (phases 1–5)
+**Last worked on:** 2026-05-22
+**Next task:** Process first full book through complete pipeline (all 30 pages of act_test1)
 **Blockers:** None
-**Notes:** Pipeline fully built. Phase 3b (figure redraw via Gemini) was built and removed — original figure crops are used directly. Review UI live at port 8000.
-**Notes:** —
+**Notes:** Pipeline fully built. Gemini generates passage-first for SR/RC subjects —
+question quality confirmed excellent. Markdown tables in passages render correctly
+in review UI via marked.js. All 61 tests green.

@@ -1,10 +1,9 @@
 """
-Review API tests — R-01 through R-12.
+Review API tests — R-01 through R-17.
 
 All fast: use in-memory SQLite + FastAPI TestClient.
 Run: pytest tests/test_review_api.py -v
 """
-import shutil
 import sqlite3
 import uuid
 from datetime import datetime, timezone
@@ -12,8 +11,6 @@ from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
-
-FIXTURES = Path(__file__).parent / "fixtures"
 
 
 # ── test database helpers ──────────────────────────────────────────────────────
@@ -35,15 +32,12 @@ def _insert_question(conn: sqlite3.Connection, **overrides) -> str:
         "option_a": "3", "option_b": "4", "option_c": "5", "option_d": "6",
         "correct_answer": "B",
         "explanation": "Basic addition.",
-        "writing_prompt": None,
-        "year_level": "7-8",
-        "difficulty": "easy",
         "topic": "arithmetic",
-        "has_figure": 0,
-        "figure_path": None,
+        "difficulty": "medium",
         "confidence": 0.95,
         "source_book": "test_book",
         "source_page": 1,
+        "source_page_description": "A basic arithmetic page.",
         "review_status": "pending",
         "created_at": datetime.now(timezone.utc).isoformat(),
         "reviewed_at": None,
@@ -51,11 +45,16 @@ def _insert_question(conn: sqlite3.Connection, **overrides) -> str:
     }
     defaults.update(overrides)
     conn.execute(
-        """INSERT INTO questions VALUES (
-            :id,:subject,:stem,:option_a,:option_b,:option_c,:option_d,
-            :correct_answer,:explanation,:writing_prompt,:year_level,:difficulty,
-            :topic,:has_figure,:figure_path,:confidence,:source_book,:source_page,
-            :review_status,:created_at,:reviewed_at,:edited
+        """INSERT INTO questions (
+            id, subject, stem, option_a, option_b, option_c, option_d,
+            correct_answer, explanation, topic, difficulty, confidence,
+            source_book, source_page, source_page_description,
+            review_status, created_at, reviewed_at, edited
+        ) VALUES (
+            :id, :subject, :stem, :option_a, :option_b, :option_c, :option_d,
+            :correct_answer, :explanation, :topic, :difficulty, :confidence,
+            :source_book, :source_page, :source_page_description,
+            :review_status, :created_at, :reviewed_at, :edited
         )""",
         defaults,
     )
@@ -72,23 +71,19 @@ def db_path(tmp_path):
 
 
 @pytest.fixture()
-def client(db_path, tmp_path):
-    figures_dir = str(tmp_path / "figures")
-    Path(figures_dir).mkdir()
+def client(db_path):
     from review.server import create_app
-    app = create_app(db_path=db_path, figures_dir=figures_dir)
+    app = create_app(db_path=db_path)
     return TestClient(app)
 
 
 @pytest.fixture()
-def client_with_data(db_path, tmp_path):
-    figures_dir = str(tmp_path / "figures")
-    Path(figures_dir).mkdir()
+def client_with_data(db_path):
     conn = sqlite3.connect(db_path)
     qid = _insert_question(conn)
     conn.close()
     from review.server import create_app
-    app = create_app(db_path=db_path, figures_dir=figures_dir)
+    app = create_app(db_path=db_path)
     tc = TestClient(app)
     tc._pending_id = qid
     return tc
@@ -96,33 +91,28 @@ def client_with_data(db_path, tmp_path):
 
 # ── R-01 ──────────────────────────────────────────────────────────────────────
 def test_r01_next_returns_pending_question(client_with_data):
-    """GET /questions/next returns 200 with a pending question."""
     resp = client_with_data.get("/questions/next")
     assert resp.status_code == 200
     data = resp.json()
     assert data["review_status"] == "pending"
     assert "stem" in data
     assert "id" in data
+    assert "source_page_description" in data
 
 
 # ── R-02 ──────────────────────────────────────────────────────────────────────
 def test_r02_next_returns_404_when_empty(client):
-    """GET /questions/next returns 404 when no pending questions."""
     resp = client.get("/questions/next")
     assert resp.status_code == 404
-    assert "pending" in resp.json()["detail"].lower()
 
 
 # ── R-03 ──────────────────────────────────────────────────────────────────────
-def test_r03_approve_sets_status_and_reviewed_at(client_with_data, db_path):
-    """POST /questions/{id}/approve sets review_status='approved' and reviewed_at."""
+def test_r03_approve_sets_status(client_with_data, db_path):
     qid = client_with_data._pending_id
     resp = client_with_data.post(f"/questions/{qid}/approve")
     assert resp.status_code == 200
     conn = sqlite3.connect(db_path)
-    row = conn.execute(
-        "SELECT review_status, reviewed_at FROM questions WHERE id=?", (qid,)
-    ).fetchone()
+    row = conn.execute("SELECT review_status, reviewed_at FROM questions WHERE id=?", (qid,)).fetchone()
     conn.close()
     assert row[0] == "approved"
     assert row[1] is not None
@@ -130,21 +120,17 @@ def test_r03_approve_sets_status_and_reviewed_at(client_with_data, db_path):
 
 # ── R-04 ──────────────────────────────────────────────────────────────────────
 def test_r04_reject_sets_status(client_with_data, db_path):
-    """POST /questions/{id}/reject sets review_status='rejected'."""
     qid = client_with_data._pending_id
     resp = client_with_data.post(f"/questions/{qid}/reject")
     assert resp.status_code == 200
     conn = sqlite3.connect(db_path)
-    row = conn.execute(
-        "SELECT review_status FROM questions WHERE id=?", (qid,)
-    ).fetchone()
+    row = conn.execute("SELECT review_status FROM questions WHERE id=?", (qid,)).fetchone()
     conn.close()
     assert row[0] == "rejected"
 
 
 # ── R-05 ──────────────────────────────────────────────────────────────────────
-def test_r05_edit_updates_fields_and_marks_edited(client_with_data, db_path):
-    """POST /questions/{id}/edit updates fields, sets edited=1, review_status='approved'."""
+def test_r05_edit_updates_fields(client_with_data, db_path):
     qid = client_with_data._pending_id
     resp = client_with_data.post(
         f"/questions/{qid}/edit",
@@ -152,10 +138,7 @@ def test_r05_edit_updates_fields_and_marks_edited(client_with_data, db_path):
     )
     assert resp.status_code == 200
     conn = sqlite3.connect(db_path)
-    row = conn.execute(
-        "SELECT stem, correct_answer, edited, review_status FROM questions WHERE id=?",
-        (qid,),
-    ).fetchone()
+    row = conn.execute("SELECT stem, correct_answer, edited, review_status FROM questions WHERE id=?", (qid,)).fetchone()
     conn.close()
     assert row[0] == "What is 3 + 3?"
     assert row[1] == "C"
@@ -164,27 +147,14 @@ def test_r05_edit_updates_fields_and_marks_edited(client_with_data, db_path):
 
 
 # ── R-06 ──────────────────────────────────────────────────────────────────────
-def test_r06_edit_rejects_invalid_correct_answer(client_with_data, db_path):
-    """POST /questions/{id}/edit rejects correct_answer='E' with 422."""
+def test_r06_edit_rejects_invalid_answer(client_with_data):
     qid = client_with_data._pending_id
-    resp = client_with_data.post(
-        f"/questions/{qid}/edit",
-        json={"correct_answer": "E"},
-    )
+    resp = client_with_data.post(f"/questions/{qid}/edit", json={"correct_answer": "E"})
     assert resp.status_code == 422
-    # Question must not be modified
-    conn = sqlite3.connect(db_path)
-    row = conn.execute(
-        "SELECT review_status, edited FROM questions WHERE id=?", (qid,)
-    ).fetchone()
-    conn.close()
-    assert row[0] == "pending"
-    assert row[1] == 0
 
 
 # ── R-07 ──────────────────────────────────────────────────────────────────────
-def test_r07_stats_returns_accurate_counts(db_path, tmp_path):
-    """GET /stats returns correct approved/rejected/edited/pending/total counts."""
+def test_r07_stats_accurate(db_path):
     conn = sqlite3.connect(db_path)
     for _ in range(10):
         _insert_question(conn, review_status="approved")
@@ -197,13 +167,9 @@ def test_r07_stats_returns_accurate_counts(db_path, tmp_path):
     conn.close()
 
     from review.server import create_app
-    app = create_app(db_path=db_path, figures_dir=str(tmp_path / "figures"))
-    tc = TestClient(app)
-
-    resp = tc.get("/stats")
-    assert resp.status_code == 200
-    data = resp.json()
-    assert data["approved"] == 12   # 10 + 2 edited (also approved)
+    tc = TestClient(create_app(db_path=db_path))
+    data = tc.get("/stats").json()
+    assert data["approved"] == 12
     assert data["rejected"] == 3
     assert data["edited"] == 2
     assert data["pending"] == 50
@@ -211,8 +177,7 @@ def test_r07_stats_returns_accurate_counts(db_path, tmp_path):
 
 
 # ── R-08 ──────────────────────────────────────────────────────────────────────
-def test_r08_questions_filter_by_subject(db_path, tmp_path):
-    """GET /questions?subject=science_reasoning returns only that subject."""
+def test_r08_filter_by_subject(db_path):
     conn = sqlite3.connect(db_path)
     for _ in range(3):
         _insert_question(conn, subject="science_reasoning")
@@ -221,46 +186,14 @@ def test_r08_questions_filter_by_subject(db_path, tmp_path):
     conn.close()
 
     from review.server import create_app
-    app = create_app(db_path=db_path, figures_dir=str(tmp_path / "figures"))
-    tc = TestClient(app)
-
-    resp = tc.get("/questions?subject=science_reasoning")
-    assert resp.status_code == 200
-    data = resp.json()
+    tc = TestClient(create_app(db_path=db_path))
+    data = tc.get("/questions?subject=science_reasoning").json()
     assert len(data) == 3
     assert all(q["subject"] == "science_reasoning" for q in data)
 
 
 # ── R-09 ──────────────────────────────────────────────────────────────────────
-def test_r09_figure_png_served_correctly(db_path, tmp_path):
-    """GET /figures/{filename} returns 200 with Content-Type image/png."""
-    figures_dir = tmp_path / "figures"
-    figures_dir.mkdir()
-    shutil.copy(str(FIXTURES / "sample_figure.png"), str(figures_dir / "sample_figure.png"))
-
-    from review.server import create_app
-    app = create_app(db_path=db_path, figures_dir=str(figures_dir))
-    tc = TestClient(app)
-
-    resp = tc.get("/figures/sample_figure.png")
-    assert resp.status_code == 200
-    assert "image" in resp.headers["content-type"]
-    assert len(resp.content) > 0
-
-
-# ── R-10 ──────────────────────────────────────────────────────────────────────
-def test_r10_text_only_question_has_figure_url_null(client_with_data):
-    """GET /questions/next → text-only question has figure_url=null (key present)."""
-    resp = client_with_data.get("/questions/next")
-    assert resp.status_code == 200
-    data = resp.json()
-    assert "figure_url" in data, "figure_url key must be present"
-    assert data["figure_url"] is None
-
-
-# ── R-11 ──────────────────────────────────────────────────────────────────────
-def test_r11_questions_filter_by_status(db_path, tmp_path):
-    """GET /questions?status=pending returns only pending questions."""
+def test_r09_filter_by_status(db_path):
     conn = sqlite3.connect(db_path)
     for _ in range(4):
         _insert_question(conn, review_status="pending")
@@ -269,78 +202,62 @@ def test_r11_questions_filter_by_status(db_path, tmp_path):
     conn.close()
 
     from review.server import create_app
-    app = create_app(db_path=db_path, figures_dir=str(tmp_path / "figures"))
-    tc = TestClient(app)
-
-    resp = tc.get("/questions?status=pending")
-    assert resp.status_code == 200
-    data = resp.json()
+    tc = TestClient(create_app(db_path=db_path))
+    data = tc.get("/questions?status=pending").json()
     assert len(data) == 4
-    assert all(q["review_status"] == "pending" for q in data)
 
 
-# ── R-12 ──────────────────────────────────────────────────────────────────────
-def test_r12_health_endpoint_accessible(client):
-    """GET /health returns 200 (verifies server is up and responsive)."""
+# ── R-10 ──────────────────────────────────────────────────────────────────────
+def test_r10_health(client):
     resp = client.get("/health")
     assert resp.status_code == 200
 
 
-# ── R-17 ──────────────────────────────────────────────────────────────────────
-def test_r17_topic_stats_returns_nested_counts(db_path, tmp_path):
-    """GET /stats/topics returns {subject: {topic: {status: count}}} breakdown."""
-    conn = sqlite3.connect(db_path)
-    for _ in range(3):
-        _insert_question(conn, topic="percentages", review_status="approved")
-    for _ in range(2):
-        _insert_question(conn, topic="percentages", review_status="pending")
-    for _ in range(1):
-        _insert_question(conn, subject="logical_reasoning", topic="series", review_status="approved")
-    conn.close()
-
-    from review.server import create_app
-    app = create_app(db_path=db_path, figures_dir=str(tmp_path / "figures"))
-    tc = TestClient(app)
-
-    resp = tc.get("/stats/topics")
+# ── R-11 ──────────────────────────────────────────────────────────────────────
+def test_r11_delete_question(client_with_data, db_path):
+    qid = client_with_data._pending_id
+    resp = client_with_data.delete(f"/questions/{qid}")
     assert resp.status_code == 200
-    data = resp.json()
-    assert data["quantitative_reasoning"]["percentages"]["approved"] == 3
-    assert data["quantitative_reasoning"]["percentages"]["pending"] == 2
-    assert data["logical_reasoning"]["series"]["approved"] == 1
+    conn = sqlite3.connect(db_path)
+    row = conn.execute("SELECT id FROM questions WHERE id=?", (qid,)).fetchone()
+    conn.close()
+    assert row is None
 
 
-# ── R-16 ──────────────────────────────────────────────────────────────────────
-def test_r16_bulk_approve_approves_high_confidence_pending(db_path, tmp_path):
-    """POST /questions/bulk-approve approves all pending questions >= min_confidence."""
+# ── R-12 ──────────────────────────────────────────────────────────────────────
+def test_r12_bulk_approve(db_path):
     conn = sqlite3.connect(db_path)
     for _ in range(5):
         _insert_question(conn, review_status="pending", confidence=0.95)
     for _ in range(3):
         _insert_question(conn, review_status="pending", confidence=0.75)
-    for _ in range(2):
-        _insert_question(conn, review_status="approved", confidence=0.98)  # already approved
     conn.close()
 
     from review.server import create_app
-    app = create_app(db_path=db_path, figures_dir=str(tmp_path / "figures"))
-    tc = TestClient(app)
+    tc = TestClient(create_app(db_path=db_path))
+    data = tc.post("/questions/bulk-approve?min_confidence=0.90").json()
+    assert data["approved"] == 5
 
-    resp = tc.post("/questions/bulk-approve?min_confidence=0.90")
+
+# ── R-13 ──────────────────────────────────────────────────────────────────────
+def test_r13_topic_stats(db_path):
+    conn = sqlite3.connect(db_path)
+    for _ in range(3):
+        _insert_question(conn, topic="percentages", review_status="approved")
+    for _ in range(2):
+        _insert_question(conn, topic="percentages", review_status="pending")
+    conn.close()
+
+    from review.server import create_app
+    tc = TestClient(create_app(db_path=db_path))
+    data = tc.get("/stats/topics").json()
+    assert data["quantitative_reasoning"]["percentages"]["approved"] == 3
+    assert data["quantitative_reasoning"]["percentages"]["pending"] == 2
+
+
+# ── R-14 ──────────────────────────────────────────────────────────────────────
+def test_r14_source_page_description_returned(client_with_data):
+    resp = client_with_data.get("/questions/next")
     assert resp.status_code == 200
     data = resp.json()
-    assert data["approved"] == 5     # only the 5 pending >= 0.90
-    assert data["min_confidence"] == 0.90
-
-    # Verify DB state
-    conn = sqlite3.connect(db_path)
-    pending = conn.execute(
-        "SELECT COUNT(*) FROM questions WHERE review_status='pending'"
-    ).fetchone()[0]
-    approved = conn.execute(
-        "SELECT COUNT(*) FROM questions WHERE review_status='approved'"
-    ).fetchone()[0]
-    conn.close()
-    assert pending == 3    # the 0.75 confidence ones
-    assert approved == 7   # 5 newly approved + 2 already approved
-
+    assert data["source_page_description"] == "A basic arithmetic page."

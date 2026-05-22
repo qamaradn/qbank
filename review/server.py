@@ -13,11 +13,9 @@ from typing import Optional
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
-from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, field_validator
 
 _DEFAULT_DB = os.getenv("DB_PATH", "/data/db/qbank.db")
-_DEFAULT_FIGURES = os.getenv("FIGURES_DIR", "/data/db/figures")
 
 VALID_ANSWERS = {"A", "B", "C", "D"}
 
@@ -49,21 +47,13 @@ def _get_conn(db_path: str) -> sqlite3.Connection:
     return conn
 
 
-def _row_to_dict(row: sqlite3.Row, figures_dir: str) -> dict:
-    d = dict(row)
-    d["has_figure"] = bool(d.get("has_figure", 0))
-    d["edited"] = bool(d.get("edited", 0))
-    if d.get("has_figure") and d.get("figure_path"):
-        fname = Path(d["figure_path"]).name
-        d["figure_url"] = f"/figures/{fname}"
-    else:
-        d["figure_url"] = None
-    return d
+def _row_to_dict(row: sqlite3.Row) -> dict:
+    return dict(row)
 
 
 # ── App factory ───────────────────────────────────────────────────────────────
 
-def create_app(db_path: str = _DEFAULT_DB, figures_dir: str = _DEFAULT_FIGURES) -> FastAPI:
+def create_app(db_path: str = _DEFAULT_DB) -> FastAPI:
     app = FastAPI(title="QBank Review API")
 
     app.add_middleware(
@@ -88,7 +78,7 @@ def create_app(db_path: str = _DEFAULT_DB, figures_dir: str = _DEFAULT_FIGURES) 
             ).fetchone()
         if row is None:
             raise HTTPException(status_code=404, detail="No pending questions")
-        return _row_to_dict(row, figures_dir)
+        return _row_to_dict(row)
 
     # ── List questions with optional filters ──────────────────────────────────
     @app.get("/questions")
@@ -107,7 +97,7 @@ def create_app(db_path: str = _DEFAULT_DB, figures_dir: str = _DEFAULT_FIGURES) 
         sql += " ORDER BY created_at DESC"
         with _get_conn(db_path) as conn:
             rows = conn.execute(sql, params).fetchall()
-        return [_row_to_dict(r, figures_dir) for r in rows]
+        return [_row_to_dict(r) for r in rows]
 
     # ── Approve ───────────────────────────────────────────────────────────────
     @app.post("/questions/{qid}/approve")
@@ -160,7 +150,7 @@ def create_app(db_path: str = _DEFAULT_DB, figures_dir: str = _DEFAULT_FIGURES) 
                 raise HTTPException(status_code=404, detail="Question not found")
         return {"id": qid, "review_status": "approved", "edited": True}
 
-    # ── Bulk approve ─────────────────────────────────────────────────────────
+    # ── Bulk approve ──────────────────────────────────────────────────────────
     @app.post("/questions/bulk-approve")
     def bulk_approve(min_confidence: float = Query(0.90, ge=0.0, le=1.0)):
         """Approve all pending questions with confidence >= min_confidence."""
@@ -206,7 +196,7 @@ def create_app(db_path: str = _DEFAULT_DB, figures_dir: str = _DEFAULT_FIGURES) 
     # ── Topic coverage ────────────────────────────────────────────────────────
     @app.get("/stats/topics")
     def topic_stats():
-        """Question counts per topic per subject (approved + pending)."""
+        """Question counts per topic per subject."""
         with _get_conn(db_path) as conn:
             rows = conn.execute(
                 """SELECT subject, topic, review_status, COUNT(*) as count
@@ -215,7 +205,6 @@ def create_app(db_path: str = _DEFAULT_DB, figures_dir: str = _DEFAULT_FIGURES) 
                    GROUP BY subject, topic, review_status
                    ORDER BY subject, topic"""
             ).fetchall()
-        # Nest as {subject: {topic: {status: count}}}
         result: dict = {}
         for row in rows:
             subj, topic, status, count = row["subject"], row["topic"], row["review_status"], row["count"]
@@ -227,16 +216,6 @@ def create_app(db_path: str = _DEFAULT_DB, figures_dir: str = _DEFAULT_FIGURES) 
     def serve_ui():
         ui_path = Path(__file__).parent / "ui" / "index.html"
         return FileResponse(str(ui_path), media_type="text/html")
-
-    # ── Figures ───────────────────────────────────────────────────────────────
-    @app.get("/figures/{filename}")
-    def get_figure(filename: str):
-        # Prevent path traversal
-        safe_name = Path(filename).name
-        path = Path(figures_dir) / safe_name
-        if not path.exists():
-            raise HTTPException(status_code=404, detail="Figure not found")
-        return FileResponse(str(path), media_type="image/png")
 
     return app
 

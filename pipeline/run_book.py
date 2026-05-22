@@ -2,219 +2,178 @@
 run_book.py — pipeline orchestrator.
 
 Usage:
-    python pipeline/run_book.py --book_id <id> --pdf /data/pdfs/<id>.pdf
-    python pipeline/run_book.py --book_id <id> --pdf /data/pdfs/<id>.pdf --pages 70 85
-    python pipeline/run_book.py --book_id <id> --status
-"""
+    python -m pipeline.run_book --book_id <id> --pdf <path/to/book.pdf> --briefing <path/to/book.md>
+    python -m pipeline.run_book --book_id <id> --pdf <path> --briefing <path> --test-pages 61 62
+    python -m pipeline.run_book --book_id <id> --status
 
+Phases:
+    1 — PDF → PNG (per subject subfolder)
+    2 — Briefing → page_map.json
+    3 — PNG + subject → Gemini → 10 MCQs per page
+    4 — Dedup + load into DB
+"""
 import argparse
-import json
 import logging
 import os
-import re
-import sys
+from pathlib import Path
 
-import pipeline.briefing as briefing_module
-
-logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s %(levelname)s %(message)s",
+)
 logger = logging.getLogger(__name__)
 
-_BOOK_ID_RE = re.compile(r"^[A-Za-z0-9_]+$")
+_SCRATCH = os.environ.get("SCRATCH_DIR", "/data/scratch")
+_OUTPUT = os.environ.get("OUTPUT_DIR", "/data/output")
+_DB = os.environ.get("DB_PATH", "/data/db/qbank.db")
 
 
-def validate_book_id(book_id: str) -> None:
-    """Raise ValueError if book_id contains characters other than alphanumeric/underscore."""
-    if not _BOOK_ID_RE.match(book_id):
-        raise ValueError(
-            f"book_id must be alphanumeric with underscores only, got: {book_id!r}"
-        )
+def get_status(book_id: str, scratch_dir: str, output_dir: str, db_path: str) -> dict:
+    from pathlib import Path
+    import sqlite3
 
+    images_root = Path(scratch_dir) / book_id / "images"
+    page_map = Path(scratch_dir) / book_id / "page_map.json"
+    output_root = Path(output_dir)
 
-def require_briefing(book_id: str, pdf_path: str) -> dict:
-    """Load the briefing .md file for this PDF, or raise with a helpful message."""
-    briefing_path = os.path.splitext(pdf_path)[0] + ".md"
-    if not os.path.exists(briefing_path):
-        raise FileNotFoundError(
-            f"\n\nBRIEFING FILE MISSING: {briefing_path}\n"
-            f"You must create this file before running the pipeline.\n"
-            f"Template: see CLAUDE.md -> PDF METADATA BRIEFING FILES\n"
-        )
-    return briefing_module.load(briefing_path)
+    png_count = sum(1 for _ in images_root.rglob("*.png")) if images_root.exists() else 0
+    json_count = sum(1 for _ in output_root.glob(f"*/generated/{book_id}_p*.json"))
 
-
-def get_status(book_id: str, scratch_dir: str = None, output_dir: str = None) -> dict:
-    """Return a dict describing which phases have produced output for book_id."""
-    if scratch_dir is None:
-        scratch_dir = os.getenv("SCRATCH_DIR", "/data/scratch")
-    if output_dir is None:
-        output_dir = os.getenv("OUTPUT_DIR", "/data/output")
-
-    book_scratch = os.path.join(scratch_dir, book_id)
-
-    # Phase 1: pages/ directory has at least one .md file
-    pages_dir = os.path.join(book_scratch, "pages")
-    if os.path.isdir(pages_dir) and any(
-        f.endswith(".md") for f in os.listdir(pages_dir)
-    ):
-        p1 = "complete"
-    else:
-        p1 = "not_started"
-
-    # Phase 2: page_map.json exists
-    page_map_path = os.path.join(book_scratch, "page_map.json")
-    p2 = "complete" if os.path.exists(page_map_path) else "not_started"
-
-    # Phase 3: any output JSON in output_dir/<subject>/text/ or figures/
-    p3 = "not_started"
-    if os.path.isdir(output_dir):
-        for subject in os.listdir(output_dir):
-            for track in ("text", "figures"):
-                track_dir = os.path.join(output_dir, subject, track)
-                if os.path.isdir(track_dir) and any(
-                    f.endswith(".json") for f in os.listdir(track_dir)
-                ):
-                    p3 = "complete"
-                    break
-            if p3 == "complete":
-                break
-
-    # Phase 4: any generated JSON in output_dir/<subject>/generated/
-    p4 = "not_started"
-    if os.path.isdir(output_dir):
-        for subject in os.listdir(output_dir):
-            gen_dir = os.path.join(output_dir, subject, "generated")
-            if os.path.isdir(gen_dir) and any(
-                f.endswith(".json") for f in os.listdir(gen_dir)
-            ):
-                p4 = "complete"
-                break
-
-    # Phase 5: any rows for this book in the DB
-    db_path = os.getenv("DB_PATH", "/data/db/qbank.db")
-    p5 = "not_started"
-    if os.path.exists(db_path):
+    db_count = 0
+    if Path(db_path).exists():
         try:
-            import sqlite3
             conn = sqlite3.connect(db_path)
-            count = conn.execute(
+            db_count = conn.execute(
                 "SELECT COUNT(*) FROM questions WHERE source_book=?", (book_id,)
             ).fetchone()[0]
             conn.close()
-            p5 = "complete" if count > 0 else "not_started"
         except Exception:
-            p5 = "unknown"
+            pass
 
     return {
-        "book_id": book_id,
-        "phase1": p1,
-        "phase2": p2,
-        "phase3": p3,
-        "phase4": p4,
-        "phase5": p5,
+        "phase1_pngs": png_count,
+        "phase2_page_map": page_map.exists(),
+        "phase3_json_files": json_count,
+        "phase4_db_rows": db_count,
     }
-
-
-# ── thin wrappers so tests can monkeypatch individual phases ──────────────────
-
-def _run_phase1(book_id, pdf_path, scratch_dir=None, briefing_path=None):
-    import pipeline.phase1_normalise as p1
-    p1.run(book_id, pdf_path, scratch_dir=scratch_dir, briefing_path=briefing_path)
-
-
-def _run_phase2(book_id, scratch_dir=None, briefing_path=None):
-    import pipeline.phase2_classify as p2
-    p2.run(book_id, scratch_dir=scratch_dir, briefing_path=briefing_path)
-
-
-def _run_phase3(book_id, scratch_dir=None, output_dir=None, briefing_path=None):
-    import pipeline.phase3_figures as p3
-    p3.run(book_id, scratch_dir=scratch_dir, output_dir=output_dir,
-           briefing_path=briefing_path)
-
-
-def _run_phase4(book_id, output_dir=None, scratch_dir=None, briefing_path=None):
-    import pipeline.phase4_generate as p4
-    p4.run(book_id, output_dir=output_dir, scratch_dir=scratch_dir,
-           briefing_path=briefing_path)
-
-
-def _run_phase5(book_id, output_dir=None, db_path=None):
-    import pipeline.phase5_verify as p5
-    return p5.run(book_id, output_dir=output_dir, db_path=db_path)
 
 
 def run(
     book_id: str,
     pdf_path: str,
+    briefing_path: str,
     scratch_dir: str = None,
     output_dir: str = None,
     db_path: str = None,
-    briefing_path: str = None,
-) -> None:
-    """Orchestrate all 5 pipeline phases for a single book."""
-    validate_book_id(book_id)
+    test_pages: list = None,
+) -> dict:
+    _scratch = scratch_dir or _SCRATCH
+    _output = output_dir or _OUTPUT
+    _db = db_path or _DB
 
-    if not os.path.exists(pdf_path):
-        raise FileNotFoundError(f"PDF not found: {pdf_path}")
+    import pipeline.briefing as briefing_module
+    briefing_data = briefing_module.load(briefing_path)
 
-    # Enforce briefing requirement before doing any work
-    if briefing_path is None:
-        briefing_path = os.path.splitext(pdf_path)[0] + ".md"
-    require_briefing(book_id, pdf_path)
+    results = {}
 
-    logger.info(f"[{book_id}] Starting pipeline - Phase 1: Normalise")
-    _run_phase1(book_id, pdf_path, scratch_dir=scratch_dir, briefing_path=briefing_path)
+    if test_pages:
+        logger.info(f"[{book_id}] TEST MODE: pages {test_pages}")
+        # In test mode, skip Phase 1 (assume PNGs already exist) and Phase 2
+        # Go straight to Phase 3 + 4
+    else:
+        # Phase 1 — extract PNGs
+        logger.info(f"[{book_id}] Phase 1: Extract PNGs")
+        import pipeline.phase1_normalise as p1
+        results["phase1"] = p1.extract_pages(
+            pdf_path=pdf_path,
+            book_id=book_id,
+            briefing_data=briefing_data,
+            scratch_dir=_scratch,
+        )
 
-    logger.info(f"[{book_id}] Phase 2: Classify")
-    _run_phase2(book_id, scratch_dir=scratch_dir, briefing_path=briefing_path)
+        # Phase 2 — build page map
+        logger.info(f"[{book_id}] Phase 2: Build page map")
+        import pipeline.phase2_classify as p2
+        p2.run(
+            book_id=book_id,
+            briefing_path=briefing_path,
+            scratch_dir=_scratch,
+        )
 
-    logger.info(f"[{book_id}] Phase 3: Figure Detection")
-    _run_phase3(book_id, scratch_dir=scratch_dir, output_dir=output_dir,
-                briefing_path=briefing_path)
+    # Phase 3 — generate questions
+    logger.info(f"[{book_id}] Phase 3: Generate questions")
+    import pipeline.phase3_generate as p3
+    results["phase3"] = p3.run(
+        book_id=book_id,
+        scratch_dir=_scratch,
+        output_dir=_output,
+        briefing_data=briefing_data,
+        briefing_path=briefing_path,
+        test_pages=test_pages,
+    )
 
-    logger.info(f"[{book_id}] Phase 4: Generate Questions")
-    _run_phase4(book_id, output_dir=output_dir, scratch_dir=scratch_dir,
-                briefing_path=briefing_path)
+    # Phase 4 — dedup + load
+    logger.info(f"[{book_id}] Phase 4: Load into DB")
+    import pipeline.phase4_load as p4
+    results["phase4"] = p4.load_book(
+        book_id=book_id,
+        output_dir=_output,
+        db_path=_db,
+    )
 
-    logger.info(f"[{book_id}] Phase 5: Verify and Load DB")
-    stats = _run_phase5(book_id, output_dir=output_dir, db_path=db_path)
-    logger.info(f"[{book_id}] Phase 5 stats: {stats}")
-
-    logger.info(f"[{book_id}] Pipeline complete.")
+    logger.info(f"[{book_id}] Pipeline complete: {results}")
+    return results
 
 
 def _cli():
     parser = argparse.ArgumentParser(description="QBank pipeline orchestrator")
-    parser.add_argument("--book_id", required=True,
-                        help="Book identifier (alphanumeric + underscores)")
-    parser.add_argument("--pdf", dest="pdf_path",
-                        help="Path to PDF file")
-    parser.add_argument("--pages", nargs=2, type=int, metavar=("START", "END"),
-                        help="Process only pages START-END")
-    parser.add_argument("--status", action="store_true",
-                        help="Show pipeline status without running")
+    parser.add_argument("--book_id", required=True)
+    parser.add_argument("--pdf", dest="pdf_path", default=None)
+    parser.add_argument("--briefing", dest="briefing_path", default=None)
+    parser.add_argument("--test-pages", nargs="+", type=int, metavar="PAGE")
+    parser.add_argument("--status", action="store_true")
     args = parser.parse_args()
 
-    scratch_dir = os.getenv("SCRATCH_DIR", "/data/scratch")
-    output_dir = os.getenv("OUTPUT_DIR", "/data/output")
-    db_path = os.getenv("DB_PATH", "/data/db/qbank.db")
+    scratch = os.environ.get("SCRATCH_DIR", _SCRATCH)
+    output = os.environ.get("OUTPUT_DIR", _OUTPUT)
+    db = os.environ.get("DB_PATH", _DB)
 
     if args.status:
-        status = get_status(args.book_id, scratch_dir=scratch_dir, output_dir=output_dir)
-        print(json.dumps(status, indent=2))
+        s = get_status(args.book_id, scratch, output, db)
+        for k, v in s.items():
+            print(f"  {k}: {v}")
         return
 
-    if not args.pdf_path:
-        pdf_dir = os.getenv("PDF_DIR", "/data/pdfs")
-        args.pdf_path = os.path.join(pdf_dir, f"{args.book_id}.pdf")
+    # Resolve briefing path: explicit arg, or look alongside PDF, or look in run_data/pdfs
+    briefing_path = args.briefing_path
+    if not briefing_path and args.pdf_path:
+        briefing_path = str(Path(args.pdf_path).with_suffix(".md"))
+    if not briefing_path:
+        briefing_path = f"run_data/pdfs/{args.book_id}.md"
 
-    run(
-        book_id=args.book_id,
-        pdf_path=args.pdf_path,
-        scratch_dir=scratch_dir,
-        output_dir=output_dir,
-        db_path=db_path,
-    )
+    pdf_path = args.pdf_path or f"run_data/pdfs/{args.book_id}.pdf"
+
+    if args.test_pages:
+        run(
+            book_id=args.book_id,
+            pdf_path=pdf_path,
+            briefing_path=briefing_path,
+            scratch_dir=scratch,
+            output_dir=output,
+            db_path=db,
+            test_pages=args.test_pages,
+        )
+    else:
+        if not Path(pdf_path).exists():
+            parser.error(f"PDF not found: {pdf_path}")
+        run(
+            book_id=args.book_id,
+            pdf_path=pdf_path,
+            briefing_path=briefing_path,
+            scratch_dir=scratch,
+            output_dir=output,
+            db_path=db,
+        )
 
 
 if __name__ == "__main__":

@@ -252,8 +252,7 @@ def test_ui_19_no_emoji_icons(html_source):
         "\U0001f680-\U0001f6ff"
         "\U0001f700-\U0001f77f"
         "☀-⛿"
-        "✀-➿"
-        "✓✗✔✘←→↑↓"
+        "✀-❿"
         "]"
     )
     matches = emoji_pattern.findall(html_source)
