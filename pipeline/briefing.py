@@ -21,6 +21,7 @@ from typing import Optional
 
 VALID_SUBJECTS = {
     "quantitative_reasoning",
+    "verbal_reasoning",
     "logical_reasoning",
     "science_reasoning",
     "reading_comprehension",

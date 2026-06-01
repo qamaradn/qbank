@@ -308,7 +308,7 @@ TEST-R-07 [INTEGRATION] GET /stats returns accurate counts
   Then:  {approved:12, rejected:3, edited:2, pending:50, total:65}
 
 TEST-R-08 [INTEGRATION] GET /questions filters by subject
-  Given: 3 science_reasoning, 5 logical_reasoning questions
+  Given: 3 science_reasoning, 5 verbal_reasoning questions
   When:  GET /questions?subject=science_reasoning called
   Then:  returns exactly 3, all science_reasoning
 

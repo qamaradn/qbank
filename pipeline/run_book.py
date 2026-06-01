@@ -58,6 +58,40 @@ def get_status(book_id: str, scratch_dir: str, output_dir: str, db_path: str) ->
     }
 
 
+def run_png_dir(
+    book_id: str,
+    png_dir: str,
+    subject: str,
+    scratch_dir: str = None,
+    output_dir: str = None,
+    db_path: str = None,
+    target_year: str = "9-10",
+    difficulty: str = "medium",
+) -> dict:
+    """PNG-dir mode: skip Phase 1+2, generate from sample PNGs, load into DB."""
+    _output = output_dir or _OUTPUT
+    _db = db_path or _DB
+
+    logger.info(f"[{book_id}] PNG-dir mode: {png_dir} subject={subject}")
+
+    import pipeline.phase3_generate as p3
+    phase3 = p3.run_from_png_dir(
+        book_id=book_id,
+        png_dir=png_dir,
+        subject=subject,
+        output_dir=_output,
+        target_year=target_year,
+        difficulty=difficulty,
+    )
+
+    import pipeline.phase4_load as p4
+    phase4 = p4.load_book(book_id=book_id, output_dir=_output, db_path=_db)
+
+    results = {"phase3": phase3, "phase4": phase4}
+    logger.info(f"[{book_id}] PNG-dir pipeline complete: {results}")
+    return results
+
+
 def run(
     book_id: str,
     pdf_path: str,
@@ -132,6 +166,13 @@ def _cli():
     parser.add_argument("--briefing", dest="briefing_path", default=None)
     parser.add_argument("--test-pages", nargs="+", type=int, metavar="PAGE")
     parser.add_argument("--status", action="store_true")
+    # PNG-dir mode
+    parser.add_argument("--png-dir", dest="png_dir", default=None,
+                        help="Directory of sample PNG files (one question per PNG)")
+    parser.add_argument("--subject", default=None,
+                        help="Subject for PNG-dir mode (e.g. verbal_reasoning)")
+    parser.add_argument("--difficulty", default="medium", choices=["medium", "hard"])
+    parser.add_argument("--year", dest="target_year", default="9-10")
     args = parser.parse_args()
 
     scratch = os.environ.get("SCRATCH_DIR", _SCRATCH)
@@ -142,6 +183,23 @@ def _cli():
         s = get_status(args.book_id, scratch, output, db)
         for k, v in s.items():
             print(f"  {k}: {v}")
+        return
+
+    # PNG-dir mode — skip Phase 1+2, no PDF or briefing needed
+    if args.png_dir:
+        if not args.subject:
+            parser.error("--subject is required when using --png-dir")
+        if not Path(args.png_dir).is_dir():
+            parser.error(f"PNG directory not found: {args.png_dir}")
+        run_png_dir(
+            book_id=args.book_id,
+            png_dir=args.png_dir,
+            subject=args.subject,
+            output_dir=output,
+            db_path=db,
+            target_year=args.target_year,
+            difficulty=args.difficulty,
+        )
         return
 
     # Resolve briefing path: explicit arg, or look alongside PDF, or look in run_data/pdfs

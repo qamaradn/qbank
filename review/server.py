@@ -211,6 +211,67 @@ def create_app(db_path: str = _DEFAULT_DB) -> FastAPI:
             result.setdefault(subj, {}).setdefault(topic, {})[status] = count
         return result
 
+    # ── Writing Prompts ───────────────────────────────────────────────────────
+    @app.get("/writing-prompts")
+    def list_writing_prompts(
+        school_type: Optional[str] = Query(None),
+        status: Optional[str] = Query(None),
+    ):
+        sql = "SELECT * FROM writing_prompts WHERE 1=1"
+        params: list = []
+        if school_type:
+            sql += " AND school_type=?"
+            params.append(school_type)
+        if status:
+            sql += " AND review_status=?"
+            params.append(status)
+        sql += " ORDER BY created_at DESC"
+        with _get_conn(db_path) as conn:
+            rows = conn.execute(sql, params).fetchall()
+        return [_row_to_dict(r) for r in rows]
+
+    @app.post("/writing-prompts/{pid}/approve")
+    def approve_writing_prompt(pid: str):
+        now = datetime.now(timezone.utc).isoformat()
+        with _get_conn(db_path) as conn:
+            cur = conn.execute(
+                "UPDATE writing_prompts SET review_status='approved', reviewed_at=? WHERE id=?",
+                (now, pid),
+            )
+            if cur.rowcount == 0:
+                raise HTTPException(status_code=404, detail="Prompt not found")
+        return {"id": pid, "review_status": "approved"}
+
+    @app.post("/writing-prompts/{pid}/reject")
+    def reject_writing_prompt(pid: str):
+        now = datetime.now(timezone.utc).isoformat()
+        with _get_conn(db_path) as conn:
+            cur = conn.execute(
+                "UPDATE writing_prompts SET review_status='rejected', reviewed_at=? WHERE id=?",
+                (now, pid),
+            )
+            if cur.rowcount == 0:
+                raise HTTPException(status_code=404, detail="Prompt not found")
+        return {"id": pid, "review_status": "rejected"}
+
+    @app.get("/stats/writing")
+    def writing_stats():
+        with _get_conn(db_path) as conn:
+            row = conn.execute(
+                """SELECT
+                    SUM(CASE WHEN review_status='approved' THEN 1 ELSE 0 END) AS approved,
+                    SUM(CASE WHEN review_status='rejected' THEN 1 ELSE 0 END) AS rejected,
+                    SUM(CASE WHEN review_status='pending'  THEN 1 ELSE 0 END) AS pending,
+                    COUNT(*) AS total
+                FROM writing_prompts"""
+            ).fetchone()
+        return {
+            "approved": row["approved"] or 0,
+            "rejected": row["rejected"] or 0,
+            "pending":  row["pending"]  or 0,
+            "total":    row["total"]    or 0,
+        }
+
     # ── UI ────────────────────────────────────────────────────────────────────
     @app.get("/")
     def serve_ui():

@@ -234,15 +234,21 @@
     .passage-box p:last-child { margin-bottom: 0; }
 
     /* Figure */
-    .figure-container { margin-bottom: 20px; }
-    .figure-container img {
-      max-height: 320px;
-      max-width: 100%;
+    .figure-container {
+      margin-bottom: 20px;
+      background: #ffffff;
       border: 1px solid var(--border);
       border-radius: 4px;
+      padding: 20px;
       display: block;
-      background: #ffffff;
-      padding: 12px;
+      max-width: 560px;
+      box-sizing: border-box;
+    }
+    .figure-container svg {
+      display: block;
+      width: 100%;
+      height: auto;
+      overflow: visible;
     }
 
     /* Stem */
@@ -278,6 +284,13 @@
       padding-top: 1px;
     }
     .option-row.correct-answer .option-letter { color: var(--approve); }
+    .option-row.wrong-answer {
+      border-color: var(--reject);
+      background-color: rgba(248,81,73,0.1);
+    }
+    .option-row.wrong-answer .option-letter { color: var(--reject); }
+    .option-row.quiz-option { cursor: pointer; }
+    .option-row.quiz-option:hover { border-color: var(--text-muted); }
     .option-text { font-size: 14px; color: var(--text); line-height: 1.5; }
 
     /* Explanation */
@@ -411,6 +424,63 @@
     }
     .icon { width: 14px; height: 14px; flex-shrink: 0; }
 
+    /* Writing prompt cards */
+    .stimulus-box {
+      background: #161b22;
+      border: 1px solid var(--border);
+      border-left: 3px solid #E3B341;
+      border-radius: 4px;
+      padding: 16px 20px;
+      margin-bottom: 20px;
+      font-size: 14px;
+      line-height: 1.7;
+      color: #c9d1d9;
+      white-space: pre-wrap;
+      font-family: var(--mono);
+    }
+    .stimulus-label {
+      font-size: 10px;
+      font-family: var(--mono);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: #E3B341;
+      margin-bottom: 8px;
+    }
+    .task-box {
+      font-size: 16px;
+      line-height: 1.65;
+      color: var(--text);
+      margin-bottom: 20px;
+      padding: 14px 16px;
+      background: rgba(88,166,255,0.06);
+      border: 1px solid rgba(88,166,255,0.2);
+      border-radius: 4px;
+    }
+    .task-label {
+      font-size: 10px;
+      font-family: var(--mono);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--edit);
+      margin-bottom: 8px;
+    }
+    .writing-tags {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-bottom: 16px;
+    }
+    .writing-tag {
+      font-family: var(--mono);
+      font-size: 11px;
+      padding: 2px 8px;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+      color: var(--text-muted);
+    }
+    .writing-tag.school { border-color: #E3B341; color: #E3B341; }
+    .writing-tag.type   { border-color: var(--edit); color: var(--edit); }
+
     /* Progress */
     .progress-bar-wrap {
       flex-shrink: 0;
@@ -458,7 +528,16 @@
     <button class="mode-btn" id="btn-approved" onclick="switchMode('approved')" aria-pressed="false">
       Approved <span class="mode-count" id="mode-count-approved">—</span>
     </button>
+    <button class="mode-btn" id="btn-writing" onclick="switchMode('writing')" aria-pressed="false">
+      Writing <span class="mode-count" id="mode-count-writing">—</span>
+    </button>
   </div>
+
+  <!-- Quiz mode toggle -->
+  <button class="mode-btn" id="btn-quiz" onclick="toggleQuiz()" aria-pressed="false"
+          style="border:1px solid var(--border);border-radius:6px;padding:5px 14px;">
+    Quiz Mode
+  </button>
 
   <span class="header-meta" id="header-meta"></span>
 </header>
@@ -487,12 +566,14 @@
       </div>
     </div>
 
-    <div class="sidebar-section">
+    <div class="sidebar-section" id="subject-filter-section">
       <div class="sidebar-label">Subject</div>
       <div class="subject-filter" role="group" aria-label="Filter by subject">
         <button class="subject-btn active" data-subject="" onclick="filterSubject(this,'')">All</button>
         <button class="subject-btn" data-subject="quantitative_reasoning"
                 onclick="filterSubject(this,'quantitative_reasoning')">Quantitative</button>
+        <button class="subject-btn" data-subject="verbal_reasoning"
+                onclick="filterSubject(this,'verbal_reasoning')">Verbal</button>
         <button class="subject-btn" data-subject="logical_reasoning"
                 onclick="filterSubject(this,'logical_reasoning')">Logical</button>
         <button class="subject-btn" data-subject="science_reasoning"
@@ -501,6 +582,19 @@
                 onclick="filterSubject(this,'reading_comprehension')">Reading</button>
         <button class="subject-btn" data-subject="writing"
                 onclick="filterSubject(this,'writing')">Writing</button>
+      </div>
+    </div>
+
+    <div class="sidebar-section" id="school-filter-section" style="display:none;">
+      <div class="sidebar-label">School Type</div>
+      <div class="subject-filter" role="group" aria-label="Filter by school type">
+        <button class="subject-btn active" data-school="" onclick="filterSchool(this,'')">All</button>
+        <button class="subject-btn" data-school="jmss"
+                onclick="filterSchool(this,'jmss')">JMSS</button>
+        <button class="subject-btn" data-school="nsw_selective"
+                onclick="filterSchool(this,'nsw_selective')">NSW</button>
+        <button class="subject-btn" data-school="victorian_selective"
+                onclick="filterSchool(this,'victorian_selective')">Victorian</button>
       </div>
     </div>
   </nav>
@@ -533,7 +627,7 @@
         </svg>
         Reject <span class="kbd">R</span>
       </button>
-      <button class="action-btn btn-edit" onclick="enterEdit()" aria-label="Edit (E)">
+      <button class="action-btn btn-edit" id="btn-action-edit" onclick="enterEdit()" aria-label="Edit (E)">
         <svg class="icon" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
           <path d="M11.013 1.427a1.75 1.75 0 012.474 0l1.086 1.086a1.75 1.75 0 010 2.474l-8.61 8.61c-.21.21-.47.364-.756.445l-3.251.93a.75.75 0 01-.927-.928l.929-3.25c.081-.286.235-.547.445-.758l8.61-8.61zm1.414 1.06a.25.25 0 00-.354 0L10.811 3.75l1.439 1.44 1.263-1.263a.25.25 0 000-.354l-1.086-1.086zM11.189 6.25L9.75 4.81l-6.286 6.287a.25.25 0 00-.064.108l-.558 1.953 1.953-.558a.249.249 0 00.108-.064L11.19 6.25z"/>
         </svg>
@@ -587,7 +681,9 @@
   let editMode     = false;
   let originalValues = {};
   let activeSubject  = '';
-  let activeMode     = 'pending'; // 'pending' | 'approved'
+  let activeSchool   = '';
+  let activeMode     = 'pending'; // 'pending' | 'approved' | 'writing'
+  let quizMode       = false;
 
   // ── Init ──────────────────────────────────────────────────────────────────────
   async function init() {
@@ -600,62 +696,164 @@
     if (activeMode === mode) return;
     activeMode = mode;
 
-    document.getElementById('btn-pending').classList.toggle('active', mode === 'pending');
-    document.getElementById('btn-approved').classList.toggle('active', mode === 'approved');
-    document.getElementById('btn-pending').setAttribute('aria-pressed', mode === 'pending');
-    document.getElementById('btn-approved').setAttribute('aria-pressed', mode === 'approved');
+    ['pending','approved','writing'].forEach(m => {
+      document.getElementById('btn-' + m).classList.toggle('active', m === mode);
+      document.getElementById('btn-' + m).setAttribute('aria-pressed', m === mode);
+    });
 
     const banner = document.getElementById('approved-banner');
     banner.classList.toggle('visible', mode === 'approved');
 
-    // Show/hide Approve + Reject buttons in approved mode
-    document.getElementById('btn-action-approve').style.display =
-      mode === 'pending' ? '' : 'none';
-    document.getElementById('btn-action-reject').style.display =
-      mode === 'pending' ? '' : 'none';
+    const isWriting = mode === 'writing';
+    document.getElementById('subject-filter-section').style.display = isWriting ? 'none' : '';
+    document.getElementById('school-filter-section').style.display  = isWriting ? ''     : 'none';
+
+    // Show/hide Approve + Reject (always visible in writing mode for A/R)
+    const showReview = (mode === 'pending' || mode === 'writing') && !quizMode;
+    document.getElementById('btn-action-approve').style.display = showReview ? '' : 'none';
+    document.getElementById('btn-action-reject').style.display  = showReview ? '' : 'none';
+    document.getElementById('btn-action-edit').style.display    = isWriting  ? 'none' : '';
 
     if (editMode) cancelEdit();
     loadQueue();
+    loadStats();
+  }
+
+  // ── Quiz mode ─────────────────────────────────────────────────────────────────
+  function toggleQuiz() {
+    quizMode = !quizMode;
+    const btn = document.getElementById('btn-quiz');
+    btn.setAttribute('aria-pressed', quizMode);
+    btn.style.color           = quizMode ? 'var(--edit)' : '';
+    btn.style.borderColor     = quizMode ? 'var(--edit)' : 'var(--border)';
+    btn.style.backgroundColor = quizMode ? 'rgba(88,166,255,0.08)' : '';
+
+    const showReview = !quizMode && activeMode === 'pending';
+    document.getElementById('btn-action-approve').style.display = showReview ? '' : 'none';
+    document.getElementById('btn-action-reject').style.display  = showReview ? '' : 'none';
+    document.getElementById('btn-action-edit').style.display    = quizMode   ? 'none' : '';
+
+    if (queue.length) render();
+  }
+
+  function revealQuizAnswer(selected, correct, opts) {
+    if (opts.dataset.answered) return;
+    opts.dataset.answered = '1';
+    opts.querySelectorAll('.quiz-option').forEach(row => {
+      row.style.cursor = 'default';
+      const lt = row.dataset.letter;
+      if (lt === correct) row.classList.add('correct-answer');
+      else if (lt === selected) row.classList.add('wrong-answer');
+    });
+    const exp = document.getElementById('quiz-explanation');
+    if (exp) exp.style.display = '';
   }
 
   // ── Queue / render ────────────────────────────────────────────────────────────
   async function loadQueue() {
-    const params = new URLSearchParams({ status: activeMode });
-    if (activeSubject) params.set('subject', activeSubject);
     try {
-      const res = await fetch(`${API}/questions?${params}`);
+      let res;
+      if (activeMode === 'writing') {
+        const params = new URLSearchParams({ status: 'pending' });
+        if (activeSchool) params.set('school_type', activeSchool);
+        res = await fetch(`${API}/writing-prompts?${params}`);
+      } else {
+        const params = new URLSearchParams({ status: activeMode });
+        if (activeSubject) params.set('subject', activeSubject);
+        res = await fetch(`${API}/questions?${params}`);
+      }
       if (!res.ok) throw new Error(res.statusText);
       queue = await res.json();
       currentIndex = 0;
       render();
     } catch (e) {
-      showEmpty('Could not load questions: ' + e.message);
+      showEmpty('Could not load: ' + e.message);
     }
   }
 
   function render() {
     if (!queue.length) {
-      showEmpty(activeMode === 'pending' ? 'No pending questions' : 'No approved questions');
+      const msgs = { pending: 'No pending questions', approved: 'No approved questions', writing: 'No pending writing prompts' };
+      showEmpty(msgs[activeMode] || 'Nothing to show');
       return;
     }
-    renderQuestion(queue[currentIndex]);
+    if (activeMode === 'writing') {
+      renderWritingPrompt(queue[currentIndex]);
+    } else {
+      renderQuestion(queue[currentIndex]);
+    }
     document.getElementById('queue-pos').textContent =
       `${currentIndex + 1} / ${queue.length}`;
+  }
+
+  function renderWritingPrompt(p) {
+    const area = document.getElementById('question-area');
+    area.innerHTML = '';
+
+    // Tags row
+    const tags = document.createElement('div');
+    tags.className = 'writing-tags';
+    const schoolLabel = (p.school_type || '').replace(/_/g, ' ');
+    const typeLabel   = (p.prompt_type || '').replace(/_/g, ' ');
+    const stimLabel   = (p.stimulus_type || '').replace(/_/g, ' ');
+    tags.innerHTML =
+      `<span class="writing-tag school">${esc(schoolLabel)}</span>` +
+      `<span class="writing-tag type">${esc(typeLabel)}</span>` +
+      `<span class="writing-tag">${esc(stimLabel)}</span>` +
+      `<span class="writing-tag">${esc(p.difficulty || '')}</span>`;
+    area.appendChild(tags);
+
+    // Stimulus
+    if (p.stimulus_content) {
+      const slabel = document.createElement('div');
+      slabel.className = 'stimulus-label';
+      slabel.textContent = 'Stimulus';
+      const sbox = document.createElement('div');
+      sbox.className = 'stimulus-box';
+      sbox.textContent = p.stimulus_content;
+      area.appendChild(slabel);
+      area.appendChild(sbox);
+    }
+
+    // Task instruction
+    const tlabel = document.createElement('div');
+    tlabel.className = 'task-label';
+    tlabel.textContent = 'Writing Task';
+    const tbox = document.createElement('div');
+    tbox.className = 'task-box';
+    tbox.textContent = p.task_instruction || '';
+    area.appendChild(tlabel);
+    area.appendChild(tbox);
+
+    // Meta
+    let mf = [];
+    try { mf = JSON.parse(p.marking_focus || '[]'); } catch(_) {}
+    const meta = document.createElement('div');
+    meta.className = 'meta';
+    meta.innerHTML =
+      `<span>${esc(p.topic || '')}</span>` +
+      `<span>${p.word_count_min}–${p.word_count_max} words</span>` +
+      `<span>${p.time_limit_minutes} min</span>` +
+      (mf.length ? `<span>Focus: ${mf.map(esc).join(' · ')}</span>` : '');
+    area.appendChild(meta);
   }
 
   function renderQuestion(q) {
     const area = document.getElementById('question-area');
     area.innerHTML = '';
 
-    // Figure
-    if (q.has_figure && q.figure_url) {
+    // Figure — inline SVG
+    if (q.figure_svg) {
       const fig = document.createElement('div');
       fig.className = 'figure-container';
-      const img = document.createElement('img');
-      img.src = API + q.figure_url;
-      img.alt = 'Question figure';
-      img.loading = 'lazy';
-      fig.appendChild(img);
+      // Inject viewBox if missing so width:100% scales correctly
+      let svg = q.figure_svg;
+      if (!svg.includes('viewBox')) {
+        const w = (svg.match(/width=['"](\d+)['"]/) || [])[1];
+        const h = (svg.match(/height=['"](\d+)['"]/) || [])[1];
+        if (w && h) svg = svg.replace('<svg ', `<svg viewBox="0 0 ${w} ${h}" `);
+      }
+      fig.innerHTML = svg;
       area.appendChild(fig);
     }
 
@@ -684,7 +882,15 @@
       for (const [lt, key] of [['A','option_a'],['B','option_b'],['C','option_c'],['D','option_d']]) {
         if (!q[key]) continue;
         const row = document.createElement('div');
-        row.className = 'option-row' + (lt === q.correct_answer ? ' correct-answer' : '');
+        if (quizMode) {
+          row.className = 'option-row quiz-option';
+          row.dataset.letter = lt;
+          row.addEventListener('click', function() {
+            revealQuizAnswer(lt, q.correct_answer, opts);
+          });
+        } else {
+          row.className = 'option-row' + (lt === q.correct_answer ? ' correct-answer' : '');
+        }
         const lspan = document.createElement('span');
         lspan.className = 'option-letter';
         lspan.textContent = lt;
@@ -702,7 +908,9 @@
     if (q.explanation) {
       const exp = document.createElement('div');
       exp.className = 'explanation';
+      exp.id = 'quiz-explanation';
       exp.textContent = q.explanation;
+      if (quizMode) exp.style.display = 'none';
       area.appendChild(exp);
     }
 
@@ -748,37 +956,56 @@
   // ── Stats ─────────────────────────────────────────────────────────────────────
   async function loadStats() {
     try {
-      const res = await fetch(`${API}/stats`);
-      if (!res.ok) return;
-      const d = await res.json();
-      document.getElementById('stat-approved').textContent = d.approved ?? 0;
-      document.getElementById('stat-rejected').textContent = d.rejected ?? 0;
-      document.getElementById('stat-edited').textContent   = d.edited   ?? 0;
-      document.getElementById('stat-pending').textContent  = d.pending  ?? 0;
-      document.getElementById('header-meta').textContent   =
-        `${d.pending ?? 0} pending`;
-
-      // Update toggle counts
-      document.getElementById('mode-count-pending').textContent  = d.pending  ?? 0;
-      document.getElementById('mode-count-approved').textContent = d.approved ?? 0;
-
-      const reviewed = (d.approved ?? 0) + (d.rejected ?? 0);
-      const total    = d.total ?? 0;
-      const pct      = total > 0 ? (reviewed / total * 100) : 0;
-      document.getElementById('progress-fill').style.width = pct + '%';
-      document.getElementById('progress-label').textContent =
-        `${reviewed} / ${total} reviewed`;
-      const pb = document.getElementById('progress-bar-container');
-      pb.setAttribute('aria-valuenow', reviewed);
-      pb.setAttribute('aria-valuemax', total);
+      if (activeMode === 'writing') {
+        const res = await fetch(`${API}/stats/writing`);
+        if (!res.ok) return;
+        const d = await res.json();
+        document.getElementById('stat-approved').textContent = d.approved ?? 0;
+        document.getElementById('stat-rejected').textContent = d.rejected ?? 0;
+        document.getElementById('stat-edited').textContent   = '—';
+        document.getElementById('stat-pending').textContent  = d.pending  ?? 0;
+        document.getElementById('header-meta').textContent   = `${d.pending ?? 0} writing pending`;
+        document.getElementById('mode-count-writing').textContent = d.pending ?? 0;
+        const reviewed = (d.approved ?? 0) + (d.rejected ?? 0);
+        const total    = d.total ?? 0;
+        const pct      = total > 0 ? (reviewed / total * 100) : 0;
+        document.getElementById('progress-fill').style.width = pct + '%';
+        document.getElementById('progress-label').textContent = `${reviewed} / ${total} reviewed`;
+        const pb = document.getElementById('progress-bar-container');
+        pb.setAttribute('aria-valuenow', reviewed);
+        pb.setAttribute('aria-valuemax', total);
+      } else {
+        const res = await fetch(`${API}/stats`);
+        if (!res.ok) return;
+        const d = await res.json();
+        document.getElementById('stat-approved').textContent = d.approved ?? 0;
+        document.getElementById('stat-rejected').textContent = d.rejected ?? 0;
+        document.getElementById('stat-edited').textContent   = d.edited   ?? 0;
+        document.getElementById('stat-pending').textContent  = d.pending  ?? 0;
+        document.getElementById('header-meta').textContent   = `${d.pending ?? 0} pending`;
+        document.getElementById('mode-count-pending').textContent  = d.pending  ?? 0;
+        document.getElementById('mode-count-approved').textContent = d.approved ?? 0;
+        const reviewed = (d.approved ?? 0) + (d.rejected ?? 0);
+        const total    = d.total ?? 0;
+        const pct      = total > 0 ? (reviewed / total * 100) : 0;
+        document.getElementById('progress-fill').style.width = pct + '%';
+        document.getElementById('progress-label').textContent = `${reviewed} / ${total} reviewed`;
+        const pb = document.getElementById('progress-bar-container');
+        pb.setAttribute('aria-valuenow', reviewed);
+        pb.setAttribute('aria-valuemax', total);
+      }
     } catch (_) {}
   }
 
   // ── Actions ───────────────────────────────────────────────────────────────────
   async function doApprove() {
-    if (editMode || !queue.length || activeMode !== 'pending') return;
+    if (editMode || !queue.length) return;
+    if (activeMode !== 'pending' && activeMode !== 'writing') return;
     const q = queue[currentIndex];
-    await fetch(`${API}/questions/${q.id}/approve`, { method: 'POST' });
+    const url = activeMode === 'writing'
+      ? `${API}/writing-prompts/${q.id}/approve`
+      : `${API}/questions/${q.id}/approve`;
+    await fetch(url, { method: 'POST' });
     queue.splice(currentIndex, 1);
     if (currentIndex >= queue.length) currentIndex = Math.max(0, queue.length - 1);
     render();
@@ -786,9 +1013,13 @@
   }
 
   async function doReject() {
-    if (editMode || !queue.length || activeMode !== 'pending') return;
+    if (editMode || !queue.length) return;
+    if (activeMode !== 'pending' && activeMode !== 'writing') return;
     const q = queue[currentIndex];
-    await fetch(`${API}/questions/${q.id}/reject`, { method: 'POST' });
+    const url = activeMode === 'writing'
+      ? `${API}/writing-prompts/${q.id}/reject`
+      : `${API}/questions/${q.id}/reject`;
+    await fetch(url, { method: 'POST' });
     queue.splice(currentIndex, 1);
     if (currentIndex >= queue.length) currentIndex = Math.max(0, queue.length - 1);
     render();
@@ -917,9 +1148,16 @@
 
   // ── Subject filter ────────────────────────────────────────────────────────────
   function filterSubject(btn, subject) {
-    document.querySelectorAll('.subject-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('#subject-filter-section .subject-btn').forEach(b => b.classList.remove('active'));
     btn.classList.add('active');
     activeSubject = subject;
+    loadQueue();
+  }
+
+  function filterSchool(btn, school) {
+    document.querySelectorAll('#school-filter-section .subject-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    activeSchool = school;
     loadQueue();
   }
 
@@ -936,9 +1174,11 @@
 
     if (typing) return;
 
-    if (e.key === 'a' || e.key === 'A') doApprove();
-    if (e.key === 'r' || e.key === 'R') doReject();
-    if (e.key === 'e' || e.key === 'E') enterEdit();
+    if (!quizMode) {
+      if (e.key === 'a' || e.key === 'A') doApprove();
+      if (e.key === 'r' || e.key === 'R') doReject();
+      if ((e.key === 'e' || e.key === 'E') && activeMode !== 'writing') enterEdit();
+    }
     if (e.key === 'ArrowRight') { e.preventDefault(); navNext(); }
     if (e.key === 'ArrowLeft')  { e.preventDefault(); navPrev(); }
   });

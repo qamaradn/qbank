@@ -1,0 +1,143 @@
+You are generating original Australian selective school exam Verbal Reasoning
+practice questions for Year 9-10 entry (students aged 13-15).
+
+All questions must be entirely your own original creation. Do NOT reproduce,
+closely paraphrase, or adapt any question from any published source, exam
+paper, textbook, website, or question bank. Every question must be freshly
+composed by you from scratch.
+
+TARGET EXAMS: Victorian Selective Entry (Melbourne High, MacRobertson Girls,
+Nossal, Suzanne Cory) and NSW Selective High School Placement Test.
+
+DIFFICULTY: Semi-medium only. Questions should be accessible to a confident
+Year 7-8 student and straightforward for a Year 9-10 student. Use common
+vocabulary that most students will have encountered. Answers should be
+findable with careful thought — not trivial, but not frustrating either.
+Distractors should be plausible but clearly wrong on reflection.
+
+———————————————————————————————————————————
+QUESTION DISTRIBUTION — EXACTLY 10 QUESTIONS PER BATCH
+———————————————————————————————————————————
+
+TIER 1 — HIGH PRIORITY (exactly 6 questions)
+Pick from these four categories. Rotate which ones appear each batch.
+Do not use the same category more than 3 times in one batch.
+
+  • Word analogies — "X is to Y as A is to ___"
+  • Synonyms — "which word is most similar in meaning to X"
+  • Antonyms — "which word is most nearly opposite in meaning to X"
+  • Odd one out — "four words are alike, which is the odd one out"
+
+TIER 2 — MEDIUM PRIORITY (exactly 3 questions)
+Pick from these three categories. Use a different one each time where possible.
+
+  • Sentence completion — choose word that best completes the sentence
+  • Word pattern / letter codes — decode a letter or word pattern rule
+  • Word relationships / classification — identify how words relate or group
+
+TIER 3 — SUPPLEMENTARY (exactly 2 questions)
+Pick from these two categories. Alternate between them across batches.
+
+  • Prefix / suffix / word roots — deduce meaning from word structure
+  • Logical deduction with words — syllogisms using invented or real words
+
+———————————————————————————————————————————
+DIFFICULTY RULES — APPLY TO ALL 10 QUESTIONS
+———————————————————————————————————————————
+
+VOCABULARY LEVEL:
+- Use everyday vocabulary a Year 7-9 student will likely know
+- Good examples: brave, honest, generous, curious, stubborn, cheerful,
+  ancient, fragile, loyal, swift, cruel, timid, clumsy, precise, vague,
+  triumph, defeat, expand, reduce, similar, opposite, sequence, pattern
+- Avoid sophisticated/rare words (reticent, loquacious, intransigent,
+  acquiesce) — these belong in harder questions
+- Avoid technical jargon entirely
+
+DISTRACTOR QUALITY — most important rule:
+- All 3 wrong options must be genuine vocabulary words
+- Wrong options must be same part of speech as the correct answer
+- At least 2 distractors must be close enough that a weak student picks them
+- Never make the correct answer obvious by process of elimination alone
+- For analogies: all 4 options must fit the surface reading of the question
+  but only one fits the precise relationship
+
+ANALOGY RELATIONSHIPS — use these specific types, vary across batch:
+- function (architect:building :: composer:symphony)
+- degree/intensity (warm:hot :: content:ecstatic)
+- part-to-whole (chapter:novel :: verse:poem)
+- category-member (oak:tree :: sonnet:poem)
+- cause-effect (drought:famine :: exercise:fitness)
+- antonym-pair (courage:cowardice :: generosity:greed)
+- tool-user (scalpel:surgeon :: chisel:sculptor)
+- characteristic (miser:frugal :: orator:eloquent)
+
+ODD ONE OUT RULES:
+- The grouping logic must be clearly defensible in one sentence
+- All 4 options must look like they belong — the odd one out must require
+  real thought to identify
+- Never use a grouping so obvious a Year 5 student would spot it instantly
+- Good groupings: subtle semantic distinctions, word class traps,
+  connotation differences, degree of intensity
+
+SENTENCE COMPLETION RULES:
+- Sentence must have academic or intellectual content — not trivial
+- Exactly one answer must be unambiguously correct from context
+- The correct word should not be the only one that grammatically fits
+- Use Australian English spelling throughout
+
+WORD PATTERN / CODE RULES:
+- The rule must be discoverable from the example given in the question
+- Rule complexity: appropriate for Year 9-10 (multi-step is fine)
+- Always provide one worked example within the question stem
+
+LOGICAL DEDUCTION RULES:
+- Can use invented words (fiys, giws, dyls) to prevent prior knowledge
+- Premises must be valid — no ambiguous or trick logic
+- Exactly one answer must follow necessarily from the premises
+- Do not require knowledge beyond what is stated in the question
+
+———————————————————————————————————————————
+OUTPUT FORMAT — STRICT
+———————————————————————————————————————————
+
+Return ONLY a valid JSON array of exactly 10 objects.
+No markdown. No preamble. No explanation outside the array.
+Strip any ```json fences before returning.
+
+Each object must have ALL of these fields:
+
+{
+  "question_number": 1,
+  "tier": 1,
+  "category": "analogy|synonym|antonym|odd_one_out|sentence_completion|word_pattern|word_relationship|prefix_suffix_root|logical_deduction",
+  "stem": "full question text exactly as student sees it",
+  "option_a": "...",
+  "option_b": "...",
+  "option_c": "...",
+  "option_d": "...",
+  "correct_answer": "A|B|C|D",
+  "explanation": "one sentence explaining why correct answer is right AND why top distractor is wrong",
+  "difficulty": "medium",
+  "topic": "specific sub-type e.g. function-analogy, degree-analogy, synonym-vocabulary",
+  "year_level": "9-10",
+  "confidence": 0.0-1.0
+}
+
+———————————————————————————————————————————
+VALIDATION CHECKLIST — VERIFY BEFORE RETURNING
+———————————————————————————————————————————
+
+☑ Every question is original — not copied or adapted from any source
+☑ Exactly 10 questions total
+☑ Exactly 6 Tier 1, exactly 3 Tier 2, exactly 2 Tier 3
+☑ No Tier 1 category used more than 3 times
+☑ Every correct_answer is "A", "B", "C", or "D" — never lowercase
+☑ Correct answer position is varied — not always B or C
+☑ All options are real English words (except invented-word logic questions)
+☑ All options are same part of speech as the correct answer
+☑ No question repeated or closely paraphrased from another in same batch
+☑ Australian spelling used throughout (recognise, colour, favour, analyse)
+☑ All 10 questions have difficulty set to "medium" (semi-medium level)
+☑ Every confidence score honestly reflects question quality
+☑ explanation addresses both why correct IS correct AND why best distractor is wrong

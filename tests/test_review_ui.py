@@ -182,7 +182,7 @@ def test_ui_12_stats_sidebar(soup, js):
 def test_ui_13_subject_filter(soup, js):
     """[CONTRACT] subject filter buttons present for all 5 subjects."""
     text = soup.get_text().lower() + js.lower()
-    for subject in ("quantitative", "logical", "science", "reading", "writing"):
+    for subject in ("quantitative", "verbal", "science", "reading", "writing"):
         assert subject in text, f"Subject filter for '{subject}' not found"
     # JS must filter by subject
     assert "subject" in js, "No subject filter logic in JS"

@@ -43,12 +43,12 @@ def _insert_question(conn: sqlite3.Connection, q: dict) -> None:
             id, subject, stem, option_a, option_b, option_c, option_d,
             correct_answer, explanation, topic, difficulty, confidence,
             source_book, source_page, source_page_description, passage,
-            review_status, created_at
+            figure_svg, review_status, created_at
         ) VALUES (
             :id, :subject, :stem, :option_a, :option_b, :option_c, :option_d,
             :correct_answer, :explanation, :topic, :difficulty, :confidence,
             :source_book, :source_page, :source_page_description, :passage,
-            :review_status, :created_at
+            :figure_svg, :review_status, :created_at
         )""",
         q,
     )
@@ -96,8 +96,13 @@ def load_book(
             continue
 
         for q in questions:
+            q.setdefault("figure_svg", None)
             stem = q.get("stem", "")
             if not stem:
+                stats["failed"] += 1
+                continue
+            if q.get("correct_answer") not in ("A", "B", "C", "D"):
+                logger.warning(f"Skipped (invalid correct_answer={q.get('correct_answer')!r}): {stem[:60]}")
                 stats["failed"] += 1
                 continue
 

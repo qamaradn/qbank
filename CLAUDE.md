@@ -65,11 +65,12 @@ Your local machine
 
 ---
 
-## THE 5 SUBJECTS — FIXED. NEVER CHANGE THESE.
+## THE 6 SUBJECTS — FIXED. NEVER CHANGE THESE.
 
 | Subject ID | Full Name | Folder Name |
 |---|---|---|
 | QR | Quantitative Reasoning | quantitative_reasoning |
+| VR | Verbal Reasoning | verbal_reasoning |
 | LR | Logical Reasoning | logical_reasoning |
 | SR | Science Reasoning | science_reasoning |
 | RC | Reading Comprehension | reading_comprehension |
@@ -119,12 +120,12 @@ sole source of truth.
 - **pages 45–54:** quantitative_reasoning
 - **pages 55–60:** reading_comprehension
 - **pages 61–74:** science_reasoning
-- **pages 75–80:** logical_reasoning
+- **pages 75–80:** verbal_reasoning
 - **pages 81–90:** skip
 ```
 
 **Valid subject IDs for Subject Coverage:**
-`quantitative_reasoning` | `logical_reasoning` | `science_reasoning` |
+`quantitative_reasoning` | `verbal_reasoning` | `science_reasoning` |
 `reading_comprehension` | `writing` | `skip`
 
 **`skip` means:** cover pages, answer keys, indexes, ads, worked examples —
@@ -185,7 +186,7 @@ PHASE 3 — GENERATE QUESTIONS (Gemini Vision API)
 │   Gemini invents a new scenario/passage FIRST, then generates
 │   10 questions that reference it — questions cite "the passage",
 │   "Study 1", "Study 2", etc.
-├── STANDALONE SUBJECTS (quantitative_reasoning, logical_reasoning):
+├── STANDALONE SUBJECTS (quantitative_reasoning, verbal_reasoning):
 │   Gemini generates 10 standalone MCQs inspired by the page style
 ├── Resumable: skips pages whose output JSON already exists
 ├── API_DELAY_SECONDS between calls
@@ -258,7 +259,7 @@ HUMAN REVIEW UI
 CREATE TABLE IF NOT EXISTS questions (
     id                      TEXT PRIMARY KEY,
     subject                 TEXT NOT NULL CHECK (subject IN (
-                                'quantitative_reasoning','logical_reasoning',
+                                'quantitative_reasoning','verbal_reasoning',
                                 'science_reasoning','reading_comprehension','writing'
                             )),
     stem                    TEXT NOT NULL,
@@ -456,7 +457,7 @@ Return ONLY a valid JSON object:
 }
 ```
 
-### Standalone subjects (quantitative_reasoning, logical_reasoning)
+### Standalone subjects (quantitative_reasoning, verbal_reasoning)
 
 ```
 You are an expert Australian curriculum exam question writer for selective school entry.
@@ -625,6 +626,120 @@ sqlite3 /data/db/qbank.db "SELECT subject, review_status, COUNT(*) FROM question
 
 ---
 
+## WRITING PROMPTS — PLANNED FEATURE (not yet built)
+
+Australian selective schools test writing differently — this needs a separate
+`writing_prompts` table and a Claude-powered generator (not Gemini).
+
+### School types and what they test
+
+| School | Prompt types | Stimulus |
+|---|---|---|
+| JMSS | scientific_report, scientific_analysis | data tables, graphs, experiment descriptions |
+| Victorian selective | narrative, persuasive | quote, image, open topic |
+| NSW selective (ASAT) | narrative, persuasive, article, diary, email, speech, advice_sheet, news_report | image, quote, scenario, or combination |
+
+### JSON schema (what Claude generates per prompt)
+
+```json
+{
+  "id": "uuid-v4",
+  "prompt_type": "narrative|persuasive|scientific_report|scientific_analysis|article|diary|email|speech|advice_sheet|news_report",
+  "school_type": "jmss|victorian_selective|nsw_selective|general",
+  "stimulus_type": "text|image|quote|scenario|data",
+  "stimulus_content": "Full text of the scenario, quote, or data table (plain text)",
+  "stimulus_image_desc": null,
+  "task_instruction": "The actual writing task sentence the student reads",
+  "word_count_min": 300,
+  "word_count_max": 400,
+  "time_limit_minutes": 30,
+  "target_year": "9-10",
+  "difficulty": "medium",
+  "topic": "Environment",
+  "marking_focus": ["ideas", "structure", "language", "voice"],
+  "review_status": "pending",
+  "created_at": "2026-05-23T..."
+}
+```
+
+### DB table to add to db/schema.sql
+
+```sql
+CREATE TABLE IF NOT EXISTS writing_prompts (
+    id                  TEXT PRIMARY KEY,
+    prompt_type         TEXT NOT NULL CHECK (prompt_type IN (
+                            'narrative','persuasive','scientific_report',
+                            'scientific_analysis','article','diary',
+                            'email','speech','advice_sheet','news_report'
+                        )),
+    school_type         TEXT NOT NULL CHECK (school_type IN (
+                            'jmss','victorian_selective','nsw_selective','general'
+                        )),
+    stimulus_type       TEXT NOT NULL CHECK (stimulus_type IN (
+                            'text','image','quote','scenario','data'
+                        )),
+    stimulus_content    TEXT,
+    stimulus_image_desc TEXT,
+    task_instruction    TEXT NOT NULL,
+    word_count_min      INTEGER DEFAULT 300,
+    word_count_max      INTEGER DEFAULT 400,
+    time_limit_minutes  INTEGER DEFAULT 30,
+    target_year         TEXT NOT NULL,
+    difficulty          TEXT NOT NULL CHECK (difficulty IN ('medium','hard')),
+    topic               TEXT,
+    marking_focus       TEXT,
+    source_book         TEXT,
+    review_status       TEXT NOT NULL DEFAULT 'pending'
+                            CHECK (review_status IN ('pending','approved','rejected')),
+    created_at          TEXT NOT NULL,
+    reviewed_at         TEXT,
+    edited              INTEGER NOT NULL DEFAULT 0
+);
+
+CREATE INDEX IF NOT EXISTS idx_wp_school_type   ON writing_prompts(school_type);
+CREATE INDEX IF NOT EXISTS idx_wp_prompt_type   ON writing_prompts(prompt_type);
+CREATE INDEX IF NOT EXISTS idx_wp_review_status ON writing_prompts(review_status);
+```
+
+### Steps to implement when ready
+
+1. ~~Add table above to `db/schema.sql`~~ ✅ DONE
+2. ~~Update `db/init.py` → `create_tables()` to create it~~ ✅ DONE (init.py reads schema.sql)
+3. ~~Run `create_tables()` on VM to add table to live DB~~ ✅ DONE
+4. ~~Add writing_prompts endpoints to `review/server.py`~~ ✅ DONE
+   - `GET /writing-prompts?status=&school_type=`
+   - `POST /writing-prompts/{id}/approve`
+   - `POST /writing-prompts/{id}/reject`
+   - `GET /stats/writing`
+5. ~~Extend review UI to handle writing prompts~~ ✅ DONE
+   - "Writing" tab in header — switches sidebar to school_type filter
+   - `renderWritingPrompt()` shows: tags + stimulus box (yellow accent) + task box (blue accent) + meta
+   - A/R keyboard shortcuts work; E (edit) disabled in writing mode
+6. Add `stimulus_image_path` column to `writing_prompts` table — for graph/photo prompts
+   - Store image files in `run_data/writing_prompts/figures/`
+   - FastAPI mounts that dir as static files at `/wp-figures/`
+   - UI renders image above stimulus text when field is populated
+   - `stimulus_content` still used for caption alongside image
+   - Steps: ALTER TABLE + StaticFiles mount in server.py + 10 lines in renderWritingPrompt()
+7. Write `writing/insert_prompts.py` — loads a JSON array file → bulk inserts into writing_prompts
+8. Write `writing/generate_prompts.py` — uses Claude API (Anthropic), not Gemini
+   - Takes `school_type`, `prompt_type`, `count` as args
+   - Returns list of JSON objects matching schema above
+   - Australian context mandatory throughout
+   - JMSS: include real-ish data tables in stimulus_content (enzymes, ecosystems, physics)
+   - NSW: vary stimulus_type across a batch (don't do all scenarios)
+   - For image prompts: set stimulus_type='image', populate stimulus_image_desc, leave stimulus_image_path null (human adds image file manually)
+
+### Notes
+- This is NOT MCQ — students write 300–400 words. No correct_answer field.
+- marking_focus stored as JSON array string (SQLite has no array type)
+- 30 prompts already in DB: 10 JMSS, 10 NSW, 10 Victorian — all pending review
+- Images live in run_data/ (gitignored) — migrate to Supabase URLs later
+- Claude (Anthropic API) preferred over Gemini for writing prompt generation
+  — better narrative creativity and Australian curriculum alignment
+
+---
+
 ## PROGRESS CHECKLIST (update each session)
 
 - [x] GitHub repo created and cloned to VM
@@ -644,16 +759,20 @@ sqlite3 /data/db/qbank.db "SELECT subject, review_status, COUNT(*) FROM question
 - [x] review/ui/index.html built (dark dashboard, keyboard A/R/E/←→, passage display)
 - [x] All tests passing (61 tests)
 - [x] ACT Science page 61 processed end-to-end — passage-based questions confirmed working
-- [ ] First full book processed end-to-end on VM (all 30 pages of act_test1)
+- [x] act_test1 + act_test2 fully generated (RC+SR, QR skipped for flash-lite)
+- [x] act_test3, act_test4, act_test5 running in background (RC+SR only)
+- [ ] Human review of pending questions in review UI
+- [ ] QR pages rerun with GEMINI_MODEL=gemini-2.5-flash (full model, no thinking)
+- [ ] writing_prompts table + generator implemented (see WRITING PROMPTS section above)
 - [ ] First batch synced to Supabase
 
 ---
 
 ## CURRENT STATUS
 
-**Last worked on:** 2026-05-22
-**Next task:** Process first full book through complete pipeline (all 30 pages of act_test1)
+**Last worked on:** 2026-05-23
+**Next task:** Writing prompts feature (schema + generator) OR human review of pending questions
 **Blockers:** None
-**Notes:** Pipeline fully built. Gemini generates passage-first for SR/RC subjects —
-question quality confirmed excellent. Markdown tables in passages render correctly
-in review UI via marked.js. All 61 tests green.
+**Notes:** act_test3/4/5 running in tmux session `qbank` (RC+SR only, ~61 pages).
+flash-lite strategy: SR+RC = excellent quality, QR = skip for now (arithmetic errors).
+670+ questions pending review. Writing prompts schema designed — see section above.

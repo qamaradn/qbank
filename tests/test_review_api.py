@@ -182,7 +182,7 @@ def test_r08_filter_by_subject(db_path):
     for _ in range(3):
         _insert_question(conn, subject="science_reasoning")
     for _ in range(5):
-        _insert_question(conn, subject="logical_reasoning")
+        _insert_question(conn, subject="verbal_reasoning")
     conn.close()
 
     from review.server import create_app
