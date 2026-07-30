@@ -65,10 +65,11 @@ Your local machine
 
 ---
 
-## THE 6 SUBJECTS — FIXED. NEVER CHANGE THESE.
+## THE 7 SUBJECTS — FIXED. NEVER CHANGE THESE.
 
 | Subject ID | Full Name | Folder Name |
 |---|---|---|
+| MA | Mathematics | mathematics |
 | QR | Quantitative Reasoning | quantitative_reasoning |
 | VR | Verbal Reasoning | verbal_reasoning |
 | LR | Logical Reasoning | logical_reasoning |
@@ -78,7 +79,18 @@ Your local machine
 
 These are the ONLY valid subject values in the entire codebase.
 Every database column, folder name, and UI label must use exactly these values.
-No exceptions. No additions.
+No exceptions. Do not add an eighth without the owner's explicit instruction.
+
+**MA vs QR — do not merge these.** `mathematics` is curriculum-based maths
+(e.g. the Year 7 NSW syllabus: number, algebra, measurement, geometry,
+statistics, probability), keyed to a year level. `quantitative_reasoning` is
+test-style quantitative questions as they appear in selective exam papers.
+They are separate subjects so they can be drilled separately, and because
+dedup is subject-scoped, a maths question is never compared against a QR one.
+
+`logical_reasoning` is NOT spare capacity: the Selectly app already maps it to
+the NSW selective **Thinking Skills** section (40 questions / 40 minutes). It is
+empty only because those questions have not been generated yet.
 
 ---
 
@@ -125,8 +137,9 @@ sole source of truth.
 ```
 
 **Valid subject IDs for Subject Coverage:**
-`quantitative_reasoning` | `verbal_reasoning` | `science_reasoning` |
-`reading_comprehension` | `writing` | `skip`
+`mathematics` | `quantitative_reasoning` | `verbal_reasoning` |
+`logical_reasoning` | `science_reasoning` | `reading_comprehension` |
+`writing` | `skip`
 
 **`skip` means:** cover pages, answer keys, indexes, ads, worked examples —
 anything Gemini should NOT generate questions from.
@@ -259,8 +272,9 @@ HUMAN REVIEW UI
 CREATE TABLE IF NOT EXISTS questions (
     id                      TEXT PRIMARY KEY,
     subject                 TEXT NOT NULL CHECK (subject IN (
-                                'quantitative_reasoning','verbal_reasoning',
-                                'science_reasoning','reading_comprehension','writing'
+                                'mathematics','quantitative_reasoning','verbal_reasoning',
+                                'logical_reasoning','science_reasoning',
+                                'reading_comprehension','writing'
                             )),
     stem                    TEXT NOT NULL,
     option_a                TEXT,
@@ -276,6 +290,7 @@ CREATE TABLE IF NOT EXISTS questions (
     source_page             INTEGER,
     source_page_description TEXT,
     passage                 TEXT,
+    figure_svg              TEXT,
     review_status           TEXT NOT NULL DEFAULT 'pending'
                                 CHECK (review_status IN ('pending','approved','rejected')),
     created_at              TEXT NOT NULL,

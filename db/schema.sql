@@ -3,7 +3,7 @@
 CREATE TABLE IF NOT EXISTS questions (
     id                      TEXT PRIMARY KEY,
     subject                 TEXT NOT NULL CHECK (subject IN (
-                                'quantitative_reasoning','verbal_reasoning',
+                                'mathematics','quantitative_reasoning','verbal_reasoning',
                                 'logical_reasoning','science_reasoning',
                                 'reading_comprehension','writing'
                             )),

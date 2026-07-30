@@ -43,6 +43,7 @@ _SCRATCH   = os.environ.get("SCRATCH_DIR", "run_data/scratch")
 
 SUBJECT_ALIASES = {
     "vr": "verbal_reasoning",
+    "ma": "mathematics",
     "qr": "quantitative_reasoning",
     "lr": "logical_reasoning",
     "sr": "science_reasoning",

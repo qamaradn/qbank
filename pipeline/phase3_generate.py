@@ -21,7 +21,8 @@ from pathlib import Path
 logger = logging.getLogger(__name__)
 
 SUBJECT_NAMES = {
-    "quantitative_reasoning": "Quantitative Reasoning (Mathematics)",
+    "mathematics": "Mathematics",
+    "quantitative_reasoning": "Quantitative Reasoning",
     "verbal_reasoning": "Verbal Reasoning",
     "logical_reasoning": "Logical Reasoning",
     "science_reasoning": "Science Reasoning",

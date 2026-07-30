@@ -46,6 +46,7 @@ _DB        = os.environ.get("DB_PATH",    "run_data/db/qbank.db")
 _STATE_DIR = os.environ.get("STATE_DIR",  "run_data")
 
 SUBJECT_ALIASES = {
+    "ma": "mathematics",
     "qr": "quantitative_reasoning",
     "vr": "verbal_reasoning",
     "lr": "logical_reasoning",
@@ -54,6 +55,7 @@ SUBJECT_ALIASES = {
 }
 
 SUBJECT_LABELS = {
+    "mathematics":            "Mathematics — curriculum topics: number, algebra, measurement, geometry, statistics, probability",
     "quantitative_reasoning": "Quantitative Reasoning — maths, arithmetic, algebra, number patterns",
     "verbal_reasoning":       "Verbal Reasoning — analogies, word codes, sequences, odd-one-out, hidden words, synonyms, antonyms",
     "logical_reasoning":      "Logical Reasoning — deductive reasoning, patterns, syllogisms, spatial reasoning, abstract thinking",
@@ -62,6 +64,13 @@ SUBJECT_LABELS = {
 }
 
 SUBJECT_SYSTEM = {
+    "mathematics": (
+        "You are an expert mathematics teacher and exam question writer for Australian schools. "
+        "You have deep knowledge of the curriculum strands — number, algebra, measurement, geometry, "
+        "statistics and probability — and of how each topic is taught at the stated year level. "
+        "Verify every calculation explicitly, and check that each distractor corresponds to a "
+        "plausible student error rather than a random wrong value."
+    ),
     "quantitative_reasoning": (
         "You are an expert mathematics teacher and exam question writer for Australian selective schools. "
         "You have deep knowledge of arithmetic, algebra, number patterns, ratios, and problem solving at Year 9-10 level. "

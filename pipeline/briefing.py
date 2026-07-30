@@ -20,6 +20,9 @@ from pathlib import Path
 from typing import Optional
 
 VALID_SUBJECTS = {
+    # mathematics = curriculum-based maths (e.g. Year 7 NSW syllabus), kept separate
+    # from quantitative_reasoning, which is test-style quantitative questions.
+    "mathematics",
     "quantitative_reasoning",
     "verbal_reasoning",
     "logical_reasoning",
