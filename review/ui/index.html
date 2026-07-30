@@ -233,10 +233,36 @@
     .passage-box p { margin: 0 0 10px; }
     .passage-box p:last-child { margin-bottom: 0; }
 
+    /* Stem blocks. Stems are plain text, never markdown — many contain characters
+       markdown would eat ("5x + 3 < 2x + 18", "15% of ___ = 12", "T_wc"), so they are
+       set with textContent. pre-wrap keeps hand-aligned monospace columns intact. */
+    .stem-text { white-space: pre-wrap; }
+    .stem-text + .stem-text, .stem-table + .stem-text { margin-top: 10px; }
+    .stem-table {
+      border-collapse: collapse;
+      margin: 12px 0;
+      font-size: 13px;
+      font-family: var(--mono);
+    }
+    .stem-table th, .stem-table td {
+      border: 1px solid #30363d;
+      padding: 6px 12px;
+      text-align: left;
+      white-space: nowrap;
+    }
+    .stem-table th { background: #21262d; font-weight: 600; }
+    .stem-table tr:nth-child(even) td { background: #1a1f27; }
+    /* Wide tables scroll on their own rather than stretching the review pane. */
+    .stem-table-wrap { overflow-x: auto; }
+
     /* Figure */
     .figure-container {
       margin-bottom: 20px;
       background: #ffffff;
+      /* The card forces a light background, so it must also define the ink colour.
+         Without this, currentColor inherits --text (#E6EDF3) and figures render
+         near-white on white. */
+      color: #0D1117;
       border: 1px solid var(--border);
       border-radius: 4px;
       padding: 20px;
@@ -838,6 +864,69 @@
     area.appendChild(meta);
   }
 
+  // Stems are plain text, not markdown, and are set with textContent so that
+  // "5x + 3 < 2x + 18" or "15% of ___ = 12" survive verbatim. The one exception is a
+  // pipe table (price lists, frequency tables), which is rebuilt as a real <table> —
+  // as plain text its newlines collapse and the columns become an unreadable run-on line.
+  function isTableRow(line) {
+    return line.trim().startsWith('|');
+  }
+
+  // A markdown alignment row, e.g. |----|:---:|, carries no data.
+  function isTableDivider(line) {
+    return /^\|[\s:|-]+\|?$/.test(line.trim()) && line.includes('-');
+  }
+
+  function splitTableRow(line) {
+    const t = line.trim();
+    return t.replace(/^\|/, '').replace(/\|$/, '').split('|').map(c => c.trim());
+  }
+
+  function buildStemTable(lines) {
+    const rows = lines.filter(l => !isTableDivider(l)).map(splitTableRow);
+    const hasHeader = lines.some(isTableDivider);
+    const wrap = document.createElement('div');
+    wrap.className = 'stem-table-wrap';
+    const table = document.createElement('table');
+    table.className = 'stem-table';
+    rows.forEach((cells, i) => {
+      const tr = document.createElement('tr');
+      cells.forEach(cell => {
+        const td = document.createElement(hasHeader && i === 0 ? 'th' : 'td');
+        td.textContent = cell;
+        tr.appendChild(td);
+      });
+      table.appendChild(tr);
+    });
+    wrap.appendChild(table);
+    return wrap;
+  }
+
+  function renderStem(container, text) {
+    const lines = String(text).split('\n');
+    let buf = [], bufIsTable = false;
+
+    const flush = () => {
+      if (!buf.length) return;
+      if (bufIsTable) {
+        container.appendChild(buildStemTable(buf));
+      } else {
+        const div = document.createElement('div');
+        div.className = 'stem-text';
+        div.textContent = buf.join('\n').replace(/^\n+|\n+$/g, '');
+        if (div.textContent) container.appendChild(div);
+      }
+      buf = [];
+    };
+
+    for (const line of lines) {
+      const t = isTableRow(line);
+      if (t !== bufIsTable) { flush(); bufIsTable = t; }
+      buf.push(line);
+    }
+    flush();
+  }
+
   function renderQuestion(q) {
     const area = document.getElementById('question-area');
     area.innerHTML = '';
@@ -872,7 +961,7 @@
     // Stem
     const stem = document.createElement('div');
     stem.className = 'question-stem';
-    stem.textContent = q.stem || q.writing_prompt || '';
+    renderStem(stem, q.stem || q.writing_prompt || '');
     area.appendChild(stem);
 
     // Options (MCQ)

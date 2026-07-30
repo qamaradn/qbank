@@ -96,25 +96,33 @@ def test_ui_04_correct_answer_green_class_defined(css, js):
 
 
 # ── UI-05 ──────────────────────────────────────────────────────────────────────
+# Figures are inline SVG stored on the question row (questions.figure_svg), injected
+# straight into the page. They are NOT separate image files, so there is no has_figure
+# flag, no figure_url and no <img> — those belonged to the pre-4-phase pipeline.
 def test_ui_05_figure_display_logic_in_js(js):
-    """[CONTRACT] JS contains logic to show figure above question when has_figure=true."""
-    assert "has_figure" in js or "hasFigure" in js, "No has_figure logic found in JS"
-    assert "figure_url" in js or "figureUrl" in js, "No figure_url rendering logic in JS"
-    assert "<img" in js or "createElement('img')" in js or "img.src" in js, (
-        "No img element creation for figure found in JS"
+    """[CONTRACT] JS renders questions.figure_svg inline, inside a figure container."""
+    assert "figure_svg" in js, "No figure_svg rendering logic found in JS"
+    assert "figure-container" in js, (
+        "figure_svg must be rendered inside a .figure-container element"
     )
+    # The SVG markup has to be injected as markup, not set as text.
+    assert re.search(r"innerHTML\s*=\s*[^;]*svg", js, re.IGNORECASE), (
+        "figure_svg must be injected as markup (innerHTML), or it renders as raw text"
+    )
+    # A figure without a viewBox will not scale to the container; the UI patches one in.
+    assert "viewBox" in js, "No viewBox handling for figures found in JS"
 
 
 # ── UI-06 ──────────────────────────────────────────────────────────────────────
 def test_ui_06_no_figure_hides_image(js):
-    """[CONTRACT] JS hides or omits img when figure_url is null."""
-    # Must have a condition that checks null/falsy figure_url
+    """[CONTRACT] JS only renders the figure block when figure_svg is populated."""
+    # Most questions have figure_svg = NULL, so the block must be guarded by a truthiness
+    # check on the field itself — not merely by something containing the word "figure".
     assert re.search(
-        r"(figure_url|figureUrl)\s*(===|==|!==|!=|&&|\|\||\?)\s*(null|undefined|''|\"\")",
+        r"if\s*\(\s*[A-Za-z_$][\w$]*\.figure_svg\s*\)"
+        r"|if\s*\(\s*[A-Za-z_$][\w$]*\.figure_svg\s*(?:!==|!=)\s*(?:null|undefined)\s*\)",
         js,
-    ) or re.search(r"if\s*\(.*figure", js, re.IGNORECASE), (
-        "No null-check for figure_url found in JS"
-    )
+    ), "figure block is not guarded by a truthiness check on figure_svg"
 
 
 # ── UI-07 ──────────────────────────────────────────────────────────────────────
