@@ -34,3 +34,6 @@ build/
 Thumbs.db
 .vscode/
 .idea/
+
+# figure QA sheets (regenerable)
+/run_data/figure_sheets/
