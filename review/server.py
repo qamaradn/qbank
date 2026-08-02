@@ -85,6 +85,8 @@ def create_app(db_path: str = _DEFAULT_DB) -> FastAPI:
     def list_questions(
         subject: Optional[str] = Query(None),
         status: Optional[str] = Query(None),
+        source_book: Optional[str] = Query(None),
+        has_figure: Optional[bool] = Query(None),
     ):
         sql = "SELECT * FROM questions WHERE 1=1"
         params: list = []
@@ -94,6 +96,14 @@ def create_app(db_path: str = _DEFAULT_DB) -> FastAPI:
         if status:
             sql += " AND review_status=?"
             params.append(status)
+        if source_book:
+            sql += " AND source_book=?"
+            params.append(source_book)
+        if has_figure is not None:
+            # figure_svg is NULL for text-only questions and never an empty string,
+            # so IS [NOT] NULL is the whole test
+            sql += " AND figure_svg IS NOT NULL" if has_figure else \
+                   " AND figure_svg IS NULL"
         sql += " ORDER BY created_at DESC"
         with _get_conn(db_path) as conn:
             rows = conn.execute(sql, params).fetchall()

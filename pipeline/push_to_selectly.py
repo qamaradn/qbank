@@ -24,10 +24,12 @@ Tracking:
 """
 
 import argparse
+import base64
 import hashlib
 import json
 import logging
 import os
+import re
 import sqlite3
 import sys
 import time
@@ -97,6 +99,35 @@ def passage_id(row: dict) -> str | None:
     return hashlib.sha256(passage.encode()).hexdigest()[:16]
 
 
+FIGURE_STROKE = "#1a1a2a"
+
+
+def figure_data_uri(row: dict) -> str | None:
+    """
+    Convert the row's inline figure_svg into a data: URI for Selectly's imageUrl.
+
+    Selectly renders figures via <img src=...>, which sandboxes the SVG (no script
+    execution) but also means the SVG cannot inherit page styles. Two fixes needed:
+      - currentColor has no page to inherit from, so bind it to an explicit stroke
+      - width/height are usually absent, so derive them from viewBox or the image
+        renders at the default 300x150 and clips
+    """
+    svg = (row.get("figure_svg") or "").strip()
+    if not svg:
+        return None
+
+    svg = svg.replace("currentColor", FIGURE_STROKE)
+
+    if not re.search(r"<svg[^>]*\swidth=", svg):
+        m = re.search(r'viewBox="\s*[\d.+-]+\s+[\d.+-]+\s+([\d.]+)\s+([\d.]+)', svg)
+        if m:
+            width, height = m.group(1), m.group(2)
+            svg = svg.replace("<svg", f'<svg width="{width}" height="{height}"', 1)
+
+    encoded = base64.b64encode(svg.encode("utf-8")).decode("ascii")
+    return f"data:image/svg+xml;base64,{encoded}"
+
+
 def row_to_question(row: dict) -> dict:
     q: dict = {
         "questionType": "mcq",
@@ -112,7 +143,7 @@ def row_to_question(row: dict) -> dict:
         },
         "correctAnswer": row["correct_answer"],
         "explanation": row.get("explanation") or "",
-        "imageUrl": None,
+        "imageUrl": figure_data_uri(row),
     }
     pid = passage_id(row)
     if pid is not None:

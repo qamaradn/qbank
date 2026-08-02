@@ -613,6 +613,17 @@
       </div>
     </div>
 
+    <div class="sidebar-section" id="figure-filter-section">
+      <div class="sidebar-label">Diagram</div>
+      <div class="subject-filter" role="group" aria-label="Filter by diagram">
+        <button class="subject-btn active" data-figure="" onclick="filterFigure(this,'')">All</button>
+        <button class="subject-btn" data-figure="1"
+                onclick="filterFigure(this,'1')">Figures only</button>
+        <button class="subject-btn" data-figure="0"
+                onclick="filterFigure(this,'0')">Text only</button>
+      </div>
+    </div>
+
     <div class="sidebar-section" id="school-filter-section" style="display:none;">
       <div class="sidebar-label">School Type</div>
       <div class="subject-filter" role="group" aria-label="Filter by school type">
@@ -709,6 +720,7 @@
   let editMode     = false;
   let originalValues = {};
   let activeSubject  = '';
+  let activeFigure   = '';   // '' = all, '1' = figures only, '0' = text only
   let activeSchool   = '';
   let activeMode     = 'pending'; // 'pending' | 'approved' | 'writing'
   let quizMode       = false;
@@ -788,6 +800,7 @@
       } else {
         const params = new URLSearchParams({ status: activeMode });
         if (activeSubject) params.set('subject', activeSubject);
+        if (activeFigure) params.set('has_figure', activeFigure === '1' ? 'true' : 'false');
         res = await fetch(`${API}/questions?${params}`);
       }
       if (!res.ok) throw new Error(res.statusText);
@@ -1016,6 +1029,11 @@
         `${(conf * 100).toFixed(0)}% confidence` +
       `</span>` +
       `<span>${esc(q.source_book || '')} p.${q.source_page ?? '—'}</span>` +
+      // curriculum-authored books tag each row "Subtopic <Ref> — <title>"; show the
+      // subtopic so coverage is visible while reviewing. Gemini-generated books put a
+      // page description here instead, which is not worth a meta chip.
+      (/^Subtopic /.test(q.source_page_description || '')
+        ? `<span>${esc(q.source_page_description.replace(/^Subtopic /, ''))}</span>` : '') +
       `<span>${(q.subject || '').replace(/_/g, ' ')}</span>` +
       (q.edited ? `<span style="color:var(--edit);">edited</span>` : '');
     area.appendChild(meta);
@@ -1242,6 +1260,13 @@
     document.querySelectorAll('#subject-filter-section .subject-btn').forEach(b => b.classList.remove('active'));
     btn.classList.add('active');
     activeSubject = subject;
+    loadQueue();
+  }
+
+  function filterFigure(btn, figure) {
+    document.querySelectorAll('#figure-filter-section .subject-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    activeFigure = figure;
     loadQueue();
   }
 
