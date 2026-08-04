@@ -109,6 +109,32 @@ def create_app(db_path: str = _DEFAULT_DB) -> FastAPI:
             rows = conn.execute(sql, params).fetchall()
         return [_row_to_dict(r) for r in rows]
 
+    # ── Books ─────────────────────────────────────────────────────────────────
+    @app.get("/books")
+    def list_books(
+        subject: Optional[str] = Query(None),
+        status: Optional[str] = Query(None),
+    ):
+        """Distinct source_books with counts, for the sidebar filter.
+
+        Without this a freshly generated batch is unreviewable in practice: the 32 new
+        cloze questions land among 84 pending reading_comprehension questions from the
+        ACT books with no way to separate them.
+        """
+        sql = ("SELECT source_book, COUNT(*) AS n FROM questions "
+               "WHERE source_book IS NOT NULL")
+        params: list = []
+        if subject:
+            sql += " AND subject=?"
+            params.append(subject)
+        if status:
+            sql += " AND review_status=?"
+            params.append(status)
+        sql += " GROUP BY source_book ORDER BY n DESC"
+        with _get_conn(db_path) as conn:
+            rows = conn.execute(sql, params).fetchall()
+        return [{"source_book": r["source_book"], "count": r["n"]} for r in rows]
+
     # ── Approve ───────────────────────────────────────────────────────────────
     @app.post("/questions/{qid}/approve")
     def approve(qid: str):

@@ -624,6 +624,15 @@
       </div>
     </div>
 
+    <div class="sidebar-section" id="book-filter-section">
+      <div class="sidebar-label">Source book</div>
+      <select id="book-filter" onchange="filterBook(this.value)"
+              style="width:100%;padding:7px 9px;border-radius:7px;background:#161B22;
+                     color:#C9D1D9;border:1px solid #30363D;font-size:12.5px;">
+        <option value="">All books</option>
+      </select>
+    </div>
+
     <div class="sidebar-section" id="school-filter-section" style="display:none;">
       <div class="sidebar-label">School Type</div>
       <div class="subject-filter" role="group" aria-label="Filter by school type">
@@ -721,12 +730,14 @@
   let originalValues = {};
   let activeSubject  = '';
   let activeFigure   = '';   // '' = all, '1' = figures only, '0' = text only
+  let activeBook     = '';   // '' = all books
   let activeSchool   = '';
   let activeMode     = 'pending'; // 'pending' | 'approved' | 'writing'
   let quizMode       = false;
 
   // ── Init ──────────────────────────────────────────────────────────────────────
   async function init() {
+    await refreshBooks();
     await loadQueue();
     await loadStats();
   }
@@ -746,7 +757,9 @@
 
     const isWriting = mode === 'writing';
     document.getElementById('subject-filter-section').style.display = isWriting ? 'none' : '';
+    document.getElementById('book-filter-section').style.display    = isWriting ? 'none' : '';
     document.getElementById('school-filter-section').style.display  = isWriting ? ''     : 'none';
+    if (!isWriting) refreshBooks();
 
     // Show/hide Approve + Reject (always visible in writing mode for A/R)
     const showReview = (mode === 'pending' || mode === 'writing') && !quizMode;
@@ -801,6 +814,7 @@
         const params = new URLSearchParams({ status: activeMode });
         if (activeSubject) params.set('subject', activeSubject);
         if (activeFigure) params.set('has_figure', activeFigure === '1' ? 'true' : 'false');
+        if (activeBook) params.set('source_book', activeBook);
         res = await fetch(`${API}/questions?${params}`);
       }
       if (!res.ok) throw new Error(res.statusText);
@@ -1260,6 +1274,7 @@
     document.querySelectorAll('#subject-filter-section .subject-btn').forEach(b => b.classList.remove('active'));
     btn.classList.add('active');
     activeSubject = subject;
+    refreshBooks();
     loadQueue();
   }
 
@@ -1267,6 +1282,30 @@
     document.querySelectorAll('#figure-filter-section .subject-btn').forEach(b => b.classList.remove('active'));
     btn.classList.add('active');
     activeFigure = figure;
+    loadQueue();
+  }
+
+  async function refreshBooks() {
+    // Scoped to the subject and status in force, so the list only offers books that
+    // actually have questions in the current queue.
+    const params = new URLSearchParams({ status: activeMode });
+    if (activeSubject) params.set('subject', activeSubject);
+    let books = [];
+    try {
+      books = await (await fetch(`${API}/books?${params}`)).json();
+    } catch (e) { return; }
+    const sel = document.getElementById('book-filter');
+    const keep = activeBook;
+    sel.innerHTML = '<option value="">All books</option>' +
+      books.map(b => `<option value="${esc(b.source_book)}">${esc(b.source_book)} (${b.count})</option>`).join('');
+    // A book can vanish when the subject changes; fall back to All rather than
+    // silently filtering on something no longer in the list.
+    if (keep && books.some(b => b.source_book === keep)) sel.value = keep;
+    else { activeBook = ''; sel.value = ''; }
+  }
+
+  function filterBook(book) {
+    activeBook = book;
     loadQueue();
   }
 
