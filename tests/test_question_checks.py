@@ -14,6 +14,7 @@ from tools.question_checks import (
     options_distinct,
     positional_reference,
     relation_monotony,
+    unknown_words,
 )
 
 
@@ -254,3 +255,28 @@ def test_relation_monotony_passes_on_a_varied_batch():
               ("form", "collocation", "opposite"), ("overreach", "domain", "collocation")]
     batch = [vq(r=combos[i % 4]) for i in range(12)]
     assert relation_monotony(batch) == []
+
+
+# ---------------------------------------------------------------- unknown_words
+def test_unknown_words_catches_an_invented_lookalike():
+    """REGRESSION: 'mimec' shipped as a form-distractor for 'mimic'.
+
+    A student who has never met the target can still strike out a non-word on sight,
+    and a marker reads it as a typo.
+    """
+    assert unknown_words("mimec") == ["mimec"]
+
+
+@pytest.mark.parametrize("word", ["flavour", "recognise", "metres", "defence", "colour"])
+def test_unknown_words_accepts_australian_spelling(word):
+    """The system wordlist is American English; the bank is written in Australian."""
+    assert unknown_words(word) == []
+
+
+@pytest.mark.parametrize("word", ["up-to-date", "hand-made", "old-world", "run-down"])
+def test_unknown_words_accepts_hyphenated_compounds(word):
+    assert unknown_words(word) == []
+
+
+def test_unknown_words_accepts_the_target_word_via_extra_ok():
+    assert unknown_words("saltbush", extra_ok=["saltbush"]) == []

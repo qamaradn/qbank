@@ -44,6 +44,7 @@ from tools.question_checks import (  # noqa: E402
     options_distinct,
     positional_reference,
     relation_monotony,
+    unknown_words,
 )
 
 PLAN = ROOT / "tools/vr/vr_plan.json"
@@ -155,6 +156,19 @@ def target_word_errors(q, cat, seen_targets):
     if low in TOO_HARD:
         errs.append(f"target word {word!r} is exotica — TASK §3 pitches at the level of "
                     f"edict, discern, curb, pique, ovation, curtail")
+
+    # An option that repeats the target word gives the game away, and one built out of an
+    # invented lookalike ("mimec" for 'mimic') can be struck out without knowing anything.
+    for k in KEYS:
+        opt = str(q.get(k) or "")
+        # Whole word only. A 'form' distractor is SUPPOSED to share letters with the
+        # target — deter/determine, grim/grimy are the trap working as intended. Only
+        # repeating the target as its own word gives the answer away.
+        if cat != "word_group" and re.search(rf"\b{re.escape(low)}\b", opt.lower()):
+            errs.append(f"option {opt!r} repeats the target word {word!r}")
+        bad = unknown_words(opt, extra_ok=[word])
+        if bad:
+            errs.append(f"option {opt!r} is not made of real words: {bad}")
 
     stem = str(q.get("stem") or "")
     if cat != "word_group":

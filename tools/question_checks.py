@@ -269,6 +269,57 @@ def relation_monotony(questions, group_of=by_topic, cap=0.5, min_group=10):
     return errs
 
 
+# ---------------------------------------------------------------- real words
+# A distractor invented to look like the target ("mimec" for 'mimic') is not a distractor
+# at all: a student who has never met the target word can still strike it out on sight,
+# and a marker reads it as a typo. Caught by eye once; this stops it recurring.
+_WORDLIST_PATH = "/usr/share/dict/words"
+_AU_TO_US = [("our", "or"), ("ise", "ize"), ("isa", "iza"), ("yse", "yze"),
+             ("re", "er"), ("ence", "ense"), ("ogue", "og"), ("ll", "l")]
+
+
+def _load_wordlist(path=_WORDLIST_PATH):
+    try:
+        with open(path, encoding="latin-1") as fh:
+            return {w.strip().lower() for w in fh if w.strip()}
+    except OSError:
+        return set()
+
+
+_WORDS = None
+
+
+def _known(word, vocab):
+    """The list is American English; we write Australian, so try the usual swaps."""
+    w = word.lower().strip("'")
+    if not w or w in vocab or w.rstrip("s") in vocab:
+        return True
+    for au, us in _AU_TO_US:
+        if au in w and (w.replace(au, us) in vocab or w.replace(au, us).rstrip("s") in vocab):
+            return True
+    return False
+
+
+def unknown_words(text, extra_ok=()):
+    """Words in `text` that are not in the system dictionary.
+
+    Hyphenated compounds are checked part by part, so 'up-to-date' and 'hand-made' pass.
+    Returns [] when no wordlist is installed rather than failing every batch.
+    """
+    global _WORDS
+    if _WORDS is None:
+        _WORDS = _load_wordlist()
+    if not _WORDS:
+        return []
+    ok = _WORDS | {w.lower() for w in extra_ok}
+    bad = []
+    for token in re.findall(r"[A-Za-z][A-Za-z'-]*", str(text or "")):
+        parts = [p for p in token.split("-") if p]
+        if not all(_known(p, ok) for p in parts):
+            bad.append(token)
+    return bad
+
+
 # ---------------------------------------------------------------- per-question basics
 def options_distinct(q):
     """False if any two options are equal ignoring case and surrounding whitespace.
