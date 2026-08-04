@@ -776,7 +776,16 @@ CREATE INDEX IF NOT EXISTS idx_wp_review_status ON writing_prompts(review_status
 - [x] ACT Science page 61 processed end-to-end — passage-based questions confirmed working
 - [x] act_test1 + act_test2 fully generated (RC+SR, QR skipped for flash-lite)
 - [x] act_test3, act_test4, act_test5 running in background (RC+SR only)
-- [ ] Human review of pending questions in review UI
+- [x] mathematics subject added (7 subjects) — year7_nsw_maths 532 Qs, 50 SVG figures
+- [x] logical_reasoning built 0 -> 300/300 (2026-08-04), 34 SVG figures, per-question confidence
+- [x] Move LR tooling out of gitignored run_data/ into tools/ and commit (2026-08-04)
+- [ ] Human review of 299 pending logical_reasoning questions
+- [ ] VIC verbal_reasoning: 183 new (173 vocabulary-family) + exclude the 407 off-target
+- [ ] NSW reading_comprehension vocabulary cloze (~120 questions, 15 passages x 8 blanks)
+- [x] Selectly: `mathematics` in schools.ts union — already done, mapped to nsw-shspt
+      "Mathematical Reasoning" (verified 2026-08-04)
+- [ ] Selectly: make pushed questions addressable (send qbank uuid as the row id) — see
+      CURRENT STATUS item 1; blocks the VR exclusion and every future correction
 - [ ] QR pages rerun with GEMINI_MODEL=gemini-2.5-flash (full model, no thinking)
 - [ ] writing_prompts table + generator implemented (see WRITING PROMPTS section above)
 - [ ] First batch synced to Supabase
@@ -785,9 +794,40 @@ CREATE INDEX IF NOT EXISTS idx_wp_review_status ON writing_prompts(review_status
 
 ## CURRENT STATUS
 
-**Last worked on:** 2026-05-23
-**Next task:** Writing prompts feature (schema + generator) OR human review of pending questions
-**Blockers:** None
-**Notes:** act_test3/4/5 running in tmux session `qbank` (RC+SR only, ~61 pages).
-flash-lite strategy: SR+RC = excellent quality, QR = skip for now (arithmetic errors).
-670+ questions pending review. Writing prompts schema designed — see section above.
+**Last worked on:** 2026-08-04
+**Next task:** VIC verbal_reasoning top-up (183 questions) — but first decide how §6
+off-target VR is excluded from VIC practice sets. See
+`pdfs/selective_verbal_reasoning_HANDOVER.md`.
+
+**Blockers:** none technical. One decision needed: VR pool tagging (below).
+
+**DB totals:** 6685 questions — MA 1075, QR 2240, SR 1322, VR 1029, RC 719, LR 300.
+5321 approved, 1340 pending, 24 rejected.
+
+**Recently completed:** `logical_reasoning` built from 0 → **300/300** (2026-08-03/04),
+all 17 categories at target, 34 with inline SVG figures, per-question confidence
+0.84–0.98. Spec: `pdfs/selective_verbal_reasoning_TASK.md` §4. State and method:
+`pdfs/selective_verbal_reasoning_HANDOVER.md`.
+
+**Two things needing attention:**
+
+1. **Nothing already pushed to Selectly can be reached again.** This blocks the VR
+   exclusion below, and every future correction. `/api/questions/import` is insert-only
+   and lets Postgres mint its own uuid, so qbank has no handle on the row it created —
+   all 5321 approved questions are out there unaddressable. Selectly *does* have the
+   machinery: `questions.active` (both the exam and drill selectors honour it) and an
+   `/api/admin/questions-fix` endpoint that can set it — but that endpoint addresses rows
+   by *Selectly's* uuid. Fix: pass the qbank uuid as the row id on import (qbank ids are
+   already uuid-v4), then backfill the existing 5321 by stem-matching via
+   `/api/admin/questions-dump`. Do this before generating anything new.
+
+2. **VR calibration is not just a shortfall.** Questions of types the brief says never to
+   generate — dictionary/alphabetical ordering, word codes, hidden words, anagrams,
+   alphabet position — are approved and being served. **Counts need settling before
+   acting:** a stem+topic classifier finds 166 strict §6 violations (164 approved); the
+   handover's figure of 407 counts a broader "off-spec" set (spatial, double meanings,
+   odd-one-out variants) that is a judgement call, not a §6 breach. Note §8 rates the §6
+   list "Medium-low — argument from absence", which is thin evidence for pulling 400
+   approved questions. The lever is `active=false`, NOT `schoolIds`: `verbal_reasoning`
+   is a vic-seal-only category so there is no other exam to route them to, and the drill
+   selector ignores `schoolIds` entirely. Blocked on item 1.

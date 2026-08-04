@@ -257,8 +257,17 @@ def run(args: argparse.Namespace) -> None:
             total_inserted += inserted
             total_skipped += skipped
             total_errors.extend(errors)
-            for r in batch:
-                newly_pushed.add(r["id"])
+            # Only track what the API actually accepted. Errors are reported as
+            # "Question {index}: ..." against this batch — marking a rejected row
+            # as pushed would silently drop it from every future run.
+            rejected_idx = set()
+            for e in errors:
+                m = re.match(r"Question (\d+):", e)
+                if m:
+                    rejected_idx.add(int(m.group(1)))
+            for idx, r in enumerate(batch):
+                if idx not in rejected_idx:
+                    newly_pushed.add(r["id"])
             logger.info(f"  inserted={inserted} skipped={skipped} errors={len(errors)}")
             if errors:
                 for e in errors[:5]:
