@@ -161,7 +161,11 @@ def validate(qs, nn, plan):
     pool = qs + bank_questions(nn)
     errs += answer_shape_monotony(pool, group_of=category_of)
     errs += length_tell(pool, group_of=category_of)
-    errs += relation_monotony(pool, group_of=category_of)
+    # Only where varied relations are the design. word_group REQUIRES a uniform 'domain'
+    # decoy set (see word_group_errors), so running monotony over it would fail every
+    # correctly built batch — the two checks would contradict each other.
+    errs += relation_monotony([q for q in pool if category_of(q) in RELATION_CATEGORIES],
+                              group_of=category_of)
     return errs
 
 
