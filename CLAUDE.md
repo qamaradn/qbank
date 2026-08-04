@@ -780,7 +780,8 @@ CREATE INDEX IF NOT EXISTS idx_wp_review_status ON writing_prompts(review_status
 - [x] logical_reasoning built 0 -> 300/300 (2026-08-04), 34 SVG figures, per-question confidence
 - [x] Move LR tooling out of gitignored run_data/ into tools/ and commit (2026-08-04)
 - [ ] Human review of 299 pending logical_reasoning questions
-- [ ] VIC verbal_reasoning: 183 new (173 vocabulary-family) + exclude the 407 off-target
+- [x] VIC verbal_reasoning: 183 new questions built and loaded (2026-08-04), all pending
+- [ ] VIC verbal_reasoning: exclude the off-target §6 questions (blocked — see item 1)
 - [ ] NSW reading_comprehension vocabulary cloze (~120 questions, 15 passages x 8 blanks)
 - [x] Selectly: `mathematics` in schools.ts union — already done, mapped to nsw-shspt
       "Mathematical Reasoning" (verified 2026-08-04)
@@ -795,16 +796,41 @@ CREATE INDEX IF NOT EXISTS idx_wp_review_status ON writing_prompts(review_status
 ## CURRENT STATUS
 
 **Last worked on:** 2026-08-04
-**Next task:** VIC verbal_reasoning top-up (183 questions) — but first decide how §6
-off-target VR is excluded from VIC practice sets. See
-`pdfs/selective_verbal_reasoning_HANDOVER.md`.
+**Next task:** human review of 482 pending questions (183 new VR, 299 LR). Then either
+the §5 NSW reading_comprehension vocabulary cloze (~120, not started) or the two
+blockers below.
 
-**Blockers:** none technical. One decision needed: VR pool tagging (below).
+**Blockers:** two, both below. Neither stops new questions being generated; both stop
+questions already pushed from being corrected or withdrawn.
 
-**DB totals:** 6685 questions — MA 1075, QR 2240, SR 1322, VR 1029, RC 719, LR 300.
-5321 approved, 1340 pending, 24 rejected.
+**DB totals:** 6868 questions — MA 1075, QR 2240, SR 1322, VR 1212, RC 719, LR 300.
+5321 approved, 1523 pending, 24 rejected.
 
-**Recently completed:** `logical_reasoning` built from 0 → **300/300** (2026-08-03/04),
+**Build harness for authored questions** (`tools/`, all committed and tested):
+`question_checks.py` holds the subject-agnostic checks — distractor-relation design,
+answer-shape monotony, the longest-option tell, positional explanations, figure rules,
+real-word screening. `vr_finalise.py` / `lr_finalise.py` are the per-subject
+orchestrators; `load_batch.py` loads one batch and refuses to record it as loaded if
+phase 4 dropped anything (phase 4 drops near-duplicates silently). Builders live in
+`tools/vr/` — committed, because the curated word data is the actual work.
+
+**Recently completed:** VIC `verbal_reasoning` §3 top-up, **183/183** (2026-08-04) —
+126 vocabulary-in-context, 25 antonyms, 22 shades of meaning, 10 word-group. All pending.
+Built by hand in `tools/vr/vr_p1..p9_build.py`, not by Gemini.
+
+  The design responds to a measured defect in the existing bank: in ~24 of 26 sampled
+  synonym/antonym questions the three distractors were mutual synonyms and the key was
+  the semantic singleton (ABUNDANT → Plentiful against Scarce/Limited/Meagre), so the
+  item was answerable without knowing the target word. Every new question therefore
+  declares how each distractor is wrong and is rejected if the three cohere.
+
+  Two other measurements shaped it. Bare "Which word means X?" frames score 0.857–0.872
+  against each other, above phase 4's silent 0.85 dedup threshold — so stems are
+  contextual, which §3.1 wants anyway. And once stems are contextual, stem similarity
+  can no longer police vocabulary reuse, so the target word is the question's identity
+  and is carried into `source_page_description` as `[target: word]`.
+
+**Previously:** `logical_reasoning` built from 0 → **300/300** (2026-08-03/04),
 all 17 categories at target, 34 with inline SVG figures, per-question confidence
 0.84–0.98. Spec: `pdfs/selective_verbal_reasoning_TASK.md` §4. State and method:
 `pdfs/selective_verbal_reasoning_HANDOVER.md`.
