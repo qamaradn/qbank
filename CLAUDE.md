@@ -796,22 +796,30 @@ CREATE INDEX IF NOT EXISTS idx_wp_review_status ON writing_prompts(review_status
 ## CURRENT STATUS
 
 **Last worked on:** 2026-08-04
-**Next task:** human review. 1643 pending, of which 602 are newly authored and unseen:
+**Next task:** human review. 1611 pending, of which 602 are newly authored and unseen:
 183 VR (`vr_vic_acer`), 120 RC cloze (`rc_nsw_cloze`), 299 LR (`lr_thinking_skills`).
-The review UI now has a **source book** filter, which is how to isolate each set.
+The review UI has a **source book** filter, which is how to isolate each set.
 
-The §3 and §5 generation work from the task brief is complete. The largest remaining
-qbank-side defect is 139 explanations that leak the generating model's own working
-("Oh, wait.", "Why did I select B?") — 137 QR and 2 SR, 12 of them approved and live.
-TASK §7 forbids this, and several show the model confused about its own answer, so the
-keys need re-deriving rather than the prose merely tidying. Same root cause as the
-open checklist item to rerun QR on the full gemini-2.5-flash model.
+All generation work in the task brief (§3 VIC verbal, §4 NSW thinking skills, §5 NSW
+vocabulary cloze) is complete, and the leaked-working defect is repaired.
 
 **Blockers:** two, both below. Neither stops new questions being generated; both stop
 questions already pushed from being corrected or withdrawn.
 
 **DB totals:** 6988 questions — MA 1075, QR 2240, SR 1322, VR 1212, RC 839, LR 300.
-5321 approved, 1643 pending, 24 rejected.
+5313 approved, 1611 pending, 64 rejected.
+
+**Explanation quality — repaired 2026-08-04.** 139 questions carried the generating
+model's own working in the `explanation` field ("Oh, wait.", "Why did I select B?"),
+which TASK §7 forbids. It was a symptom: comparing the working before the model's first
+self-correction against the stored answer showed 36 questions with no correct option at
+all and 43 whose working supported a different option than the key. In every case checked
+by hand the working was right and the key was wrong, including two that were approved and
+serving students. `tools/repair_leaked_working.py` rejected 38, corrected 42 answers,
+requeued 4 approved rows to pending, and cleaned 59 explanations; the full record is in
+`run_data/output/leaked_working_repairs.json`. `tools/question_checks.leaked_working`
+now screens for it. The root cause is the open checklist item below — those QR pages were
+generated on a thinking model whose scratchpad reached the output.
 
 **Build harness for authored questions** (`tools/`, all committed and tested):
 `question_checks.py` holds the subject-agnostic checks — distractor-relation design,
