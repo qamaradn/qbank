@@ -210,6 +210,9 @@ def figure_svg_errors(svg, max_bytes=3500):
 # Fragile/Weak/Delicate. Every one is solvable by pattern alone.
 RELATIONS = {
     "opposite",       # antonym of the target
+    "synonym",        # means the SAME as the target — the standard trap in an antonym
+                      # question, where the key is the opposite and a synonym is the
+                      # answer a student gives when they read the question too fast
     "nuance",         # related meaning, wrong shade or degree
     "form",           # looks or sounds like the target (curtail / cultivate)
     "domain",         # same subject area, unrelated meaning

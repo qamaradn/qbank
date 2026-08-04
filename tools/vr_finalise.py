@@ -120,6 +120,16 @@ def validate(qs, nn, plan):
                         f"options get shuffled")
 
         cat = category_of(q)
+        # In an antonym question the KEY is the opposite of the target, so a distractor
+        # declared 'opposite' would be a second defensible answer. Conversely a synonym
+        # of the target is the classic trap there, and is simply wrong in a synonym
+        # question, where it would be a second key.
+        rel = q.get("relations") or {}
+        banned = "opposite" if cat == "antonym" else "synonym"
+        for word, r in rel.items():
+            if r == banned:
+                errs.append(f"{tag}: distractor {word!r} is declared {banned!r}, which in "
+                            f"a {cat} question would be a second correct answer")
         if not re.match(r"Category: (\w+) — (.+)$", q.get("source_page_description", "")):
             errs.append(f"{tag}: source_page_description must be 'Category: <key> — <title>'")
         elif cat not in cats:
