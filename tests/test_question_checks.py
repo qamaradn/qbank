@@ -9,7 +9,9 @@ from tools.question_checks import (
     answer_shape_monotony,
     by_topic,
     distractor_relation_errors,
+    disputes_its_own_key,
     figure_svg_errors,
+    leaked_working,
     length_tell,
     options_distinct,
     positional_reference,
@@ -280,3 +282,45 @@ def test_unknown_words_accepts_hyphenated_compounds(word):
 
 def test_unknown_words_accepts_the_target_word_via_extra_ok():
     assert unknown_words("saltbush", extra_ok=["saltbush"]) == []
+
+
+# ---------------------------------------------------------------- leaked_working
+@pytest.mark.parametrize("text", [
+    "Fuel used = 57.375 litres. Oh, wait. The service station is 3/5 of the way.",
+    "Area = 0.5 * 80 * 45 = 1800. Wait. Why did I select B?",
+    "The total is 615 km. Let me recheck the options.",
+    "So n = 8. Let's recheck: 3^7 = 2187.",
+    "The answer is 12. My mistake — the ratio is 3:2.",
+])
+def test_leaked_working_catches_the_models_scratchpad(text):
+    """REGRESSION: 139 shipped questions carried the generating model's own working.
+
+    TASK §7 forbids it, and 12 of them were approved and serving students.
+    """
+    assert leaked_working(text) is not None
+
+
+@pytest.mark.parametrize("text", [
+    "Passengers were asked to wait, which is direct evidence the flight was delayed.",
+    "The waiting time doubled after the timetable changed.",
+    "Actually is an adverb meaning in fact.",
+    "She had to wait three hours for the connecting service.",
+])
+def test_leaked_working_ignores_ordinary_prose(text):
+    """'wait' is an ordinary verb; only self-correction contexts count."""
+    assert leaked_working(text) is None
+
+
+def test_disputes_its_own_key_flags_an_untrustworthy_answer():
+    """Every explanation that argued about which option was right had the wrong key.
+
+    Two of them were approved: 0.5 x 80 x 45 = 1800 stored as 3600, and a 30 000 m2
+    block divided into 100 m2 plots stored as 250 rather than 300.
+    """
+    assert disputes_its_own_key("My answer is 300, which is option B. Why did I select A?")
+    assert disputes_its_own_key("Let me recheck the options. The option is 1800.")
+
+
+def test_disputes_its_own_key_is_quiet_on_a_clean_explanation():
+    assert not disputes_its_own_key(
+        "The block covers 30 000 square metres and each plot 100, giving 300 plots.")

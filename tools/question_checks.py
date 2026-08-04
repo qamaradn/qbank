@@ -323,6 +323,46 @@ def unknown_words(text, extra_ok=()):
     return bad
 
 
+# ---------------------------------------------------------------- leaked working
+# The generating model's scratchpad ending up in the explanation field. TASK §7: "Write it
+# clean — never leak working, self-correction, or 'wait, let me recheck'." Found in 139
+# shipped questions (137 QR, 2 SR), 12 of them already approved and serving students:
+#
+#   "= 526.8 km. Oh, wait. The service station is 3/5 of the way..."
+#   "Area = 0.5 * 80 * 45 = 1800. Wait. ... Why did I select B? Let me recheck the options."
+#
+# The second form matters more than the first: where the model argues with itself about
+# which option is right, the stored correct_answer cannot be trusted either, so these need
+# the answer re-derived rather than the prose tidied.
+LEAKED_WORKING = re.compile(
+    # "Oh, wait." needs the optional comma — without it the sweep missed exactly the
+    # phrasing that made this defect obvious in the first place.
+    r"(^|[.!?;:—–]\s*|\bo[hf],?\s+)wait\b"
+    r"|let me (re-?check|re-?read|reconsider|recompute|re-?do|verify that|think)"
+    r"|\bwhy did i\b|\bi initially\b|\bmy (mistake|apologies)\b"
+    r"|\bhold on\b|\bscratch that\b|\bon second thought\b"
+    r"|\blet'?s re-?(check|read|do|compute)\b"
+    r"|\bactually,\s*(i|let me|the answer)\b|\bcorrection:",
+    re.I | re.M)
+
+# Phrases where the model is arguing with itself about WHICH OPTION is correct. An
+# explanation carrying one of these casts doubt on the stored key, not just the prose.
+DISPUTED_KEY = re.compile(
+    r"\bwhy did i\b|\bre-?check the options\b|\bthe option is\b"
+    r"|\bi (chose|selected|picked)\b|\bshould be option\b", re.I)
+
+
+def leaked_working(text):
+    """Return the offending phrase if an explanation shows the model's own working."""
+    m = LEAKED_WORKING.search(str(text or ""))
+    return m.group(0).strip() if m else None
+
+
+def disputes_its_own_key(text):
+    """True if the explanation argues with itself about which option is right."""
+    return bool(DISPUTED_KEY.search(str(text or "")))
+
+
 # ---------------------------------------------------------------- per-question basics
 def options_distinct(q):
     """False if any two options are equal ignoring case and surrounding whitespace.
