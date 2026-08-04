@@ -71,6 +71,15 @@ RELATION_CATEGORIES = {"vocabulary_synonym", "antonym", "shades_of_meaning"}
 # Words a capable Year 8 student meets in reading, not in a word list. TASK §3 records
 # comfort ratings of 8.5-9.5/10 on the real paper and warns our bank is harder than the
 # exam, so exotica is a calibration failure, not a bonus.
+# Everyday Australian and British words the American system wordlist does not carry.
+# Without this the real-words check rejects perfectly ordinary vocabulary.
+AU_EXTRA = {
+    "peckish", "chuffed", "dob", "esky", "arvo", "ute", "bushwalk", "bushwalker",
+    "doona", "servo", "brekkie", "daggy", "chocka", "sunnies", "togs", "thongs",
+    "tradie", "woop", "yakka", "billabong", "saltbush", "mallee", "pardalote",
+    "kelpie", "wombat", "bilby", "quokka", "goanna", "brumby", "jarrah", "karri",
+}
+
 TOO_HARD = {
     "perspicacious", "obfuscate", "recalcitrant", "perfunctory", "sycophant",
     "intransigent", "obstreperous", "pusillanimous", "grandiloquent", "abstruse",
@@ -124,10 +133,13 @@ def validate(qs, nn, plan):
         # declared 'opposite' would be a second defensible answer. Conversely a synonym
         # of the target is the classic trap there, and is simply wrong in a synonym
         # question, where it would be a second key.
+        # Only where the banned relation would BE the answer. A synonym distractor is
+        # legitimate in shades_of_meaning — it matches the target's meaning at the wrong
+        # intensity, which is exactly the trap that category is built on.
         rel = q.get("relations") or {}
-        banned = "opposite" if cat == "antonym" else "synonym"
+        banned = {"antonym": "opposite", "vocabulary_synonym": "synonym"}.get(cat)
         for word, r in rel.items():
-            if r == banned:
+            if banned and r == banned:
                 errs.append(f"{tag}: distractor {word!r} is declared {banned!r}, which in "
                             f"a {cat} question would be a second correct answer")
         if not re.match(r"Category: (\w+) — (.+)$", q.get("source_page_description", "")):
@@ -176,7 +188,7 @@ def target_word_errors(q, cat, seen_targets):
         # repeating the target as its own word gives the answer away.
         if cat != "word_group" and re.search(rf"\b{re.escape(low)}\b", opt.lower()):
             errs.append(f"option {opt!r} repeats the target word {word!r}")
-        bad = unknown_words(opt, extra_ok=[word])
+        bad = unknown_words(opt, extra_ok=AU_EXTRA | {word})
         if bad:
             errs.append(f"option {opt!r} is not made of real words: {bad}")
 
