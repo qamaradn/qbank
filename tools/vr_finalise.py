@@ -49,7 +49,10 @@ from tools.question_checks import (  # noqa: E402
 PLAN = ROOT / "tools/vr/vr_plan.json"
 GEN = ROOT / "run_data/output/verbal_reasoning/generated"
 MANIFEST = GEN / "vr_MANIFEST.json"
-LOADED = GEN / "vr_LOADED.json"
+# Written by tools/load_batch.py as a list of FILENAMES. Reading a different path here
+# silently made every loaded batch count twice — once from the DB and once from its JSON
+# — inflating the manifest to 63 when only 42 questions existed.
+LOADED = GEN / "vr_vic_acer_LOADED.json"
 DB = ROOT / "run_data/db/qbank.db"
 BOOK = "vr_vic_acer"
 
@@ -219,7 +222,11 @@ def existing_target_words(skip_nn):
 
 
 def loaded_set():
-    return set(json.loads(LOADED.read_text(encoding="utf-8"))) if LOADED.exists() else set()
+    """Batch numbers already inserted into the DB, parsed from the loader's filenames."""
+    if not LOADED.exists():
+        return set()
+    names = json.loads(LOADED.read_text(encoding="utf-8"))
+    return {int(m.group(1)) for m in (re.search(r"_p(\d+)\.json$", n) for n in names) if m}
 
 
 def batch_no(f):
