@@ -130,6 +130,11 @@ def figure_data_uri(row: dict) -> str | None:
 
 def row_to_question(row: dict) -> dict:
     q: dict = {
+        # Carries our row id across so the question stays addressable after import.
+        # Without it Selectly mints its own uuid that we never learn, and the question
+        # can never be deactivated, corrected, or withdrawn. Selectly upserts on this,
+        # so re-pushing a corrected question updates in place instead of duplicating.
+        "qbankId": row["id"],
         "questionType": "mcq",
         "category": row["subject"],
         "difficulty": row["difficulty"],
