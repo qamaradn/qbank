@@ -782,7 +782,7 @@ CREATE INDEX IF NOT EXISTS idx_wp_review_status ON writing_prompts(review_status
 - [ ] Human review of 299 pending logical_reasoning questions
 - [x] VIC verbal_reasoning: 183 new questions built and loaded (2026-08-04), all pending
 - [ ] VIC verbal_reasoning: exclude the off-target §6 questions (blocked — see item 1)
-- [ ] NSW reading_comprehension vocabulary cloze (~120 questions, 15 passages x 8 blanks)
+- [x] NSW reading_comprehension vocabulary cloze — 120 questions, 15 passages (2026-08-04)
 - [x] Selectly: `mathematics` in schools.ts union — already done, mapped to nsw-shspt
       "Mathematical Reasoning" (verified 2026-08-04)
 - [ ] Selectly: make pushed questions addressable (send qbank uuid as the row id) — see
@@ -796,15 +796,22 @@ CREATE INDEX IF NOT EXISTS idx_wp_review_status ON writing_prompts(review_status
 ## CURRENT STATUS
 
 **Last worked on:** 2026-08-04
-**Next task:** human review of 482 pending questions (183 new VR, 299 LR). Then either
-the §5 NSW reading_comprehension vocabulary cloze (~120, not started) or the two
-blockers below.
+**Next task:** human review. 1643 pending, of which 602 are newly authored and unseen:
+183 VR (`vr_vic_acer`), 120 RC cloze (`rc_nsw_cloze`), 299 LR (`lr_thinking_skills`).
+The review UI now has a **source book** filter, which is how to isolate each set.
+
+The §3 and §5 generation work from the task brief is complete. The largest remaining
+qbank-side defect is 139 explanations that leak the generating model's own working
+("Oh, wait.", "Why did I select B?") — 137 QR and 2 SR, 12 of them approved and live.
+TASK §7 forbids this, and several show the model confused about its own answer, so the
+keys need re-deriving rather than the prose merely tidying. Same root cause as the
+open checklist item to rerun QR on the full gemini-2.5-flash model.
 
 **Blockers:** two, both below. Neither stops new questions being generated; both stop
 questions already pushed from being corrected or withdrawn.
 
-**DB totals:** 6868 questions — MA 1075, QR 2240, SR 1322, VR 1212, RC 719, LR 300.
-5321 approved, 1523 pending, 24 rejected.
+**DB totals:** 6988 questions — MA 1075, QR 2240, SR 1322, VR 1212, RC 839, LR 300.
+5321 approved, 1643 pending, 24 rejected.
 
 **Build harness for authored questions** (`tools/`, all committed and tested):
 `question_checks.py` holds the subject-agnostic checks — distractor-relation design,
