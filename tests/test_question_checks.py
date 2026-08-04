@@ -8,10 +8,12 @@ import pytest
 from tools.question_checks import (
     answer_shape_monotony,
     by_topic,
+    distractor_relation_errors,
     figure_svg_errors,
     length_tell,
     options_distinct,
     positional_reference,
+    relation_monotony,
 )
 
 
@@ -184,3 +186,71 @@ def test_options_distinct_detects_case_and_whitespace_duplicates():
     assert options_distinct(q()) is True
     assert options_distinct(q(option_b="AA")) is False
     assert options_distinct(q(option_b="  aa  ")) is False
+
+
+# ---------------------------------------------------------------- distractor relations
+def vq(key="Restrict", d1="Postpone", d2="Extend", d3="Cultivate",
+       r=("nuance", "opposite", "form"), topic="Synonyms"):
+    q = {"topic": topic, "correct_answer": "A", "option_a": key,
+         "option_b": d1, "option_c": d2, "option_d": d3,
+         "relations": {d1: r[0], d2: r[1], d3: r[2]}}
+    return q
+
+
+def test_relations_accepts_three_differently_wrong_distractors():
+    assert distractor_relation_errors(vq()) == []
+
+
+def test_relations_rejects_a_coherent_distractor_bloc():
+    """REGRESSION: ABUNDANT -> Plentiful against Scarce/Limited/Meagre.
+
+    All three distractors were mutual synonyms, so the key was the odd one out and the
+    item tested pattern-spotting rather than vocabulary.
+    """
+    errs = distractor_relation_errors(
+        vq(key="Plentiful", d1="Scarce", d2="Limited", d3="Meagre",
+           r=("opposite", "opposite", "opposite")))
+    assert any("cohere" in e for e in errs)
+
+
+def test_relations_rejects_two_of_three_sharing_a_relation():
+    errs = distractor_relation_errors(vq(r=("opposite", "opposite", "form")))
+    assert any("2 different way" in e for e in errs)
+
+
+def test_relations_requires_every_distractor_to_declare_one():
+    q = vq()
+    del q["relations"]["Extend"]
+    assert any("no declared relation" in e for e in distractor_relation_errors(q))
+
+
+def test_relations_rejects_an_unknown_relation_name():
+    assert any("unknown relation" in e
+               for e in distractor_relation_errors(vq(r=("nuance", "opposite", "vibes"))))
+
+
+def test_relations_rejects_declaring_the_correct_answer():
+    """Declaring the key would quietly satisfy the distinct-relations count."""
+    q = vq()
+    q["relations"]["Restrict"] = "nuance"
+    assert any("must not appear" in e for e in distractor_relation_errors(q))
+
+
+def test_relations_reports_a_missing_map():
+    assert distractor_relation_errors({"correct_answer": "A", "option_a": "x"}) == [
+        "missing 'relations' map for the three distractors"]
+
+
+def test_relation_monotony_flags_one_template_across_a_batch():
+    """Each question can be individually sound while the batch runs a single template."""
+    batch = [vq() for _ in range(12)]
+    errs = relation_monotony(batch)
+    assert len(errs) == 1
+    assert "12 of 12" in errs[0]
+
+
+def test_relation_monotony_passes_on_a_varied_batch():
+    combos = [("nuance", "opposite", "form"), ("domain", "overreach", "nuance"),
+              ("form", "collocation", "opposite"), ("overreach", "domain", "collocation")]
+    batch = [vq(r=combos[i % 4]) for i in range(12)]
+    assert relation_monotony(batch) == []

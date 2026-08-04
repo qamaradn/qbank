@@ -1,0 +1,10 @@
+{
+  "book_id": "vr_vic_acer",
+  "note": "VIC SEHS (ACER) verbal reasoning top-up. Target mix from pdfs/selective_verbal_reasoning_TASK.md §3.",
+  "categories": [
+    {"key": "vocabulary_synonym", "label": "Vocabulary in context / synonyms", "target": 126},
+    {"key": "antonym",            "label": "Antonyms / opposites",             "target": 25},
+    {"key": "shades_of_meaning",  "label": "Shades of meaning / connotation",  "target": 22},
+    {"key": "word_group",         "label": "Word-group classification",        "target": 10}
+  ]
+}

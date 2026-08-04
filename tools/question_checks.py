@@ -198,6 +198,77 @@ def figure_svg_errors(svg, max_bytes=3500):
     return errs
 
 
+# ---------------------------------------------------------------- distractor design
+# How a distractor is wrong. A vocabulary item is only a test of vocabulary if the three
+# distractors are wrong in DIFFERENT ways; if they are wrong in the same way they form a
+# coherent group and the key becomes the odd one out, answerable without knowing the
+# target word at all.
+#
+# This is not hypothetical. In ~24 of 26 sampled synonym/antonym questions in the shipped
+# VR bank, all three distractors were mutual synonyms and the key was the singleton:
+# ABUNDANT -> Plentiful against Scarce/Limited/Meagre; ROBUST -> Strong against
+# Fragile/Weak/Delicate. Every one is solvable by pattern alone.
+RELATIONS = {
+    "opposite",       # antonym of the target
+    "nuance",         # related meaning, wrong shade or degree
+    "form",           # looks or sounds like the target (curtail / cultivate)
+    "domain",         # same subject area, unrelated meaning
+    "collocation",    # commonly appears beside the target, means something else
+    "overreach",      # right direction, too absolute
+}
+
+
+def distractor_relation_errors(q, min_distinct=3):
+    """Check a question's declared distractor relations.
+
+    `relations` maps each DISTRACTOR TEXT to one of RELATIONS. Keyed by text, not by
+    option letter, so it survives the answer shuffle.
+    """
+    errs = []
+    rel = q.get("relations")
+    if not isinstance(rel, dict):
+        return ["missing 'relations' map for the three distractors"]
+
+    key_letter = str(q.get("correct_answer", "")).strip().lower()
+    distractors = [str(q.get(k, "")) for k in KEYS if k != "option_" + key_letter]
+
+    for d in distractors:
+        if d not in rel:
+            errs.append(f"distractor {d!r} has no declared relation")
+    for word, r in rel.items():
+        if r not in RELATIONS:
+            errs.append(f"{word!r}: unknown relation {r!r} (use one of {sorted(RELATIONS)})")
+    if str(q.get("option_" + key_letter, "")) in rel:
+        errs.append("the correct answer must not appear in 'relations'")
+
+    kinds = [rel[d] for d in distractors if d in rel]
+    if len(kinds) == 3 and len(set(kinds)) < min_distinct:
+        errs.append(f"distractors are wrong in only {len(set(kinds))} different way(s) "
+                    f"({', '.join(kinds)}) — they cohere, so the key is findable as the "
+                    f"odd one out without knowing the target word")
+    return errs
+
+
+def relation_monotony(questions, group_of=by_topic, cap=0.5, min_group=10):
+    """Fail a group that reaches for the same three relations every time.
+
+    Individually every question can satisfy distractor_relation_errors while the batch as
+    a whole runs one template — the same collapse the LR mechanism registry was built to
+    stop.
+    """
+    errs = []
+    for group, qs in _grouped(questions, group_of).items():
+        combos = [tuple(sorted(set((q.get("relations") or {}).values()))) for q in qs]
+        combos = [c for c in combos if c]
+        if len(combos) < min_group:
+            continue
+        combo, n = collections.Counter(combos).most_common(1)[0]
+        if n / len(combos) > cap:
+            errs.append(f"[{group}]: {n} of {len(combos)} questions use the same relation "
+                        f"set {list(combo)} — vary how the distractors are wrong")
+    return errs
+
+
 # ---------------------------------------------------------------- per-question basics
 def options_distinct(q):
     """False if any two options are equal ignoring case and surrounding whitespace.
