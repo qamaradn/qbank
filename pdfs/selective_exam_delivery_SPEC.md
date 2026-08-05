@@ -90,7 +90,7 @@ into single papers. Total task time 2 h 35 min (about four hours on site with br
 
 | # | Component | Questions | Time | Per question | Format |
 |---|---|---:|---:|---:|---|
-| 1 | Mathematics and Quantitative Reasoning | **not published** | 60 min | — | MCQ |
+| 1 | Mathematics and Quantitative Reasoning | **~75 (estimated, §3.2.1)** | 60 min | **~48 s** | MCQ |
 | 2 | Reading and Verbal Reasoning | ~75 | 55 min | **44 s** | MCQ |
 | 3 | Writing | 1 | 40 min | — | extended response |
 
@@ -102,6 +102,53 @@ time per item.
 Within that paper the budget is not spread evenly. A verbal item should be answerable in
 **~25 seconds** so that passage-based reading items can take longer inside the same 55
 minutes. See §5.1.1.
+
+#### 3.2.1 Estimating the Maths + Quantitative question count
+
+ACER publishes the 60-minute duration but not the question count, and no student report of
+it could be found. It is estimated here by extrapolating from the old format, which is
+fully documented, using the one merge whose outcome we can actually observe.
+
+**The old format**, five components of 30 minutes each:
+
+| Component | Questions | Time | Per question |
+|---|---:|---:|---:|
+| Reading | ~30 | 30 min | 60 s |
+| Verbal Reasoning | ~30 | 30 min | 60 s |
+| Mathematics | ~30 | 30 min | 60 s |
+| Quantitative Reasoning | ~30 | 30 min | 60 s |
+
+**The measured merge.** Reading + Verbal went from 60 questions in 60 minutes to ~75 in
+55: questions **×1.25**, time ×0.917, pace **27% faster per item**.
+
+**Applying that to Maths + Quantitative**, which went from 60 questions in 60 minutes to an
+unknown count in a confirmed 60:
+
+| Method | Assumption | Result | Pace |
+|---|---|---:|---:|
+| **A** | same question multiplier (×1.25) | **75 q** | 48 s |
+| B | same per-item pace as R+V (44 s) | 82 q | 44 s |
+| C | administrative merge only, no density change | 60 q | 60 s |
+| D | midpoint of A and C | 68 q | 53 s |
+
+**Planning figure: 75 questions (Method A), ~48 seconds per question.**
+
+Method A applies the only transformation we have measured, rather than inventing one. B
+assumes ACER standardised a single pace across subjects, which is implausible — a maths
+item requires working that a verbal item does not, which is presumably why this component
+kept all 60 minutes while Reading + Verbal lost five. C cannot be dismissed, since the
+retained duration is consistent with a purely administrative merge of two 30-minute
+blocks, but it ignores the clear evidence that ACER used the restructure to raise density.
+
+**The cost of being wrong is asymmetric, which is why the estimate is set high rather than
+at the midpoint.** If the true count is lower, we have authored surplus questions, and
+surplus flows straight into the drill pool (§5.2) — no waste. If the true count is higher
+and we built to it, a mock release is short and has to be patched under time pressure.
+Over-supply degrades gracefully; under-supply does not.
+
+**Verify against ACER's official `SEHS_Sample_Questions.zip` before the first VIC mock
+ships**, and correct this section. Everything downstream that depends on the number is
+marked "estimated".
 
 > **Verification required before the first VIC mock is authored.** ACER has not formally
 > published the 2027 structure, and secondary sources conflict — several still describe
@@ -202,7 +249,7 @@ that component's exam allowance per slot, rounded to the nearest 30 seconds.
 | NSW | Thinking Skills | 60 s | **20 min** |
 | VIC | Reading + Verbal (combined rate) | 44 s | **15 min** |
 | VIC | Verbal alone | 25 s | **8 min 30 s** |
-| VIC | Maths + Quantitative | *not published* | *blocked, §9* |
+| VIC | Maths + Quantitative | ~48 s *(estimated, §3.2.1)* | **16 min** |
 
 **Timing is also what makes scores comparable at all.** Once drill scores are ranked
 between students, an untimed score is meaningless — one student took eight minutes and
@@ -243,7 +290,7 @@ are too long for regular practice.
 | | Full | Half (mock) | Half, MCQ only |
 |---|---|---|---|
 | NSW | Reading 17/45 min · Maths 35/40 · Thinking 40/40 · Writing 1/30 — 155 min | Reading 9/23 · Maths 18/20 · Thinking 20/20 · Writing 1/30 | **47 q, 62 min** (92 min with writing) |
-| VIC | Maths+QR ?/60 min · Reading+Verbal ~75/55 · Writing 1/40 — 155 min | Maths+QR ?/30 · Reading+Verbal ~38/28 · Writing 1/40 | **~38 q + ?, ~58 min** (98 with writing) |
+| VIC | Maths+QR ~75/60 min · Reading+Verbal ~75/55 · Writing 1/40 — 155 min | Maths+QR 38/30 · Reading+Verbal 38/28 · Writing 1/40 | **76 q, 58 min** (98 with writing) |
 
 **Writing does not halve.** One prompt is one prompt. Either keep it at full length or
 omit it from the short form — **decision required** (§9). Including it roughly doubles the
@@ -367,19 +414,21 @@ Approved questions available for drill at launch:
 | reading_comprehension | 634 | 31 |
 | **logical_reasoning** | **0** | **0** |
 
-**Mock authoring required for a September launch.** NSW is fixed at 47 MCQ per half-form;
-VIC depends on open decision #2, since the Maths + Quantitative question count is not yet
-known. Range:
+**Mock authoring required for a September launch:**
 
-| VIC Maths+QR (half) | VIC per form | NSW 14 forms | VIC 18 forms | Total | Per month |
-|---:|---:|---:|---:|---:|---:|
-| 25 | 63 | 658 | 1,134 | 1,792 | ~199 |
-| 35 | 73 | 658 | 1,314 | 1,972 | ~219 |
-| 45 | 83 | 658 | 1,494 | 2,152 | ~239 |
+| | Half-form | Forms | Questions |
+|---|---:|---:|---:|
+| NSW | 47 | 14 | 658 |
+| VIC | 76 *(38 R+V + 38 M+QR, estimated)* | 18 | 1,368 |
+| **Total over nine months** | | **32** | **~2,030** |
 
-So roughly **1,800–2,150 questions over nine months, 200–240 per month**. Within current
-output — this session alone produced 303 — but it is the dominant ongoing cost, and it
-scales directly with the VIC count in decision #2.
+About **225 questions a month**. Within current output — this session alone produced 303 —
+but it is the dominant ongoing cost. Sensitivity to the §3.2.1 estimate is modest: at
+Method C (60 questions) the total falls to ~1,850, at Method B (82) it rises to ~2,120.
+The estimate does not change whether the plan is feasible.
+
+Halving preserves exam pace exactly, which is the point: 38 questions in 28 minutes is the
+same 44 s per item as 75 in 55.
 
 > **`logical_reasoning` is the critical path for NSW.** Thinking Skills is 25% of the NSW
 > exam. Its 300 questions are built and validated but all sit `pending`, so NSW has
@@ -418,7 +467,7 @@ Steps 2 and 3 can run in parallel with 1.
 | # | Decision | Note |
 |---|---|---|
 | 1 | Writing in half-length mocks — keep at full length, or omit? | It cannot be halved |
-| 2 | VIC Maths + Quantitative Reasoning question count | Blocks VIC mock authoring |
+| 2 | VIC Maths + Quantitative Reasoning question count | **No longer blocking** — estimated at 75 (§3.2.1) and built to. Verify against ACER's sample pack and correct before the first VIC mock ships |
 | 3 | Reading pools — separate per state, or shared? | §4.1; separate is recommended, and RC is the tightest category |
 | 4 | `science_reasoning` — drill-only, or add JMSS as a third school? | 956 approved questions |
 | 5 | Minimum cohort before a percentile is shown | ~30 suggested |
