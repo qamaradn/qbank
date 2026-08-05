@@ -424,7 +424,7 @@ Approved questions available for drill at launch:
 
 About **225 questions a month**. Within current output — this session alone produced 303 —
 but it is the dominant ongoing cost. Sensitivity to the §3.2.1 estimate is modest: at
-Method C (60 questions) the total falls to ~1,850, at Method B (82) it rises to ~2,120.
+Method C (60 questions) the total falls to ~1,880, at Method B (82) it rises to ~2,080.
 The estimate does not change whether the plan is feasible.
 
 Halving preserves exam pace exactly, which is the point: 38 questions in 28 minutes is the
