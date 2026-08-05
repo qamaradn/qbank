@@ -62,14 +62,19 @@ Friday/Saturday of May for several years; ACER has held the VIC exam in June eac
 
 Fully computer-based from 2026. Four components, **each weighted 25%**, ~150 minutes.
 
-| # | Component | Questions | Time | Format | Categories tested |
-|---|---|---:|---:|---|---|
-| 1 | Reading | 17 | 45 min | MCQ | inference, vocabulary in context, critical analysis, **vocabulary cloze** (~8 blanks per passage) |
-| 2 | Mathematical Reasoning | 35 | 40 min | MCQ | problem solving, patterns, word problems — Year 6 curriculum |
-| 3 | Thinking Skills | 40 | 40 min | MCQ | critical thinking (~45%) and problem solving / logic puzzles (~55%) |
-| 4 | Writing | 1 | 30 min | extended response, typed | narrative, persuasive, article, diary, email, speech, advice sheet, news report |
+| # | Component | Questions | Answer slots | Time | Per slot | Categories tested |
+|---|---|---:|---:|---:|---:|---|
+| 1 | Reading | 17 | **38** | 45 min | **71 s** | inference, vocabulary in context, critical analysis, **vocabulary cloze** (~8 blanks per passage) |
+| 2 | Mathematical Reasoning | 35 | 35 | 40 min | **69 s** | problem solving, patterns, word problems — Year 6 curriculum |
+| 3 | Thinking Skills | 40 | 40 | 40 min | **60 s** | critical thinking (~45%) and problem solving / logic puzzles (~55%) |
+| 4 | Writing | 1 | 1 | 30 min | — | narrative, persuasive, article, diary, email, speech, advice sheet, news report |
 
-Note that three of the 17 Reading questions have multiple parts.
+**Reading is 17 questions but 38 answer slots** — several questions have multiple parts.
+The pacing that matters is therefore 45 min ÷ 38 ≈ **71 seconds per answer**, not 45 ÷ 17.
+Timing a reading drill on 17 would give students more than twice the real allowance.
+
+This maps cleanly onto how the cloze questions are already built: 8 linked blanks sharing
+one passage is one multi-part question occupying 8 answer slots.
 
 **This matches `schools.ts` exactly.** No Selectly change needed for NSW section structure.
 
@@ -83,15 +88,20 @@ questions.
 **three**, with the former Reading/Verbal and Maths/Quantitative components interleaved
 into single papers. Total task time 2 h 35 min (about four hours on site with breaks).
 
-| # | Component | Questions | Time | Format |
-|---|---|---:|---:|---|
-| 1 | Mathematics and Quantitative Reasoning | not confirmed | 60 min | MCQ |
-| 2 | Reading and Verbal Reasoning | ~75 | 55 min | MCQ |
-| 3 | Writing | 1 | 40 min | extended response |
+| # | Component | Questions | Time | Per question | Format |
+|---|---|---:|---:|---:|---|
+| 1 | Mathematics and Quantitative Reasoning | **not published** | 60 min | — | MCQ |
+| 2 | Reading and Verbal Reasoning | ~75 | 55 min | **44 s** | MCQ |
+| 3 | Writing | 1 | 40 min | — | extended response |
 
-At ~75 questions in 55 minutes, component 2 allows **~44 seconds per question**. Items must
-be short. A verbal item should be answerable in ~25 seconds so the reading passages get
-the remaining time.
+**Victoria is the faster exam, and got faster in the restructure.** The old format ran
+Reading 30 q / 30 min plus Verbal 30 q / 30 min — 60 questions in 60 minutes, 60 s each.
+The combined paper is ~75 questions in 55 minutes: **44 seconds**. Roughly a third less
+time per item.
+
+Within that paper the budget is not spread evenly. A verbal item should be answerable in
+**~25 seconds** so that passage-based reading items can take longer inside the same 55
+minutes. See §5.1.1.
 
 > **Verification required before the first VIC mock is authored.** ACER has not formally
 > published the 2027 structure, and secondary sources conflict — several still describe
@@ -165,9 +175,8 @@ within a single category. No new authoring — drill is what we already have.
 **Rules.**
 
 1. Fixed membership and fixed order. Every student sees Drill Set 7 identically.
-2. **Timed**, generously — exam pace plus ~50%. Timing is not optional: once scores are
-   compared between students, an untimed score is meaningless, because one student took
-   eight minutes and another took an hour.
+2. **Timed at exact exam pace** — see §5.1.1. Not a generous approximation: the real
+   allowance, to the second.
 3. No feedback during the attempt. On submit: score, then answers and explanations unlock.
 4. The score is recorded and feeds the parent portal and the percentile.
 5. **A completed form is locked** — the student cannot reopen it until every form in that
@@ -175,6 +184,44 @@ within a single category. No new authoring — drill is what we already have.
    must recall rather than re-read.
 6. When all forms in a category are exhausted, the counter resets and **round 2 begins on
    the same forms, in the same membership**. Round 2 is scored too.
+
+#### 5.1.1 Timing — exact exam pace
+
+**Speed is the skill being examined.** Successful candidates finish; unsuccessful ones run
+out of time with questions unattempted. A drill that allows more time than the exam trains
+the wrong thing and reports a score the student cannot reproduce on the day. Drill
+therefore runs at the **real per-item allowance**, not a padded one.
+
+**The rule.** A drill set's timer is the number of answer slots in the set multiplied by
+that component's exam allowance per slot, rounded to the nearest 30 seconds.
+
+| Exam | Category | Exam allowance | 20-slot drill |
+|---|---|---:|---:|
+| NSW | Reading (incl. cloze) | 71 s / slot | **24 min** |
+| NSW | Mathematical Reasoning | 69 s | **23 min** |
+| NSW | Thinking Skills | 60 s | **20 min** |
+| VIC | Reading + Verbal (combined rate) | 44 s | **15 min** |
+| VIC | Verbal alone | 25 s | **8 min 30 s** |
+| VIC | Maths + Quantitative | *not published* | *blocked, §9* |
+
+**Timing is also what makes scores comparable at all.** Once drill scores are ranked
+between students, an untimed score is meaningless — one student took eight minutes and
+another took an hour. Exam pace serves both purposes at once.
+
+**Reading drills are built in whole passages, not in fixed counts.** A passage and its
+questions are one unit: a student must read the passage to answer any of them, so a set
+that cuts a passage in half gives some students free reading time and charges others for
+it. An NSW reading drill is therefore *n* complete passages, and its timer is
+71 s × (total answer slots across those passages). With cloze at 8 blanks per passage,
+three passages is 24 slots and a 28-minute timer.
+
+**A per-question timer is not required.** The exam gives a whole-section allowance and
+lets candidates distribute it — spending 20 seconds on an easy item to buy time for a hard
+one is part of the skill. Drill must mirror that: one timer for the set, free movement
+within it.
+
+**Mocks run at true section pace by construction** — a half-length section is half the
+questions and half the minutes, so the per-item rate is identical to the real exam.
 
 **Why round 2 uses the same questions.** Round 1 → round 2 on identical questions is a
 paired measurement: difficulty is identical by construction, so the score delta is close
@@ -375,8 +422,11 @@ Steps 2 and 3 can run in parallel with 1.
 | 3 | Reading pools — separate per state, or shared? | §4.1; separate is recommended, and RC is the tightest category |
 | 4 | `science_reasoning` — drill-only, or add JMSS as a third school? | 956 approved questions |
 | 5 | Minimum cohort before a percentile is shown | ~30 suggested |
-| 6 | Drill time limit multiplier | ~1.5× exam pace suggested |
+| 6 | **VIC Reading vs Verbal time split** inside the combined 55-minute paper | Needed to time VIC reading drills. Verbal is targeted at ~25 s; the reading residual cannot be derived until the item split is known. Same ACER sample resolves it as #2 |
 | 7 | Can a late-registering student sit already-released mocks? | Affects percentile comparability |
+
+Decision 6 in an earlier draft — the drill time multiplier — is **resolved**: drill runs at
+exact exam pace, per §5.1.1.
 
 ---
 
@@ -389,6 +439,8 @@ Steps 2 and 3 can run in parallel with 1.
 - [ACER — Victorian Selective Entry High Schools](https://selectiveentry.acer.org/vic)
 - [ACER — results and selection](https://selectiveentry.acer.org/vic/results-and-selection)
 - [ACER's updated selective entry exam format](https://melbournetutorials.com.au/acers-updated-selective-entry-exam-format-why-has-the-test-structure-changed/)
-- [SEHS exam format — components, timing, structure](https://braintreecoaching.com.au/victoria-sehs-exam-format)
+- [SEHS exam format — components, timing, structure](https://braintreecoaching.com.au/victoria-sehs-exam-format) — note this page still describes the superseded five-component format
+- [ACER — Victorian selective entry exam day](https://selectiveentry.acer.org/vic/exam-day) — confirms the 60-minute Maths + Quantitative Reasoning duration
+- [Free NSW selective practice tests](https://www.selectiveguru.com.au/blog/free-nsw-selective-practice-tests) — source of the 38-answer-slot figure for NSW Reading
 - First-hand student accounts of the 20 June 2026 VIC sitting, recorded in
   `pdfs/selective_verbal_reasoning_TASK.md` §2 and §8
