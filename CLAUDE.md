@@ -796,6 +796,15 @@ CREATE INDEX IF NOT EXISTS idx_wp_review_status ON writing_prompts(review_status
 ## CURRENT STATUS
 
 **Last worked on:** 2026-08-04
+**PLATFORM DIRECTION CHANGED — read these two before generating anything (2026-08-05):**
+- `pdfs/selective_exam_delivery_SPEC.md` — Selectly moves from random selection to **fixed
+  drill and mock forms**, so percentile scoring and progress tracking become possible.
+  Drill is timed at **exact exam pace**. Exam dates, section structures, schema changes and
+  the release calendar are all there. Note VIC has restructured to three components and
+  `schools.ts` is wrong.
+- `pdfs/nsw_content_taxonomy_TASK.md` — every NSW category and subcategory with a build
+  target, classified from the official UCLES practice paper.
+
 **Next task:** human review. 1611 pending, of which 602 are newly authored and unseen:
 183 VR (`vr_vic_acer`), 120 RC cloze (`rc_nsw_cloze`), 299 LR (`lr_thinking_skills`).
 The review UI has a **source book** filter, which is how to isolate each set.
