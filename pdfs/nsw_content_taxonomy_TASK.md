@@ -218,33 +218,54 @@ the figural family and the gap there falls to ~102.
 
 ## 6. WHAT WE HAVE VERSUS WHAT WE NEED
 
-| Component | Approved | Pending | Usable for NSW | Target | Gap |
-|---|---:|---:|---:|---:|---:|
-| Reading | 634 | 204 | **see below** | 649 | ~529+ |
-| Mathematical Reasoning | 1,073 | 0 | **531** | 838 | **307** |
-| Thinking Skills | 0 | 298 | 298 *(after review)* | 880 | **582** |
-| Writing | 0 | 10 | 10 *(after review)* | 21 | **11** |
+| Component | Usable for NSW | Source | Target | **Build** |
+|---|---:|---|---:|---:|
+| Reading | **120** | vocabulary cloze, pending | 649 | **529** |
+| Mathematical Reasoning | **531** | `year7_nsw_maths`, approved | 838 | **307** |
+| Thinking Skills | **300** | `lr_thinking_skills`, pending | 880 | **580** |
+| **Total MCQ** | **951** | | 2,367 | **1,416** |
+| Writing | 10 | NSW prompts, pending | 21 | 11 |
 
-### 6.1 The Reading pool needs a decision before it can be counted
+At the ~8 months from a September launch to the May 2027 exam, that is **~177 questions a
+month for NSW alone**, before any Victorian work.
 
-All 634 approved reading questions were generated from `act_test1–10`, whose briefings
-specify `target_year: 11–12, difficulty: hard` — American college-entrance level, for
-students five to six years older than a NSW candidate.
+### 6.1 The ACT reading pool is excluded from NSW — decided
 
-Sampling three of them found the **question types correct** (author's portrayal,
-implication, sensory detail are all genuine NSW Reading skills) but the **passage
-vocabulary too high** in two of three: *"infrastructure and logistics"*, *"injecting
-significant revenue into the local economies"*. The third, a descriptive market scene,
-would suit Year 6 well.
+All 634 approved `reading_comprehension` questions were generated from `act_test1–10`,
+whose briefings specify `target_year: 11–12, difficulty: hard` — American
+college-entrance level, for students five to six years older than a NSW candidate.
 
-So they are neither wholesale usable nor wholesale waste. **Sample-review ~30 against Year
-6 pitch and decide.** Until then the Reading gap is between ~529 and ~649, and Reading is
-25% of the exam.
+Sampling three found the **question types correct** (author's portrayal, implication,
+sensory detail are all genuine NSW Reading skills) but the **passage vocabulary too high**
+in two of three: *"infrastructure and logistics"*, *"injecting significant revenue into
+the local economies"*. Only the third, a descriptive market scene, would suit Year 6.
 
-The only correctly pitched Reading content is the **120 vocabulary cloze** questions, built
-for this taxonomy's §3.2 and currently pending.
+**Decision: none of the ACT pool counts as NSW supply.** A five-year pitch gap is not
+worth salvaging question by question, and a partially-trusted pool is worse than a small
+clean one. NSW Reading is therefore built from scratch against §3, and the only existing
+NSW Reading content is the **120 vocabulary cloze** questions written for §3.2.
 
-### 6.2 Writing — 10 prompts, two types missing
+**The disposition of the 634 is deferred, not settled.** They remain approved and live in
+Selectly, and because `push_to_selectly.py` hardcodes `schoolIds` to both schools, a NSW
+student is served them today. They cannot be withdrawn until `qbank_id` merges (see the
+delivery spec §7). Options when that lands: retire entirely, restrict to Victoria, or keep
+as drill-only stretch content — noting that drill is now timed and percentile-scored, so
+"drill-only" is not the harmless option it first appears.
+
+### 6.2 The launch drill library is lopsided, and that sets the build order
+
+Reviewing what already exists gives 47 drill sets on day one — but not evenly:
+
+| Section | Sets at launch | A student exhausts it in |
+|---|---:|---:|
+| Mathematical Reasoning | 26 | ~39 weeks |
+| Thinking Skills | 15 | ~22 weeks |
+| **Reading** | **6** | **~9 weeks** |
+
+Six sets is thin for a component worth 25%. **Reading is therefore both the largest build
+and the most urgent**, which reverses the earlier assumption that Thinking Skills led.
+
+### 6.3 Writing — 10 prompts, two types missing
 
 Held: narrative 3, persuasive 3, article 1, diary 1, news report 1, speech 1.
 **Missing entirely: `email` and `advice_sheet`.** Target 21 prompts across all eight types,
@@ -286,15 +307,31 @@ Sources:
 
 ## 8. BUILD ORDER
 
-1. **Review the 298 Thinking Skills questions.** 25% of the exam, currently zero approved.
-2. **Sample-review 30 ACT reading questions** against Year 6 pitch (§6.1). This is a
-   decision, not a build, and it sets the size of the largest gap.
-3. **Review the 120 vocabulary cloze** — correctly pitched, already built.
-4. **Build Thinking Skills figural** — 120 questions across four unbuilt subcategories.
-   `tools/figure_lib.py` provides the primitives.
-5. **Build Reading types 3.3–3.6** — poetry, paired extracts, multi-extract synthesis and
-   structural cloze are all entirely unbuilt: 221 questions.
-6. **Top up Mathematical Reasoning** — 307 at Years 5–6 pitch, weighted to fractions,
-   percentages and ratios.
-7. **Writing** — 11 more prompts, including the two missing types.
-8. **Classify Practice Tests 2 and 3** to firm up the §5 targets.
+**Review first — it is cheap and unlocks the launch.** 420 questions sit pending and
+reviewing them is what turns the bank into a product.
+
+1. **Review the 300 Thinking Skills questions** — 25% of the exam, currently zero approved.
+2. **Review the 120 vocabulary cloze** — correctly pitched, already built. Together with
+   step 1 this gives 47 drill sets at launch (§6.2).
+
+**Then build, in order of how fast a student exhausts each library:**
+
+3. **Reading — 529 questions.** Both the largest gap and the thinnest section at launch
+   (6 sets, ~9 weeks). Within it, four of the six question types in §3.1 are entirely
+   unbuilt — poetry, paired-extract comparison, multi-extract synthesis and
+   structural/organisation cloze, 221 questions between them — so start there rather than
+   adding more single-passage sets.
+4. **Thinking Skills — 580 questions.** Largest gap by count but 15 sets already exist.
+   Lead with the **figural family (120)**, since four of its six subcategories are unbuilt
+   and it is nearly a fifth of the real paper. `tools/figure_lib.py` provides the drawing
+   primitives.
+5. **Mathematical Reasoning — 307 questions** at Years 5–6 pitch, weighted to fractions,
+   percentages and ratios. Best-covered section, so it goes last.
+6. **Writing — 11 prompts**, including the two missing types.
+
+**In parallel, when convenient:**
+
+7. **Classify Practice Tests 2 and 3** the same way as PT1 to move the §5 subcategory
+   targets from Medium confidence to High before the bulk of the Thinking Skills build.
+8. **Settle the ACT pool** (§6.1) once `qbank_id` merges and the questions can actually be
+   reached.
