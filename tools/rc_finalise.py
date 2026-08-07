@@ -90,6 +90,10 @@ RC_EXTRA = AU_EXTRA | {
     "interchange", "footpath", "timetable", "wombat", "wombats", "intestine",
     "arborist", "arborists", "replant", "replanted", "replanting", "kilowatt",
     "breakwater", "groyne", "groynes", "hatchling", "hatchlings",
+    "skilful", "skilfully", "coupe", "platypus", "petrakis",
+    "unprofessionally", "unprofessional", "bushland", "lyrebird", "lyrebirds",
+    "whipbird", "whipbirds", "rosella", "rosellas", "kookaburra", "kookaburras",
+    "lantana", "vegemite", "muesli",
 }
 
 PARTS_OF_SPEECH = {"noun", "verb", "adjective", "adverb", "preposition", "conjunction",
@@ -100,7 +104,7 @@ PARTS_OF_SPEECH = {"noun", "verb", "adjective", "adverb", "preposition", "conjun
 # group check needs and it is not recoverable from the text.
 SKILLS = {"imagery", "figurative_language", "mood", "symbolism", "inference",
           "vocabulary_in_context", "main_idea", "author_purpose", "structure",
-          "comparison", "detail",
+          "comparison", "detail", "cause_effect",
           # structural cloze: the role the removed sentence plays in its paragraph. It
           # lives in `skill` so the per-passage spread check applies unchanged — four
           # gaps that all want a topic sentence test one thing four times.
@@ -128,6 +132,19 @@ TYPES = {
         "target_questions": 52,
         "relations": STRUCTURAL_RELATIONS,
         "extract_labels": [],
+        "min_cross_extract": 0,
+        "min_skills_per_group": 3,
+    },
+    "single": {
+        "book": "rc_nsw_single",
+        "category": "single_passage",
+        "label": "Single-passage comprehension",
+        "kind": "set",
+        "target_passages": 49,
+        "items_per_passage": (4, 8),
+        "target_questions": 292,
+        "relations": COMPREHENSION_RELATIONS,
+        "extract_labels": [],       # one unlabelled text
         "min_cross_extract": 0,
         "min_skills_per_group": 3,
     },
@@ -333,6 +350,54 @@ def set_question_errors(q, tag, T):
         if line not in passage:
             errs.append(f"{tag}: the stem quotes {line[:50]!r}, which is not in the "
                         f"passage verbatim")
+
+    # A quotation needs something to hang off. Written by hand, the lead-in keeps
+    # acquiring the quote's own subject — "The passage says the spread \"A spread that had
+    # failed...\"" — which reads as a stutter and, in the worst cases, as a broken
+    # sentence. Six of those survived a full read of one batch, so the eye is not reliable
+    # here. The word immediately before the opening quote must be a verb of saying, or the
+    # quote must be introduced by a colon or comma.
+    # A quotation needs something to hang off. Written by hand, the lead-in keeps
+    # acquiring the quote's own subject — `The passage says the spread "A spread that had
+    # failed..."` — which reads as a stutter or, at worst, as a broken sentence. Seven of
+    # those survived a full read of one batch, so the eye is not reliable here.
+    #
+    # Two conditions together, because either alone gives false alarms. The word before
+    # the quote must not be a legitimate introducer (a verb of saying, or a preposition
+    # that takes the quote as its object — `The gap comes after "..."` is fine), AND the
+    # quote must begin a fresh sentence. A quote that continues the lead-in's own clause
+    # starts lower case and is grammatical whatever precedes it.
+    INTRODUCES = {"says", "said", "say", "writes", "wrote", "states", "notes", "reports",
+                  "explains", "begins", "ends", "opens", "closes", "continues",
+                  "concludes", "asks", "adds", "admits", "records", "observes", "argues",
+                  "describes", "includes", "lists", "quotes", "reads",
+                  "after", "before", "as", "with", "than", "like", "about", "called",
+                  "in", "of", "on", "at", "from", "between", "following"}
+    opening = re.match(r'([^"]*)"(.)[^"]*"\s*(.?)', str(q.get("stem") or ""))
+    if opening:
+        lead, first, after = opening.group(1).rstrip(), opening.group(2), opening.group(3)
+        words = re.findall(r"[A-Za-z']+", lead)
+        # `The lines "..." mainly create a feeling of —` is an appositive and perfectly
+        # grammatical. The tell is what comes AFTER the closing quote: a lower-case word
+        # means the sentence carries on through the quotation.
+        continues = after.islower()
+        if (lead and not lead.endswith((":", ",", "—", "-")) and words and not continues
+                and words[-1].lower() not in INTRODUCES and first.isupper()):
+            errs.append(f"{tag}: the quotation is introduced by {lead[-32:]!r}, which "
+                        f"leaves the stem ungrammatical — use a colon, a comma, or a "
+                        f"verb of saying immediately before the quote")
+
+    # Anything a stem puts in quotation marks must be in the passage, whether the builder
+    # generated it or an author typed it. The generated ones cannot drift; a retyped
+    # fragment can, and a stem quoting words the passage does not contain is unanswerable.
+    for quoted in re.findall(r'"([^"]{4,})"', str(q.get("stem") or "")):
+        # " ... " marks a deliberate jump between sentences; " / " is the ordinary way to
+        # quote verse, where each line is separately checked against `quote_lines`.
+        for piece in re.split(r" \.\.\. | / ", quoted):
+            piece = piece.strip(" .,;:—-?!")
+            if piece and piece not in passage:
+                errs.append(f"{tag}: the stem quotes {piece[:55]!r} but the passage does "
+                            f"not contain those words")
 
     labels = T.get("extract_labels") or []
     used = q.get("extracts") or []

@@ -39,6 +39,9 @@ def render(passage) -> str:
         # the newline and shows "Text 1 The Riverbend Primary Spring Fete will be..." as
         # one run of prose, with the label swallowed into the first sentence. Selectly
         # renders pre-wrap and honours the newline either way, so the spaces are free.
+        if not label:                      # single-passage: no heading to render
+            blocks.append(" ".join(sentences))
+            continue
         blocks.append(f"{label}  \n" + " ".join(sentences))
     return "\n\n".join(blocks)
 
@@ -51,7 +54,13 @@ def quote(passage, refs):
     passage.
     """
     lines = [passage["extracts"][e][1][s] for e, s in refs]
-    return " ".join(lines), lines
+    # Join adjacent sentences with a space, but mark a jump with an ellipsis. Running two
+    # non-adjacent sentences together presents the passage as saying something continuous
+    # that it does not, and quietly hides whatever sat between them.
+    shown = lines[0]
+    for (e, i), (pe, pi), line in zip(refs[1:], refs[:-1], lines[1:]):
+        shown += (" " if (e == pe and i == pi + 1) else " ... ") + line
+    return shown, lines
 
 
 def build(passages, book, nn, category, label, now=NOW):
