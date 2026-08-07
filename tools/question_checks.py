@@ -55,14 +55,24 @@ def _grouped(questions, group_of):
 
 
 # ---------------------------------------------------------------- the longest-option tell
-def length_tell(questions, group_of=by_topic, cap=0.6, min_group=5):
-    """Fail a group where the correct answer is reliably the longest option.
+def length_tell(questions, group_of=by_topic, cap=0.6, min_group=5, floor=None):
+    """Fail a group where the correct answer's length predicts it either way.
 
     "Pick the longest option" is the oldest multiple-choice shortcut there is, and a
     precise, fully qualified key sitting beside three short distractors hands it over.
     The LR bank once scored 32 out of 32 on that heuristic across its four judgement
     categories — every question individually sound, the set collectively useless as a
     test of reasoning. Cheap to measure, invisible to every other check here.
+
+    `floor` catches the same exploit running backwards. Over-correcting until the key is
+    NEVER the longest is not neutral: striking out the longest option then eliminates a
+    distractor almost every time, which lifts a blind guess from one in four to one in
+    three. Chance for a four-option item is 0.25, so a healthy group sits near it rather
+    than at either extreme.
+
+    Use `floor` only on a pool big enough to mean something. At n=20 the standard
+    deviation around chance is about 0.10, so a single batch will wander below any
+    sensible floor by luck alone; an accumulated type of 50+ is a fair test.
     """
     errs = []
     for group, qs in _grouped(questions, group_of).items():
@@ -77,6 +87,11 @@ def length_tell(questions, group_of=by_topic, cap=0.6, min_group=5):
             errs.append(f"[{group}]: the correct answer is the longest option in {n} of "
                         f"{len(flags)} — lengthen the distractors, or 'pick the longest' "
                         f"beats reading the question")
+        elif floor is not None and n / len(flags) < floor:
+            errs.append(f"[{group}]: the correct answer is the longest option in only {n} "
+                        f"of {len(flags)} — over-corrected. Striking the longest option "
+                        f"now eliminates a distractor almost every time, which is worth "
+                        f"as much to a guesser as the tell it replaced")
     return errs
 
 
@@ -220,12 +235,58 @@ RELATIONS = {
     "overreach",      # right direction, too absolute
 }
 
+# The vocabulary above describes how one WORD is wrong beside another word, which is the
+# right axis for a synonym, antonym or cloze item. It cannot describe how a whole
+# proposition about a text is wrong, so a comprehension item declared against it collapses
+# to "nuance" for everything and the coherence rule stops biting.
+#
+# These are the ways a comprehension option is wrong. They are also the ways a student
+# gets a comprehension question wrong, which is the point: three distractors drawn from
+# three different rows here catch three different misreadings, and no one of them is the
+# obvious odd one out.
+COMPREHENSION_RELATIONS = {
+    "contradicts",        # says the opposite of what the text says
+    "unsupported",        # could be true, but the text offers nothing either way
+    "overreach",          # the right reading pushed past what the text will carry
+    "literal",            # takes a figurative expression at face value — the standard
+                          # poetry trap, and the one Year 6 candidates fall for most
+    "wrong_sense",        # a real but wrong dictionary sense of a word in the text
+    "wrong_focus",        # true of a different part of the text, or in a paired or
+                          # multi-extract set, true of a different extract
+    "outside_knowledge",  # true of the world, but not something the text establishes
+    "half_right",         # a correct observation attached to the wrong reason or effect
+}
 
-def distractor_relation_errors(q, min_distinct=3):
+
+# A third axis, for the structural/organisation cloze: a sentence has been cut out of a
+# passage and must be put back. Here a wrong option is rarely wrong ABOUT anything — it can
+# be perfectly true and still be the wrong sentence, because what fails is cohesion. The
+# comprehension vocabulary cannot express that: "redundant" and "broken_reference" are not
+# claims about the world at all, they are claims about the seam between two sentences.
+#
+# These double as the reason the item is worth asking. A student who can say why the
+# repeat is wrong, and why the true-but-unconnected sentence is wrong, is reading for
+# structure — which is the whole point of the type.
+STRUCTURAL_RELATIONS = {
+    "broken_reference",   # the NEXT sentence's "it"/"them"/"forty minutes" loses what it
+                          # points back to — the commonest real failure, and invisible
+                          # unless the student reads past the gap
+    "redundant",          # says again what a neighbouring sentence already said
+    "wrong_order",        # belongs in the passage, but at a different point
+    "off_topic",          # true and new, but the paragraph never takes it up
+    "too_general",        # the right idea at too high an altitude to set up what follows
+    "too_specific",       # a detail where the slot needs a claim
+    "wrong_connective",   # "However" where the logic runs on, or the reverse
+    "contradicts",        # states the opposite of what the passage establishes
+}
+
+
+def distractor_relation_errors(q, min_distinct=3, vocabulary=RELATIONS):
     """Check a question's declared distractor relations.
 
-    `relations` maps each DISTRACTOR TEXT to one of RELATIONS. Keyed by text, not by
-    option letter, so it survives the answer shuffle.
+    `relations` maps each DISTRACTOR TEXT to one of `vocabulary`. Keyed by text, not by
+    option letter, so it survives the answer shuffle. Pass COMPREHENSION_RELATIONS for
+    items about a text rather than about a word.
     """
     errs = []
     rel = q.get("relations")
@@ -239,8 +300,8 @@ def distractor_relation_errors(q, min_distinct=3):
         if d not in rel:
             errs.append(f"distractor {d!r} has no declared relation")
     for word, r in rel.items():
-        if r not in RELATIONS:
-            errs.append(f"{word!r}: unknown relation {r!r} (use one of {sorted(RELATIONS)})")
+        if r not in vocabulary:
+            errs.append(f"{word!r}: unknown relation {r!r} (use one of {sorted(vocabulary)})")
     if str(q.get("option_" + key_letter, "")) in rel:
         errs.append("the correct answer must not appear in 'relations'")
 
@@ -272,13 +333,80 @@ def relation_monotony(questions, group_of=by_topic, cap=0.5, min_group=10):
     return errs
 
 
+# ------------------------------------------------- the explanation must discharge a rival
+# The defect this exists for: on the vocabulary-cloze build every mechanical check passed
+# batches that had TWO defensible answers, and only reading them caught it. An author who
+# is made to write down why the strongest rival fails has to look at the rival, and that
+# is the moment the second defensible answer becomes visible. A word-count floor does not
+# force that — you can write eighty words about the key alone.
+#
+# So: the explanation must name a distractor, in the distractor's own words. Mechanical,
+# and it puts the author in front of the exact comparison that was being skipped.
+_RUN_STOPWORDS = {
+    "a", "an", "the", "and", "or", "but", "of", "to", "in", "on", "at", "by", "for",
+    "with", "is", "are", "was", "were", "be", "been", "it", "its", "that", "this",
+    "as", "from", "has", "have", "had", "not", "no", "so", "than", "then", "there",
+}
+
+
+def _words(text):
+    return re.findall(r"[a-z']+", str(text or "").lower())
+
+
+def _longest_shared_run(a_words, b_words):
+    """Longest run of consecutive words appearing in both sequences."""
+    best, best_run = 0, []
+    prev = [0] * (len(b_words) + 1)
+    for i, wa in enumerate(a_words, 1):
+        cur = [0] * (len(b_words) + 1)
+        for j, wb in enumerate(b_words, 1):
+            if wa == wb:
+                cur[j] = prev[j - 1] + 1
+                if cur[j] > best:
+                    best, best_run = cur[j], a_words[i - cur[j]:i]
+        prev = cur
+    return best, best_run
+
+
+def explanation_addresses_a_distractor(q, min_run=3):
+    """Return an error if the explanation never quotes any distractor back.
+
+    A short distractor is matched whole; a long one needs `min_run` consecutive words in
+    common, at least one of which carries meaning — otherwise 'the poet is' would let a
+    key-only explanation through.
+    """
+    expl = _words(q.get("explanation"))
+    if not expl:
+        return "explanation is empty, so it cannot say why the strongest rival fails"
+
+    key_letter = str(q.get("correct_answer", "")).strip().lower()
+    distractors = [str(q.get(k, "")) for k in KEYS if k != "option_" + key_letter]
+
+    for d in distractors:
+        dw = _words(d)
+        if not dw:
+            continue
+        if len(dw) <= 2:
+            if _longest_shared_run(expl, dw)[0] == len(dw):
+                return None
+            continue
+        n, run = _longest_shared_run(expl, dw)
+        if n >= min_run and any(w not in _RUN_STOPWORDS for w in run):
+            return None
+    return ("the explanation never quotes a distractor back — say in its own words why "
+            "the strongest rival fails, or a second defensible answer goes unnoticed")
+
+
 # ---------------------------------------------------------------- real words
 # A distractor invented to look like the target ("mimec" for 'mimic') is not a distractor
 # at all: a student who has never met the target word can still strike it out on sight,
 # and a marker reads it as a typo. Caught by eye once; this stops it recurring.
 _WORDLIST_PATH = "/usr/share/dict/words"
 _AU_TO_US = [("our", "or"), ("ise", "ize"), ("isa", "iza"), ("yse", "yze"),
-             ("re", "er"), ("ence", "ense"), ("ogue", "og"), ("ll", "l")]
+             ("re", "er"), ("ence", "ense"), ("ogue", "og"), ("ll", "l"),
+             # 'apologising' has no "ise" in it to swap, so the -ing and -ation forms
+             # need their own entries or every Australian participle is reported
+             ("ising", "izing"), ("isation", "ization"), ("ised", "ized")]
 
 
 def _load_wordlist(path=_WORDLIST_PATH):
@@ -295,6 +423,10 @@ _WORDS = None
 def _known(word, vocab):
     """The list is American English; we write Australian, so try the usual swaps."""
     w = word.lower().strip("'")
+    # A possessive is the same word: "Ravi's" is known if "Ravi" is. Without this, every
+    # possessive of a name a passage legitimately uses is reported as invented.
+    if w.endswith("'s"):
+        w = w[:-2]
     if not w or w in vocab or w.rstrip("s") in vocab:
         return True
     for au, us in _AU_TO_US:

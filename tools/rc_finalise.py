@@ -1,30 +1,44 @@
 #!/usr/bin/env python3
-"""Finalise one reading_comprehension vocabulary-cloze batch (TASK §5).
+"""Finalise one reading_comprehension batch.
 
-Usage:  env -u PYTHONPATH .venv/bin/python3.11 -m tools.rc_finalise <NN>
+    env -u PYTHONPATH .venv/bin/python3.11 -m tools.rc_finalise <type> <NN> [--check-only]
 
-The NSW test is now computer-based and sets a passage with roughly 8 blanks, each filled
-from a dropdown. Modelled as 8 linked MCQs sharing one `passage`, exactly as the existing
-RC questions already share passages (719 questions across 144 passages).
+`<type>` is a key of TYPES below — one per NSW Reading question type in the taxonomy
+§3.1. Each type is its own `source_book`, so the review UI's source-book filter isolates
+it, and each keeps its own MANIFEST and LOADED files.
+
+    cloze       vocabulary cloze — a passage with 8 blanks       (built, 120/120)
+    poetry      imagery, figurative language, mood, symbolism    (target 65)
 
 Three things this enforces that the generic checks cannot:
 
-1. THE PASSAGE IS THE SAME FOR EVERY BLANK IN ITS GROUP. Eight rows carry eight copies of
-   one passage; if one drifts, Selectly's passageId (a hash of the text) splits them into
-   two groups and the student sees the passage twice.
+1. THE PASSAGE IS THE SAME FOR EVERY QUESTION IN ITS GROUP. Eight rows carry eight copies
+   of one passage; if one drifts, Selectly's passageId (a hash of the text) splits them
+   into two groups and the student sees the passage twice.
 
-2. THE BLANKS AND THE QUESTIONS AGREE. Every marker in the passage has exactly one
-   question and vice versa, numbered from 1 with no gaps — a passage with a blank nobody
-   asks about is unanswerable, and a question pointing at a missing blank is worse.
+2. THE PASSAGE AND THE QUESTIONS AGREE. For cloze, every marker in the passage has
+   exactly one question and vice versa. For the comprehension types, every line a stem
+   quotes must appear in the passage verbatim.
 
-3. STEMS QUOTE THE PASSAGE VERBATIM. The quoted fragment is generated from the passage by
-   the builder rather than retyped, so it cannot disagree. It also makes the eight stems
-   textually distinct, which matters because phase 4 drops near-duplicate stems at 0.85
-   SILENTLY — eight stems reading "which word fits blank (n)?" would collapse to one.
+3. QUOTED TEXT IS CUT FROM THE PASSAGE BY THE BUILDER, never retyped, so it cannot
+   disagree. It also makes the stems of one group textually distinct, which matters
+   because phase 4 drops near-duplicate stems at 0.85 SILENTLY.
 
 NSW is sat in Year 6, so this is pitched below the VIC verbal_reasoning bank (Year 8) —
-see TASK §2, which calls the difficulty gap deliberate.
+see the taxonomy §3.4, which calls the difficulty gap deliberate.
+
+WHY A GROUP IS N EXTRACTS, NOT ONE PASSAGE
+------------------------------------------
+Types 3.4 and 3.5 set two, three or four texts against each other. There is no room in
+the schema for a second passage: `questions.passage` is one column, Selectly hashes it to
+form `passageId`, and `push_to_selectly.py` prepends the whole thing to the stem. So a
+multi-extract group is ONE passage string holding several labelled extracts, and the
+group check verifies the labels are present and that enough items actually reach across
+more than one of them — otherwise a paired set is single-passage comprehension wearing a
+second text as decoration. `extract_labels` and `min_cross_extract` are that check.
+Poetry and cloze are the N=1 case of the same model.
 """
+import argparse
 import collections
 import json
 import pathlib
@@ -38,9 +52,13 @@ ROOT = pathlib.Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
 from tools.question_checks import (  # noqa: E402
+    COMPREHENSION_RELATIONS,
+    STRUCTURAL_RELATIONS,
     KEYS,
+    RELATIONS,
     answer_shape_monotony,
     distractor_relation_errors,
+    explanation_addresses_a_distractor,
     length_tell,
     options_distinct,
     positional_reference,
@@ -50,29 +68,134 @@ from tools.question_checks import (  # noqa: E402
 from tools.vr_finalise import AU_EXTRA  # noqa: E402
 
 GEN = ROOT / "run_data/output/reading_comprehension/generated"
-MANIFEST = GEN / "rc_cloze_MANIFEST.json"
-LOADED = GEN / "rc_cloze_LOADED.json"
 DB = ROOT / "run_data/db/qbank.db"
-BOOK = "rc_nsw_cloze"
-CATEGORY = "vocabulary_cloze"
-BLANK_RE = re.compile(r"_{2,}\((\d+)\)_{2,}")
-TARGET_PASSAGES = 15
-BLANKS_PER_PASSAGE = 8
+BLANK_RE = re.compile(r"_{2,} \((\d+)\) _{2,}")
+# Two gap markers, one per cloze type. The vocabulary cloze blanks a WORD, so it uses
+# `___ (n) ___`, which still looks like a blank; the structural cloze removes a whole
+# SENTENCE, so `[ n ]` reads better there. Both survive markdown. The original
+# `___(n)___` did not: underscores tight against content open emphasis, so `marked` in the
+# review UI swallowed them and showed the reviewer a stray "(n)" with no blank in it,
+# while Selectly -- which renders the passage as plain text -- showed it correctly.
+# The reviewer's screen was the misleading one. See tools/repair_cloze_marker.py.
+STRUCT_BLANK_RE = re.compile(r"\[ (\d+) \]")
 
-REQUIRED = ["id", "subject", "stem", *KEYS, "correct_answer", "explanation", "topic",
-            "difficulty", "confidence", "source_book", "source_page",
-            "source_page_description", "passage", "figure_svg", "review_status",
-            "created_at", "blank", "pos", "relations", "passage_title"]
+# Names and everyday Australian words the system dictionary does not carry. The check
+# exists to catch invented lookalike words and typos, not to police proper nouns.
+RC_EXTRA = AU_EXTRA | {
+    "texta", "letterbox", "letterboxes", "powerline", "powerlines", "downpipe",
+    "downpipes", "gutter", "gutters", "anemone", "anemones", "rockpool", "spinifex",
+    "wattle", "nan", "magpie", "magpies", "mustering", "paddock", "paddocks",
+    "bushfire", "esky", "verandah", "jacaranda", "frangipani", "bindi", "wardrobe",
+    "mould", "moulded", "reposition", "lifesaver", "lifesavers", "lifesaving", "ibis",
+    "interchange", "footpath", "timetable", "wombat", "wombats", "intestine",
+    "arborist", "arborists", "replant", "replanted", "replanting", "kilowatt",
+    "breakwater", "groyne", "groynes", "hatchling", "hatchlings",
+}
 
 PARTS_OF_SPEECH = {"noun", "verb", "adjective", "adverb", "preposition", "conjunction",
                    "pronoun", "determiner"}
 
+# The reading skills a comprehension item can test. Declared per question rather than
+# inferred, for the same reason `pos` is declared on a cloze item: it is the thing the
+# group check needs and it is not recoverable from the text.
+SKILLS = {"imagery", "figurative_language", "mood", "symbolism", "inference",
+          "vocabulary_in_context", "main_idea", "author_purpose", "structure",
+          "comparison", "detail",
+          # structural cloze: the role the removed sentence plays in its paragraph. It
+          # lives in `skill` so the per-passage spread check applies unchanged — four
+          # gaps that all want a topic sentence test one thing four times.
+          "topic_sentence", "supporting_detail", "example", "contrast",
+          "transition", "conclusion"}
 
-def validate(qs, nn):
+TYPES = {
+    "cloze": {
+        "book": "rc_nsw_cloze",
+        "category": "vocabulary_cloze",
+        "label": "Vocabulary cloze",
+        "kind": "cloze",
+        "target_passages": 15,
+        "items_per_passage": (8, 8),
+        "target_questions": 120,
+        "relations": RELATIONS,
+    },
+    "structural": {
+        "book": "rc_nsw_structural",
+        "category": "structural_cloze",
+        "label": "Structural cloze",
+        "kind": "structural",
+        "target_passages": 13,
+        "items_per_passage": (4, 4),
+        "target_questions": 52,
+        "relations": STRUCTURAL_RELATIONS,
+        "extract_labels": [],
+        "min_cross_extract": 0,
+        "min_skills_per_group": 3,
+    },
+    "paired": {
+        "book": "rc_nsw_paired",
+        "category": "paired_extract",
+        "label": "Paired-extract comparison",
+        "kind": "set",
+        "target_passages": 13,
+        "items_per_passage": (4, 4),
+        "target_questions": 52,
+        "relations": COMPREHENSION_RELATIONS,
+        "extract_labels": ["Text 1", "Text 2"],
+        # Half the set must actually reach across both texts. Below that the second
+        # extract is decoration and the item is single-passage comprehension that took
+        # twice as long to write.
+        "min_cross_extract": 2,
+        "min_skills_per_group": 3,
+    },
+    "multi": {
+        "book": "rc_nsw_multi",
+        "category": "multi_extract",
+        "label": "Multi-extract synthesis",
+        "kind": "set",
+        "target_passages": 13,
+        "items_per_passage": (4, 4),
+        "target_questions": 52,
+        "relations": COMPREHENSION_RELATIONS,
+        "extract_labels": ["Text 1", "Text 2", "Text 3"],
+        # Higher than the paired type's 2. Synthesis IS the skill here — "which text best
+        # supports this conclusion" is unanswerable from one extract — so a set with only
+        # two crossing items is a single-passage set with two spare texts.
+        "min_cross_extract": 3,
+        "min_skills_per_group": 3,
+    },
+    "poetry": {
+        "book": "rc_nsw_poetry",
+        "category": "poetry",
+        "label": "Poetry",
+        "kind": "verse",
+        "target_passages": 13,
+        "items_per_passage": (5, 8),
+        "target_questions": 65,
+        "relations": COMPREHENSION_RELATIONS,
+        "extract_labels": [],       # one text
+        "min_cross_extract": 0,
+        "min_skills_per_group": 3,
+    },
+}
+
+BASE_REQUIRED = ["id", "subject", "stem", *KEYS, "correct_answer", "explanation", "topic",
+                 "difficulty", "confidence", "source_book", "source_page",
+                 "source_page_description", "passage", "figure_svg", "review_status",
+                 "created_at", "relations", "passage_title"]
+
+
+# --------------------------------------------------------------------- per-question
+def validate(qs, nn, T):
     errs, seen_ids = [], set()
+    required = BASE_REQUIRED + (["blank", "pos"] if T["kind"] == "cloze"
+                                else ["skill", "quote_lines", "extracts"])
+    if T["kind"] == "structural":
+        required = required + ["blank"]
     for i, q in enumerate(qs):
-        tag = f"q[{i}] {q.get('passage_title', '?')} blank {q.get('blank', '?')}"
-        for f in REQUIRED:
+        tag = (f"q[{i}] {q.get('passage_title', '?')} "
+               + (f"blank {q.get('blank', '?')}" if T["kind"] == "cloze"
+                  else f"item {q.get('skill', '?')}"))
+        for f in required:
             if f not in q:
                 errs.append(f"{tag}: missing field '{f}'")
         if q.get("subject") != "reading_comprehension":
@@ -84,11 +207,11 @@ def validate(qs, nn):
         if q.get("review_status") != "pending":
             errs.append(f"{tag}: review_status must be pending")
         if q.get("figure_svg") is not None:
-            errs.append(f"{tag}: cloze questions carry no figure")
+            errs.append(f"{tag}: reading questions carry no figure")
         if not (q.get("passage") or "").strip():
-            errs.append(f"{tag}: passage must be populated for a cloze question")
-        if q.get("source_book") != BOOK:
-            errs.append(f"{tag}: source_book must be {BOOK}")
+            errs.append(f"{tag}: passage must be populated")
+        if q.get("source_book") != T["book"]:
+            errs.append(f"{tag}: source_book must be {T['book']}")
         if q.get("source_page") != nn:
             errs.append(f"{tag}: source_page must be {nn}")
         if not (isinstance(q.get("confidence"), (int, float)) and 0.0 <= q["confidence"] <= 1.0):
@@ -101,44 +224,139 @@ def validate(qs, nn):
         phrase = positional_reference(q.get("explanation"))
         if phrase:
             errs.append(f"{tag}: explanation names an option position ({phrase!r})")
-        if q.get("pos") not in PARTS_OF_SPEECH:
-            errs.append(f"{tag}: pos must be one of {sorted(PARTS_OF_SPEECH)}, got "
-                        f"{q.get('pos')!r} — §5 requires every option to be the same "
-                        f"part of speech, so it is declared rather than guessed")
-        errs += [f"{tag}: {e}" for e in distractor_relation_errors(q)]
-        # A cloze blank accepts any word that fits the sentence, so a distractor meaning
-        # the same as the key will usually fit it too — a second correct answer rather
-        # than a trap. Found by eye: "Funding for the programs is not ___" with key
-        # 'secure' and distractor 'guaranteed', both of which read perfectly.
-        for word, r in (q.get("relations") or {}).items():
-            if r == "synonym":
-                errs.append(f"{tag}: distractor {word!r} is declared 'synonym' — in a "
-                            f"cloze a word meaning the same as the key normally fits the "
-                            f"blank as well, giving two correct answers")
+
+        errs += [f"{tag}: {e}" for e in
+                 distractor_relation_errors(q, vocabulary=T["relations"])]
+
+        if T["kind"] == "cloze":
+            errs += cloze_question_errors(q, tag)
+        else:
+            errs += set_question_errors(q, tag, T)
+        if T["kind"] == "structural":
+            errs += structural_question_errors(q, tag)
+
+        # Words the passage itself uses are legitimate by definition — character names,
+        # place names, Australian spellings. The check exists to catch a distractor
+        # INVENTED to look like a real word, and an invented word is precisely the one
+        # that will not appear in the passage. Maintaining a hand-written list of every
+        # proper noun any future passage might use is a losing game.
+        from_passage = {w.lower() for w in
+                        re.findall(r"[A-Za-z][A-Za-z'-]*", q.get("passage") or "")}
         for k in KEYS:
-            bad = unknown_words(q.get(k), extra_ok=AU_EXTRA)
+            bad = unknown_words(q.get(k), extra_ok=RC_EXTRA | from_passage)
             if bad:
                 errs.append(f"{tag}: option {q[k]!r} is not made of real words: {bad}")
         if len(str(q.get("explanation") or "").split()) < 8:
             errs.append(f"{tag}: explanation too thin — say why the key fits AND why the "
                         f"strongest distractor does not")
 
-    errs += passage_group_errors(qs)
-    pool = qs + bank_questions(nn)
-    errs += answer_shape_monotony(pool, group_of=lambda q: CATEGORY)
-    errs += length_tell(pool, group_of=lambda q: CATEGORY)
+    errs += passage_group_errors(qs, T)
+    pool = qs + bank_questions(nn, T)
+    cat = T["category"]
+    errs += answer_shape_monotony(pool, group_of=lambda q: cat)
+    # floor on the POOL, not the batch: at n=20 the deviation around chance is ~0.10,
+    # so a single batch drifts under any sensible floor by luck. The accumulated type
+    # is where a systematic over-correction actually shows.
+    errs += length_tell(pool, group_of=lambda q: cat, floor=0.12)
+    # ALSO judge the batch on its own, and harder. The pooled check above compares a new
+    # batch against everything already built, so a lean earlier batch can carry a biased
+    # new one under the cap — p2 ran 11 of 20 while the pool sat at a comfortable 13 of
+    # 40. A student never meets the pool: a reading drill set is whole passages, so one
+    # batch is very close to one set, and 11 of 20 means "pick the longest option" scores
+    # 55% against a 25% chance rate. 0.45 allows drift without allowing a systematic tell.
+    errs += length_tell(qs, group_of=lambda q: f"batch p{nn}", cap=0.45)
     errs += relation_monotony([q for q in pool if q.get("relations")],
-                              group_of=lambda q: CATEGORY)
+                              group_of=lambda q: cat)
     return errs
 
 
-def passage_group_errors(qs):
-    """Every passage must carry exactly one question per blank, and one text."""
+def cloze_question_errors(q, tag):
+    errs = []
+    if q.get("pos") not in PARTS_OF_SPEECH:
+        errs.append(f"{tag}: pos must be one of {sorted(PARTS_OF_SPEECH)}, got "
+                    f"{q.get('pos')!r} — §5 requires every option to be the same "
+                    f"part of speech, so it is declared rather than guessed")
+    # A cloze blank accepts any word that fits the sentence, so a distractor meaning
+    # the same as the key will usually fit it too — a second correct answer rather
+    # than a trap. Found by eye: "Funding for the programs is not ___" with key
+    # 'secure' and distractor 'guaranteed', both of which read perfectly.
+    for word, r in (q.get("relations") or {}).items():
+        if r == "synonym":
+            errs.append(f"{tag}: distractor {word!r} is declared 'synonym' — in a "
+                        f"cloze a word meaning the same as the key normally fits the "
+                        f"blank as well, giving two correct answers")
+    return errs
+
+
+def structural_question_errors(q, tag):
+    """Rules specific to putting a removed sentence back.
+
+    The key must be absent from the passage — it was cut out — and every option must be a
+    whole sentence. An option that is a fragment while the other three are sentences is
+    strikeable on sight, without reading the passage at all, which is the shape-level tell
+    `length_tell` catches for length and nothing catches for grammar.
+    """
+    errs = []
+    passage = q.get("passage") or ""
+    key = str(q.get("option_" + str(q.get("correct_answer", "")).lower(), ""))
+    if key and key in passage:
+        errs.append(f"{tag}: the correct sentence is still present in the passage, so the "
+                    f"gap was never actually cut")
+    for k in KEYS:
+        opt = str(q.get(k) or "").strip()
+        if not opt:
+            continue
+        if not opt[0].isupper():
+            errs.append(f"{tag}: option {opt[:40]!r} does not start as a sentence does")
+        if opt[-1] not in ".!?":
+            errs.append(f"{tag}: option {opt[:40]!r} has no sentence-ending punctuation — "
+                        f"an option that is not a sentence is strikeable without reading "
+                        f"the passage")
+    return errs
+
+
+def set_question_errors(q, tag, T):
+    """Rules for a comprehension item — poetry, paired, multi-extract, structural."""
+    errs = []
+    if q.get("skill") not in SKILLS:
+        errs.append(f"{tag}: skill must be one of {sorted(SKILLS)}, got {q.get('skill')!r}")
+
+    # The defect this exists for: the cloze checks passed batches with two defensible
+    # answers, and only reading them caught it. Making the author write down why the
+    # strongest rival fails puts them in front of that comparison.
+    problem = explanation_addresses_a_distractor(q)
+    if problem:
+        errs.append(f"{tag}: {problem}")
+
+    passage = q.get("passage") or ""
+    for line in q.get("quote_lines") or []:
+        if line not in passage:
+            errs.append(f"{tag}: the stem quotes {line[:50]!r}, which is not in the "
+                        f"passage verbatim")
+
+    labels = T.get("extract_labels") or []
+    used = q.get("extracts") or []
+    if labels:
+        unknown = [e for e in used if e not in labels]
+        if unknown:
+            errs.append(f"{tag}: declares extract(s) {unknown} that this type does not "
+                        f"define (known: {labels})")
+        if not used:
+            errs.append(f"{tag}: must declare which extract(s) it needs")
+    elif used:
+        errs.append(f"{tag}: this type has a single text, so 'extracts' must be empty")
+    return errs
+
+
+# --------------------------------------------------------------------- per-group
+def passage_group_errors(qs, T):
+    """A group is one passage text and the questions that depend on it."""
     errs = []
     groups = collections.defaultdict(list)
     for q in qs:
         groups[q.get("passage_title")].append(q)
 
+    lo, hi = T["items_per_passage"]
     for title, group in groups.items():
         texts = {q.get("passage") for q in group}
         if len(texts) != 1:
@@ -147,59 +365,171 @@ def passage_group_errors(qs):
                         f"passage, so they would split into separate passages")
             continue
         passage = texts.pop() or ""
-        in_passage = [int(n) for n in BLANK_RE.findall(passage)]
-        asked = [q.get("blank") for q in group]
 
-        if sorted(in_passage) != list(range(1, len(in_passage) + 1)):
-            errs.append(f"[{title}]: blanks in the passage are numbered {in_passage} — "
-                        f"expected 1..{len(in_passage)} with no gaps or repeats")
-        if sorted(asked) != sorted(in_passage):
-            errs.append(f"[{title}]: passage has blanks {sorted(in_passage)} but the "
-                        f"questions ask about {sorted(asked)}")
-        if len(in_passage) != BLANKS_PER_PASSAGE:
-            errs.append(f"[{title}]: {len(in_passage)} blanks, expected "
-                        f"{BLANKS_PER_PASSAGE} (TASK §5)")
+        if T["kind"] == "cloze":
+            errs += passage_markup_errors(title, passage)
+            errs += cloze_group_errors(title, group, passage, hi)
+            continue
+        if T["kind"] == "structural":
+            errs += cloze_group_errors(title, group, passage, hi, STRUCT_BLANK_RE)
 
-        # The stem must quote the passage, not a retyped approximation of it.
-        for q in group:
-            frag = q.get("stem_fragment")
-            if frag and frag not in passage:
-                errs.append(f"[{title}] blank {q.get('blank')}: the quoted fragment is "
-                            f"not in the passage verbatim")
+        if not lo <= len(group) <= hi:
+            errs.append(f"[{title}]: {len(group)} questions, expected {lo}–{hi} "
+                        f"(taxonomy §3.4: each passage carries 4–8 linked questions)")
+
+        skills = {q.get("skill") for q in group}
+        need = T.get("min_skills_per_group", 3)
+        if len(skills) < need:
+            errs.append(f"[{title}]: the {len(group)} questions test only {len(skills)} "
+                        f"distinct skill(s) {sorted(s for s in skills if s)} — a passage "
+                        f"asked {len(group)} times about one skill is one question")
+
+        errs += passage_markup_errors(title, passage)
+        if T["kind"] == "verse":
+            errs += verse_line_errors(title, passage)
+
+        for label in T.get("extract_labels") or []:
+            if label not in passage:
+                errs.append(f"[{title}]: the passage does not contain the extract "
+                            f"heading {label!r}")
+            elif f"{label}  \n" not in passage:
+                errs.append(f"[{title}]: the heading {label!r} has no markdown hard break "
+                            f"after it, so the review UI runs it into the first sentence "
+                            f"of the extract and the label disappears")
+        need_cross = T.get("min_cross_extract", 0)
+        if need_cross:
+            cross = sum(1 for q in group if len(q.get("extracts") or []) > 1)
+            if cross < need_cross:
+                errs.append(f"[{title}]: only {cross} of {len(group)} questions reach "
+                            f"across more than one extract, need {need_cross} — "
+                            f"otherwise this is single-passage comprehension with a "
+                            f"second text attached for decoration")
     return errs
 
 
-def bank_questions(skip_nn):
+def cloze_group_errors(title, group, passage, blanks_per_passage, marker=BLANK_RE):
+    errs = []
+    in_passage = [int(n) for n in marker.findall(passage)]
+    asked = [q.get("blank") for q in group]
+
+    if sorted(in_passage) != list(range(1, len(in_passage) + 1)):
+        errs.append(f"[{title}]: blanks in the passage are numbered {in_passage} — "
+                    f"expected 1..{len(in_passage)} with no gaps or repeats")
+    if sorted(asked) != sorted(in_passage):
+        errs.append(f"[{title}]: passage has blanks {sorted(in_passage)} but the "
+                    f"questions ask about {sorted(asked)}")
+    if len(in_passage) != blanks_per_passage:
+        errs.append(f"[{title}]: {len(in_passage)} blanks, expected "
+                    f"{blanks_per_passage} (TASK §5)")
+
+    # The stem must quote the passage, not a retyped approximation of it.
+    for q in group:
+        frag = q.get("stem_fragment")
+        if frag and frag not in passage:
+            errs.append(f"[{title}] blank {q.get('blank')}: the quoted fragment is "
+                        f"not in the passage verbatim")
+    return errs
+
+
+# Only markup that would actually PARSE. An underscore run counts as an emphasis
+# delimiter in markdown solely when it sits at a word boundary and is followed by
+# non-space — which is why `___(1)___` was eaten and `___ (1) ___` is left alone. A
+# blunter `__` pattern would fail every cloze passage for a marker that renders fine.
+# Markup that would actually PARSE, which means an emphasis PAIR: an opening delimiter
+# with content tight against it and a matching closer with content tight against that.
+# A one-sided test is not enough — `___ (2) ___.` has a run followed by a full stop and
+# `marked` leaves it completely alone, so flagging it would fail every cloze passage for
+# a marker that renders correctly. Checked against the same marked build the review UI
+# loads: `___(1)___` parses, `___ (1) ___` does not.
+MARKUP_RE = re.compile(r"(\*\*|___|__)(?=[^\s*_])[^\n]*?(?<=[^\s*_])\1"
+                       r"|^#{1,6} |^\s*\|.*\|\s*$", re.M)
+
+
+def passage_markup_errors(title, passage):
+    """A passage may not carry markdown, because only one of the two readers parses it.
+
+    The review UI runs the passage through `marked.parse`, so markup looks right there.
+    Selectly does not: `McqQuestion.tsx` splits the passage back out of the stem and puts
+    it in a `white-space: pre-wrap` div as plain text, so a student is shown the
+    asterisks of `**Tank Stand**` exactly as written. Checking the reviewer's screen
+    would never reveal it — the two surfaces disagree, and the student's is the one that
+    matters. Line breaks are safe in both: pre-wrap honours the newline, and the two
+    trailing spaces are invisible.
+    """
+    m = MARKUP_RE.search(passage or "")
+    if not m:
+        return []
+    return [f"[{title}]: the passage contains markdown ({m.group(0).strip()!r}) — the "
+            f"review UI parses it but Selectly shows it to the student verbatim"]
+
+
+def verse_line_errors(title, passage):
+    """A poem whose line breaks are lost is a paragraph, and a different question.
+
+    The review UI renders the passage with `marked.parse` and does not set `breaks`, so a
+    single newline collapses to a space and the poem arrives as prose. Two trailing
+    spaces is markdown's hard line break; it is also invisible wherever the passage is
+    handled as plain text, which is what `push_to_selectly.py` does with it.
+    """
+    errs = []
+    lines = passage.split("\n")
+    for i, line in enumerate(lines[:-1]):
+        nxt = lines[i + 1]
+        if line.strip() and nxt.strip() and not line.endswith("  "):
+            errs.append(f"[{title}]: verse line {line.strip()[:40]!r} has no markdown "
+                        f"hard break (two trailing spaces), so it will render joined to "
+                        f"the next line as prose")
+    return errs
+
+
+# --------------------------------------------------------------------- bank and batches
+def bank_questions(skip_nn, T):
+    """Everything the batch-quality checks should be judged against.
+
+    DB rows plus EVERY batch file for this book, loaded or not, deduplicated by id with
+    the file winning. The files are not redundant with the DB: `relations` has no column,
+    so once a batch is loaded its declared distractor design survives only in its file.
+    Judging relation variety against unloaded batches alone would shrink the pool to the
+    batch in hand as the build progresses — the check would tighten from 'is this bank
+    varied' to 'is this batch varied' without anyone deciding that it should.
+    """
     con = sqlite3.connect(DB)
     con.row_factory = sqlite3.Row
     rows = [dict(r) for r in con.execute(
         "SELECT * FROM questions WHERE subject='reading_comprehension' "
-        "AND NOT (source_book=? AND source_page=?)", (BOOK, skip_nn))]
-    for f in other_batches(skip_nn):
-        rows += json.loads(f.read_text(encoding="utf-8"))
-    return rows
+        "AND NOT (source_book=? AND source_page=?)", (T["book"], skip_nn))]
+    from_files = []
+    for f in sorted(GEN.glob(f"{T['book']}_p*.json")):
+        if int(re.search(r"_p(\d+)\.json$", f.name).group(1)) != skip_nn:
+            from_files += json.loads(f.read_text(encoding="utf-8"))
+    seen = {q.get("id") for q in from_files}
+    return from_files + [r for r in rows if r.get("id") not in seen]
 
 
-def loaded_set():
-    if not LOADED.exists():
+def loaded_set(T):
+    path = GEN / f"{T['book']}_LOADED.json"
+    if not path.exists():
         return set()
-    names = json.loads(LOADED.read_text(encoding="utf-8"))
+    names = json.loads(path.read_text(encoding="utf-8"))
     return {int(m.group(1)) for m in (re.search(r"_p(\d+)\.json$", n) for n in names) if m}
 
 
-def other_batches(skip_nn):
-    done = loaded_set()
-    return [f for f in sorted(GEN.glob(f"{BOOK}_p*.json"))
-            if int(re.search(r"_p(\d+)\.json$", f.name).group(1)) not in done
-            and int(re.search(r"_p(\d+)\.json$", f.name).group(1)) != skip_nn]
+def other_batches(skip_nn, T):
+    done = loaded_set(T)
+    out = []
+    for f in sorted(GEN.glob(f"{T['book']}_p*.json")):
+        n = int(re.search(r"_p(\d+)\.json$", f.name).group(1))
+        if n not in done and n != skip_nn:
+            out.append(f)
+    return out
 
 
-def near_duplicates(qs, nn, threshold=0.82):
+def near_duplicates(qs, nn, T, threshold=0.82):
     con = sqlite3.connect(DB)
     existing = [r[0] for r in con.execute(
         "SELECT stem FROM questions WHERE subject='reading_comprehension' "
-        "AND NOT (source_book=? AND source_page=?)", (BOOK, nn)) if r[0]]
-    for f in other_batches(nn):
+        "AND NOT (source_book=? AND source_page=?)", (T["book"], nn)) if r[0]]
+    for f in other_batches(nn, T):
         existing += [x["stem"] for x in json.loads(f.read_text(encoding="utf-8"))]
     errs, batch = [], []
     for q in qs:
@@ -207,56 +537,75 @@ def near_duplicates(qs, nn, threshold=0.82):
         for prev in batch + existing:
             r = SequenceMatcher(None, low, prev.lower()).ratio()
             if r >= threshold:
-                errs.append(f"{q.get('passage_title')} blank {q.get('blank')}: stem "
+                errs.append(f"{q.get('passage_title')}: stem "
                             f"{r:.3f} similar to {prev[:70]!r} — phase 4 would drop it")
                 break
         batch.append(q["stem"])
     return errs
 
 
-def running_counts(skip_nn):
+def running_counts(skip_nn, T):
     c = collections.Counter()
     con = sqlite3.connect(DB)
     for a, n in con.execute("SELECT correct_answer, COUNT(*) FROM questions "
-                            "WHERE source_book=? GROUP BY 1", (BOOK,)):
+                            "WHERE source_book=? GROUP BY 1", (T["book"],)):
         c[a] += n
-    for f in other_batches(skip_nn):
+    for f in other_batches(skip_nn, T):
         for q in json.loads(f.read_text(encoding="utf-8")):
             c[q["correct_answer"]] += 1
     return c
 
 
-def recompute_manifest(current_nn, current_qs):
+def recompute_manifest(current_nn, current_qs, T):
     titles = set()
     con = sqlite3.connect(DB)
     for (d,) in con.execute("SELECT source_page_description FROM questions "
-                            "WHERE source_book=? AND source_page != ?", (BOOK, current_nn)):
+                            "WHERE source_book=? AND source_page != ?",
+                            (T["book"], current_nn)):
         m = re.search(r"\[passage: ([^\]]+)\]", d or "")
         if m:
             titles.add(m.group(1))
-    for f in other_batches(current_nn):
-        titles |= {q["passage_title"] for q in json.loads(f.read_text(encoding="utf-8"))}
+    n_loaded = con.execute("SELECT COUNT(*) FROM questions WHERE source_book=? "
+                           "AND source_page != ?", (T["book"], current_nn)).fetchone()[0]
+    n = n_loaded + len(current_qs)
+    for f in other_batches(current_nn, T):
+        batch = json.loads(f.read_text(encoding="utf-8"))
+        titles |= {q["passage_title"] for q in batch}
+        n += len(batch)
     titles |= {q["passage_title"] for q in current_qs}
-    return {"passages": len(titles), "target_passages": TARGET_PASSAGES,
-            "questions": len(titles) * BLANKS_PER_PASSAGE,
-            "target_questions": TARGET_PASSAGES * BLANKS_PER_PASSAGE,
+    return {"passages": len(titles), "target_passages": T["target_passages"],
+            "questions": n, "target_questions": T["target_questions"],
             "titles": sorted(titles)}
 
 
+# --------------------------------------------------------------------- main
 def main():
-    nn = int(sys.argv[1])
-    path = GEN / f"{BOOK}_p{nn}.json"
+    ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    ap.add_argument("type", choices=sorted(TYPES), help="NSW Reading question type")
+    ap.add_argument("nn", type=int, help="batch number")
+    ap.add_argument("--check-only", action="store_true",
+                    help="validate without rebalancing keys or rewriting the file")
+    args = ap.parse_args()
+
+    T = TYPES[args.type]
+    nn = args.nn
+    path = GEN / f"{T['book']}_p{nn}.json"
     qs = json.loads(path.read_text(encoding="utf-8"))
 
-    errs = validate(qs, nn) + near_duplicates(qs, nn)
+    errs = validate(qs, nn, T) + near_duplicates(qs, nn, T)
     if errs:
         print(f"VALIDATION FAILED ({len(errs)}):")
         for e in errs:
             print("  -", e)
         sys.exit(1)
 
+    if args.check_only:
+        print(f"OK (check-only) {T['book']}_p{nn}: {len(qs)} questions, "
+              f"{len({q['passage_title'] for q in qs})} passages")
+        return
+
     rng = random.Random(nn * 3571)
-    counts = running_counts(nn)
+    counts = running_counts(nn, T)
     for q in qs:
         opts = [q[k] for k in KEYS]
         correct = opts[ord(q["correct_answer"]) - 65]
@@ -275,13 +624,14 @@ def main():
             q["source_page_description"] += f" [passage: {q['passage_title']}]"
 
     path.write_text(json.dumps(qs, indent=2, ensure_ascii=False), encoding="utf-8")
-    manifest = recompute_manifest(nn, qs)
+    manifest = recompute_manifest(nn, qs, T)
     GEN.mkdir(parents=True, exist_ok=True)
-    MANIFEST.write_text(json.dumps(manifest, indent=1, ensure_ascii=False), encoding="utf-8")
+    (GEN / f"{T['book']}_MANIFEST.json").write_text(
+        json.dumps(manifest, indent=1, ensure_ascii=False), encoding="utf-8")
 
     npass = len({q["passage_title"] for q in qs})
     nhard = sum(1 for q in qs if q["difficulty"] == "hard")
-    print(f"OK p{nn}: {len(qs)} q across {npass} passages, {nhard} hard")
+    print(f"OK {T['book']}_p{nn}: {len(qs)} q across {npass} passages, {nhard} hard")
     print(f"batch keys  { {a: sum(1 for q in qs if q['correct_answer'] == a) for a in 'ABCD'} }")
     print(f"running keys {dict(sorted(counts.items()))}")
     print(f"  passages {manifest['passages']}/{manifest['target_passages']}  "

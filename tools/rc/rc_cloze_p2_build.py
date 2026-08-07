@@ -23,7 +23,7 @@ LABEL = "Vocabulary cloze"
 NOW = datetime.datetime(2026, 8, 4, 20, 0, 0, tzinfo=datetime.timezone.utc) \
     .isoformat().replace("+00:00", "Z")
 
-BLANK_RE = re.compile(r"_{2,}\((\d+)\)_{2,}")
+BLANK_RE = re.compile(r"_{2,} \((\d+)\) _{2,}")
 
 PASSAGES = [
  {
@@ -32,21 +32,21 @@ PASSAGES = [
   "text":
     "In 1928 a minister named John Flynn began an air service for people living in the "
     "outback. Before it existed, a station hand with a broken leg might wait days for "
-    "help, and the ___(1)___ was often measured in hundreds of kilometres.\n\n"
+    "help, and the ___ (1) ___ was often measured in hundreds of kilometres.\n\n"
     "Flynn's idea depended on two inventions. The first was the aeroplane. The second was "
-    "a pedal-powered radio, ___(2)___ by Alfred Traeger, which let a homestead call for "
+    "a pedal-powered radio, ___ (2) ___ by Alfred Traeger, which let a homestead call for "
     "assistance without mains electricity. Operators pedalled to generate current while "
     "they spoke.\n\n"
-    "Early flights were ___(3)___. There were no sealed runways, so pilots landed on claypans "
-    "and paddocks, sometimes guided in at night by car headlights. Doctors ___(4)___ "
+    "Early flights were ___ (3) ___. There were no sealed runways, so pilots landed on claypans "
+    "and paddocks, sometimes guided in at night by car headlights. Doctors ___ (4) ___ "
     "surgery on kitchen tables, and the aircraft carried only what could be lifted aboard "
     "by hand.\n\n"
-    "The service ___(5)___ steadily through the following decades. Today the Royal Flying "
+    "The service ___ (5) ___ steadily through the following decades. Today the Royal Flying "
     "Doctor Service runs a fleet of pressurised aircraft, and its clinics reach communities "
-    "that have no ___(6)___ doctor of their own. It also runs a telephone health line, so "
-    "that ___(7)___ advice can be given before an aircraft is sent.\n\n"
+    "that have no ___ (6) ___ doctor of their own. It also runs a telephone health line, so "
+    "that ___ (7) ___ advice can be given before an aircraft is sent.\n\n"
     "Flynn called his plan a mantle of safety spread across the inland. Nearly a century on, "
-    "that description still ___(8)___ what the service does.",
+    "that description still ___ (8) ___ what the service does.",
   "items": [
     (1, "distance", [("cost", "domain"), ("delay", "nuance"), ("help", "collocation")],
      "noun",
@@ -96,20 +96,20 @@ PASSAGES = [
   "topic": "Environment",
   "text":
     "Cane toads were brought to Queensland in 1935 to control beetles that were damaging "
-    "sugar cane. The plan ___(1)___ almost immediately. The beetles lived high on the cane "
+    "sugar cane. The plan ___ (1) ___ almost immediately. The beetles lived high on the cane "
     "stalks, and the toads could not climb.\n\n"
     "What the toads could do was breed. A single female lays up to thirty thousand eggs at "
-    "a time, and the young toads are ___(2)___ to the dry conditions of northern Australia. "
-    "The front of their range has moved west across the Top End at a rate that ___(3)___ "
+    "a time, and the young toads are ___ (2) ___ to the dry conditions of northern Australia. "
+    "The front of their range has moved west across the Top End at a rate that ___ (3) ___ "
     "researchers, reaching Western Australia in 2009.\n\n"
-    "The damage is ___(4)___. Cane toads carry poison glands behind the head, and native "
-    "predators that have never encountered them have no ___(5)___ against the toxin. "
+    "The damage is ___ (4) ___. Cane toads carry poison glands behind the head, and native "
+    "predators that have never encountered them have no ___ (5) ___ against the toxin. "
     "Northern quoll numbers collapsed as the toads arrived, and goannas and freshwater "
-    "crocodiles were also ___(6)___.\n\n"
+    "crocodiles were also ___ (6) ___.\n\n"
     "Some native species are now adapting. Crows have learned to flip the toads over and "
-    "eat only the parts that are ___(7)___, and quolls in some areas appear to be "
+    "eat only the parts that are ___ (7) ___, and quolls in some areas appear to be "
     "developing a reluctance to attack them at all. Whether this happens quickly enough to "
-    "___(8)___ the worst losses is still unknown.",
+    "___ (8) ___ the worst losses is still unknown.",
   "items": [
     (1, "failed", [("succeeded", "opposite"), ("began", "domain"), ("stalled", "nuance")],
      "verb",
@@ -159,20 +159,20 @@ PASSAGES = [
   "topic": "Australian History",
   "text":
     "The Snowy Mountains Scheme took twenty-five years to build. Begun in 1949, it "
-    "___(1)___ the Snowy River inland through a system of tunnels so that water could "
+    "___ (1) ___ the Snowy River inland through a system of tunnels so that water could "
     "generate electricity and then irrigate farmland.\n\n"
-    "Most of the work was ___(2)___. Sixteen large dams, seven power stations and more "
+    "Most of the work was ___ (2) ___. Sixteen large dams, seven power stations and more "
     "than a hundred and forty kilometres of tunnel were cut through rock, much of it by "
     "hand-held drills. More than a hundred thousand people worked on the scheme, and about "
     "two-thirds of them came from overseas.\n\n"
-    "They arrived from more than thirty countries, many from a Europe still ___(3)___ from "
+    "They arrived from more than thirty countries, many from a Europe still ___ (3) ___ from "
     "the war. Camps were built at Cooma and Khancoban, and workers who shared no common "
-    "language learned to ___(4)___ through gesture and diagram. One hundred and twenty-one "
-    "people died during construction, a toll that would be ___(5)___ today.\n\n"
-    "The scheme is still ___(6)___ as an engineering achievement, though its effect on the "
-    "river itself was severe. For decades only a ___(7)___ of the original flow reached the "
+    "language learned to ___ (4) ___ through gesture and diagram. One hundred and twenty-one "
+    "people died during construction, a toll that would be ___ (5) ___ today.\n\n"
+    "The scheme is still ___ (6) ___ as an engineering achievement, though its effect on the "
+    "river itself was severe. For decades only a ___ (7) ___ of the original flow reached the "
     "lower Snowy. Environmental releases begun in 2002 have since returned some water to "
-    "the channel, and the argument over how much the river should receive ___(8)___ "
+    "the channel, and the argument over how much the river should receive ___ (8) ___ "
     "unresolved today.",
   "items": [
     (1, "diverted", [("followed", "domain"), ("blocked", "nuance"), ("released", "opposite")],
@@ -223,21 +223,21 @@ PASSAGES = [
   "title": "Wombat Burrows",
   "topic": "Australian Wildlife",
   "text":
-    "A wombat burrow is far larger than most people ___(1)___. Tunnels can run twenty "
+    "A wombat burrow is far larger than most people ___ (1) ___. Tunnels can run twenty "
     "metres, branch several times, and hold chambers wide enough for an adult wombat to "
     "turn around in.\n\n"
-    "The burrow keeps a ___(2)___ temperature all year. Outside, the ground surface may "
+    "The burrow keeps a ___ (2) ___ temperature all year. Outside, the ground surface may "
     "swing between five and forty degrees across a single day, while a metre down the air "
-    "___(3)___ close to the annual average. That stability is what allows wombats to sleep "
+    "___ (3) ___ close to the annual average. That stability is what allows wombats to sleep "
     "through the heat and forage after dark.\n\n"
     "After the 2019 and 2020 fires, cameras placed at burrow entrances recorded something "
-    "___(4)___. Rock wallabies, echidnas, lizards and even small birds were photographed "
-    "entering wombat burrows in burnt country. The wombats did not appear to ___(5)___ "
+    "___ (4) ___. Rock wallabies, echidnas, lizards and even small birds were photographed "
+    "entering wombat burrows in burnt country. The wombats did not appear to ___ (5) ___ "
     "them.\n\n"
-    "Researchers were careful about the claim that wombats deliberately ___(6)___ other "
+    "Researchers were careful about the claim that wombats deliberately ___ (6) ___ other "
     "animals. A burrow is simply the coolest and safest space available, and its owner may "
-    "___(7)___ visitors rather than invite them. Even so, in a landscape stripped of cover, "
-    "a network of deep tunnels is a ___(8)___ that many species now depend on.",
+    "___ (7) ___ visitors rather than invite them. Even so, in a landscape stripped of cover, "
+    "a network of deep tunnels is a ___ (8) ___ that many species now depend on.",
   "items": [
     (1, "imagine", [("mention", "domain"), ("know", "collocation"), ("exaggerate", "opposite")],
      "verb",

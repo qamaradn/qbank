@@ -25,7 +25,7 @@ LABEL = "Vocabulary cloze"
 NOW = datetime.datetime(2026, 8, 4, 21, 0, 0, tzinfo=datetime.timezone.utc) \
     .isoformat().replace("+00:00", "Z")
 
-BLANK_RE = re.compile(r"_{2,}\((\d+)\)_{2,}")
+BLANK_RE = re.compile(r"_{2,} \((\d+)\) _{2,}")
 
 PASSAGES = [
  {
@@ -34,20 +34,20 @@ PASSAGES = [
   "text":
     "For thousands of years Aboriginal people across northern Australia have used fire to "
     "manage country. The practice is often called cool burning, because the fires are lit "
-    "early in the dry season when the grass is still ___(1)___ and the wind is light.\n\n"
+    "early in the dry season when the grass is still ___ (1) ___ and the wind is light.\n\n"
     "A cool fire moves slowly along the ground. It clears leaf litter without reaching the "
-    "canopy, so the tall trees are ___(2)___ and animals have time to move away. A late-season "
-    "fire behaves very differently: it burns hot, spreads fast, and can ___(3)___ an area "
+    "canopy, so the tall trees are ___ (2) ___ and animals have time to move away. A late-season "
+    "fire behaves very differently: it burns hot, spreads fast, and can ___ (3) ___ an area "
     "the size of a small country in a week.\n\n"
     "Rangers now light early-season fires from helicopters as well as on foot, using "
-    "knowledge that has been ___(4)___ through families for generations. The aim is to break "
-    "the landscape into a ___(5)___ of burnt and unburnt patches, so that a late fire runs "
+    "knowledge that has been ___ (4) ___ through families for generations. The aim is to break "
+    "the landscape into a ___ (5) ___ of burnt and unburnt patches, so that a late fire runs "
     "out of fuel before it can travel far.\n\n"
-    "The results have been ___(6)___. Savanna burning projects across the Top End now cut "
+    "The results have been ___ (6) ___. Savanna burning projects across the Top End now cut "
     "greenhouse emissions by amounts that can be audited, and several earn carbon credits "
     "that fund ranger "
-    "wages. For communities, the work also ___(7)___ people to country, which many rangers "
-    "describe as the part that ___(8)___ most.",
+    "wages. For communities, the work also ___ (7) ___ people to country, which many rangers "
+    "describe as the part that ___ (8) ___ most.",
   "items": [
     (1, "damp", [("dry", "opposite"), ("tall", "domain"), ("green", "collocation")],
      "adjective",
@@ -99,20 +99,20 @@ PASSAGES = [
   "topic": "Science",
   "text":
     "When the first platypus specimen reached London in 1799, several scientists were "
-    "___(1)___ that it was a hoax. The animal had a bill like a duck, fur like an otter and "
+    "___ (1) ___ that it was a hoax. The animal had a bill like a duck, fur like an otter and "
     "a tail like a beaver, and one curator went so far as to check the bill for stitches.\n\n"
     "The platypus is one of only five mammal species that lay eggs. It also hunts in a way "
-    "no other mammal ___(2)___. Swimming with its eyes, ears and nostrils shut, it finds "
-    "prey using electroreceptors in the bill, which ___(3)___ the tiny electrical signals "
+    "no other mammal ___ (2) ___. Swimming with its eyes, ears and nostrils shut, it finds "
+    "prey using electroreceptors in the bill, which ___ (3) ___ the tiny electrical signals "
     "given off by the muscles of shrimp and insect larvae.\n\n"
     "Males carry a spur on each hind leg connected to a venom gland. The venom is not "
-    "___(4)___ to humans, but the pain is severe and can last for weeks. Production rises "
-    "during the breeding season, which suggests the spur is used in ___(5)___ between males "
+    "___ (4) ___ to humans, but the pain is severe and can last for weeks. Production rises "
+    "during the breeding season, which suggests the spur is used in ___ (5) ___ between males "
     "rather than for defence.\n\n"
-    "Platypus numbers are hard to ___(6)___, because the animal is shy and active mainly at "
+    "Platypus numbers are hard to ___ (6) ___, because the animal is shy and active mainly at "
     "dawn and dusk. Surveys now use environmental DNA, testing river water for traces the "
-    "animal ___(7)___ behind. The results suggest the range has contracted, and drought and "
-    "river regulation are the most likely ___(8)___.",
+    "animal ___ (7) ___ behind. The results suggest the range has contracted, and drought and "
+    "river regulation are the most likely ___ (8) ___.",
   "items": [
     (1, "convinced", [("doubtful", "opposite"), ("delighted", "domain"), ("suspicious", "nuance")],
      "adjective",
@@ -161,21 +161,21 @@ PASSAGES = [
   "title": "The Ghan",
   "topic": "Australian History",
   "text":
-    "The railway line from Adelaide to Darwin took more than a century to ___(1)___. The "
+    "The railway line from Adelaide to Darwin took more than a century to ___ (1) ___. The "
     "first section opened in 1878, and the last spike was driven in 2003.\n\n"
     "The original line was built along a route surveyed by John McDouall Stuart, who had "
-    "followed a chain of waterholes. That choice proved ___(2)___. The waterholes lay in "
+    "followed a chain of waterholes. That choice proved ___ (2) ___. The waterholes lay in "
     "country that floods, and washaways closed the line so often that passengers sometimes "
-    "waited weeks. On one ___(3)___ occasion in 1917 a train was stranded for two weeks and "
+    "waited weeks. On one ___ (3) ___ occasion in 1917 a train was stranded for two weeks and "
     "the driver shot wild goats to feed everyone on board.\n\n"
-    "The line was ___(4)___ in the 1980s onto higher ground to the west, and the old track "
-    "was pulled up. The new alignment has proved far more ___(5)___, though the crossing of "
+    "The line was ___ (4) ___ in the 1980s onto higher ground to the west, and the old track "
+    "was pulled up. The new alignment has proved far more ___ (5) ___, though the crossing of "
     "the Finke River still requires a bridge built for floods that arrive perhaps twice in a "
     "decade.\n\n"
-    "The train is named after the Afghan cameleers who ___(6)___ goods through the interior "
+    "The train is named after the Afghan cameleers who ___ (6) ___ goods through the interior "
     "before the railway existed. Their camel strings carried wire for the Overland Telegraph, "
     "supplies to remote stations and water to construction camps. The name is all that "
-    "___(7)___ of a trade that the railway itself made ___(8)___.",
+    "___ (7) ___ of a trade that the railway itself made ___ (8) ___.",
   "items": [
     (1, "complete", [("abandon", "opposite"), ("describe", "domain"), ("approve", "collocation")],
      "verb",

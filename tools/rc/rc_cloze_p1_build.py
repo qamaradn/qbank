@@ -29,9 +29,9 @@ LABEL = "Vocabulary cloze"
 NOW = datetime.datetime(2026, 8, 4, 19, 0, 0, tzinfo=datetime.timezone.utc) \
     .isoformat().replace("+00:00", "Z")
 
-BLANK_RE = re.compile(r"_{2,}\((\d+)\)_{2,}")
+BLANK_RE = re.compile(r"_{2,} \((\d+)\) _{2,}")
 
-# Each passage: title, topic, text with ___(n)___ markers, and one item per blank.
+# Each passage: title, topic, text with ___ (n) ___ markers, and one item per blank.
 # item = (blank, key, [(distractor, relation) x3], pos, explanation, difficulty, confidence)
 PASSAGES = [
  {
@@ -40,21 +40,21 @@ PASSAGES = [
   "text":
     "For almost a century the night parrot was believed to be extinct. The small green "
     "bird lives in the spinifex country of inland Australia, and it is active only after "
-    "dark, which makes it ___(1)___ difficult to find. Between 1912 and 1979 there was "
-    "not a single confirmed sighting, and many scientists ___(2)___ that the species had "
+    "dark, which makes it ___ (1) ___ difficult to find. Between 1912 and 1979 there was "
+    "not a single confirmed sighting, and many scientists ___ (2) ___ that the species had "
     "died out altogether.\n\n"
-    "Then, in 2013, a naturalist named John Young ___(3)___ a photograph of a living "
+    "Then, in 2013, a naturalist named John Young ___ (3) ___ a photograph of a living "
     "night parrot in western Queensland. The image was blurred and the bird was partly "
-    "hidden by grass, but it was ___(4)___ proof that the species had survived. "
+    "hidden by grass, but it was ___ (4) ___ proof that the species had survived. "
     "Researchers immediately began searching the surrounding country for further signs.\n\n"
-    "Finding the birds has proved ___(5)___ work. Night parrots call for only a few "
+    "Finding the birds has proved ___ (5) ___ work. Night parrots call for only a few "
     "minutes at dusk, so teams leave sound recorders running for weeks and later listen "
-    "through hundreds of hours of tape. The recordings are ___(6)___ against known calls "
+    "through hundreds of hours of tape. The recordings are ___ (6) ___ against known calls "
     "before any sighting is accepted.\n\n"
-    "The exact locations of the nests are kept ___(7)___. Conservationists worry that "
+    "The exact locations of the nests are kept ___ (7) ___. Conservationists worry that "
     "collectors would pay a great deal for eggs, and that too many visitors would disturb "
     "the fragile spinifex. For a bird that spent a hundred years hidden, a little more "
-    "___(8)___ may be exactly what it needs.",
+    "___ (8) ___ may be exactly what it needs.",
   "items": [
     (1, "extremely",
      [("rarely", "opposite"), ("briefly", "domain"), ("possibly", "nuance")],
@@ -116,21 +116,21 @@ PASSAGES = [
   "topic": "Australian History",
   "text":
     "Before 1872, a message sent from Adelaide to London took about three months, because "
-    "it travelled by ship. The Overland Telegraph Line changed that ___(1)___, cutting the "
+    "it travelled by ship. The Overland Telegraph Line changed that ___ (1) ___, cutting the "
     "journey of a message to a matter of hours.\n\n"
-    "The plan was ___(2)___: three thousand kilometres of wire strung between Adelaide and "
+    "The plan was ___ (2) ___: three thousand kilometres of wire strung between Adelaide and "
     "Darwin, across desert country that few Europeans had crossed. Charles Todd, the man "
     "in charge, divided the route into three sections so that crews could work on all of "
-    "them at once. Even so, the northern teams were ___(3)___ by a wet season that turned "
+    "them at once. Even so, the northern teams were ___ (3) ___ by a wet season that turned "
     "the ground to mud and left drays bogged for weeks.\n\n"
-    "Timber for the poles was ___(4)___ in much of the centre, so ironwood and even steel "
-    "poles had to be carted enormous distances. Workers ___(5)___ on flour, tea and dried "
+    "Timber for the poles was ___ (4) ___ in much of the centre, so ironwood and even steel "
+    "poles had to be carted enormous distances. Workers ___ (5) ___ on flour, tea and dried "
     "meat, and water was often found only by digging.\n\n"
-    "The line was completed in August 1872. Its ___(6)___ on the colonies was immediate: "
+    "The line was completed in August 1872. Its ___ (6) ___ on the colonies was immediate: "
     "wool prices from London could be read in Adelaide the same day, and newspapers began "
-    "printing overseas news while it was still ___(7)___. Repeater stations built along "
+    "printing overseas news while it was still ___ (7) ___. Repeater stations built along "
     "the route later became the first permanent settlements in the interior, and several "
-    "of them ___(8)___ into the towns that stand there today.",
+    "of them ___ (8) ___ into the towns that stand there today.",
   "items": [
     (1, "dramatically",
      [("slightly", "opposite"), ("recently", "domain"), ("gradually", "nuance")],
@@ -190,21 +190,21 @@ PASSAGES = [
   "topic": "Environment",
   "text":
     "Along the north coast of Australia, Indigenous ranger groups manage stretches of "
-    "coastline known as sea country. Their work ___(1)___ traditional knowledge with "
+    "coastline known as sea country. Their work ___ (1) ___ traditional knowledge with "
     "satellite tracking, drones and water sampling.\n\n"
     "One of their main tasks is removing ghost nets. These are fishing nets that have been "
     "lost or thrown overboard, and they continue to catch turtles and dugongs for years "
-    "___(2)___. A single net can travel thousands of kilometres on the current before it "
-    "washes ashore. Rangers ___(3)___ the beaches after big tides, cut the nets free of "
+    "___ (2) ___. A single net can travel thousands of kilometres on the current before it "
+    "washes ashore. Rangers ___ (3) ___ the beaches after big tides, cut the nets free of "
     "the sand and record what has been trapped in them.\n\n"
-    "The data they gather is ___(4)___ to scientists. Because rangers walk the same "
+    "The data they gather is ___ (4) ___ to scientists. Because rangers walk the same "
     "beaches season after season, they notice changes that a visiting researcher would "
-    "___(5)___ entirely — a nesting beach that has narrowed, or a species arriving earlier "
+    "___ (5) ___ entirely — a nesting beach that has narrowed, or a species arriving earlier "
     "than it used to.\n\n"
-    "Funding for the programs is not ___(6)___, and groups often work on short grants that "
+    "Funding for the programs is not ___ (6) ___, and groups often work on short grants that "
     "must be renewed. Rangers argue that this makes long-term planning almost impossible, "
-    "because the ___(7)___ of the work depends on being present every year rather than in "
-    "bursts. Where the programs have been ___(8)___ for a decade or more, turtle nesting "
+    "because the ___ (7) ___ of the work depends on being present every year rather than in "
+    "bursts. Where the programs have been ___ (8) ___ for a decade or more, turtle nesting "
     "numbers have begun to recover.",
   "items": [
     (1, "combines",
@@ -266,18 +266,18 @@ PASSAGES = [
   "text":
     "Every spring, billions of bogong moths leave the plains of southern Queensland and "
     "fly south to the Australian Alps. The journey can be a thousand kilometres, and the "
-    "moths ___(1)___ it only once. They spend the summer packed into cool granite caves, "
+    "moths ___ (1) ___ it only once. They spend the summer packed into cool granite caves, "
     "then return north to breed and die.\n\n"
-    "How they navigate was a ___(2)___ for many years. Experiments have since shown that "
+    "How they navigate was a ___ (2) ___ for many years. Experiments have since shown that "
     "the moths use the Earth's magnetic field together with the pattern of stars, and that "
-    "they can ___(3)___ course when one of the two is disturbed.\n\n"
-    "In the caves the moths are a ___(4)___ food source. Mountain pygmy possums wake from "
+    "they can ___ (3) ___ course when one of the two is disturbed.\n\n"
+    "In the caves the moths are a ___ (4) ___ food source. Mountain pygmy possums wake from "
     "hibernation timed to the moths' arrival, and a poor season leaves the possums with "
-    "___(5)___ to eat at exactly the wrong moment.\n\n"
-    "Numbers ___(6)___ sharply during the drought years after 2017, and in some caves the "
+    "___ (5) ___ to eat at exactly the wrong moment.\n\n"
+    "Numbers ___ (6) ___ sharply during the drought years after 2017, and in some caves the "
     "moths almost vanished. Researchers are still working out whether the decline was "
-    "___(7)___ or the start of something longer. What is clear is that a species most "
-    "people never think about ___(8)___ an entire alpine food web.",
+    "___ (7) ___ or the start of something longer. What is clear is that a species most "
+    "people never think about ___ (8) ___ an entire alpine food web.",
   "items": [
     (1, "complete",
      [("abandon", "opposite"), ("describe", "domain"), ("attempt", "nuance")],
@@ -342,7 +342,7 @@ def context(passage: str, n: int, words: int = 7) -> str:
     Generated, never retyped: a stem cannot then quote something the passage does not
     say, and the eight stems of one passage come out textually distinct.
     """
-    m = re.search(rf"_{{2,}}\({n}\)_{{2,}}", passage)
+    m = re.search(rf"_{{2,}} \({n}\) _{{2,}}", passage)
     if not m:
         raise ValueError(f"blank {n} not found in passage")
     before = passage[:m.start()].replace("\n", " ").split()[-words:]

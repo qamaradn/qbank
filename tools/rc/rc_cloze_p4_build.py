@@ -26,7 +26,7 @@ LABEL = "Vocabulary cloze"
 NOW = datetime.datetime(2026, 8, 4, 22, 0, 0, tzinfo=datetime.timezone.utc) \
     .isoformat().replace("+00:00", "Z")
 
-BLANK_RE = re.compile(r"_{2,}\((\d+)\)_{2,}")
+BLANK_RE = re.compile(r"_{2,} \((\d+)\) _{2,}")
 
 PASSAGES = [
  {
@@ -34,21 +34,21 @@ PASSAGES = [
   "topic": "Science",
   "text":
     "A rip is a narrow current of water flowing away from the beach. It forms when waves "
-    "push water up the sand and that water has to ___(1)___ somewhere. Rather than draining "
+    "push water up the sand and that water has to ___ (1) ___ somewhere. Rather than draining "
     "evenly along the whole beach, it gathers into a channel and runs out through the "
     "breakers.\n\n"
     "Rips are easier to spot once you know what to look for. The water in a rip is often "
-    "___(2)___ than the water beside it, because the channel is deeper and the sand has "
+    "___ (2) ___ than the water beside it, because the channel is deeper and the sand has "
     "been scoured away. Waves also break less in a rip, so a gap in the line of white water "
-    "is a useful ___(3)___.\n\n"
-    "Swimmers caught in a rip usually make the same ___(4)___: they try to swim straight "
+    "is a useful ___ (3) ___.\n\n"
+    "Swimmers caught in a rip usually make the same ___ (4) ___: they try to swim straight "
     "back to the beach against the flow. A rip can run faster than an Olympic swimmer, so "
-    "this ___(5)___ them long before they make progress.\n\n"
+    "this ___ (5) ___ them long before they make progress.\n\n"
     "Lifesavers give two pieces of advice. If you can stand, wade rather than swim. If you "
-    "cannot, stay ___(6)___, float, and raise one arm so somebody on shore can see you. "
-    "Most rips ___(7)___ within a few hundred metres, and many will carry you back towards "
+    "cannot, stay ___ (6) ___, float, and raise one arm so somebody on shore can see you. "
+    "Most rips ___ (7) ___ within a few hundred metres, and many will carry you back towards "
     "the sand on their own. Above all, swim between the flags, where the water has been "
-    "___(8)___ by people who read it every day.",
+    "___ (8) ___ by people who read it every day.",
   "items": [
     (1, "return", [("evaporate", "domain"), ("arrive", "opposite"), ("gather", "collocation")],
      "verb",
@@ -100,21 +100,21 @@ PASSAGES = [
   "topic": "Science",
   "text":
     "Australia has more rooftop solar per person than any other country. Roughly one house "
-    "in three now ___(1)___ its own electricity, a share that would have seemed impossible "
+    "in three now ___ (1) ___ its own electricity, a share that would have seemed impossible "
     "twenty years ago.\n\n"
     "The reasons are partly physical. Australia receives more sunlight per square metre "
-    "than almost anywhere else, and most people live in detached houses with ___(2)___ roof "
-    "space. The reasons are also economic: panel prices have ___(3)___ by roughly ninety "
+    "than almost anywhere else, and most people live in detached houses with ___ (2) ___ roof "
+    "space. The reasons are also economic: panel prices have ___ (3) ___ by roughly ninety "
     "per cent since 2010.\n\n"
-    "The scale of it has created an unusual ___(4)___. On mild sunny days in spring, so "
+    "The scale of it has created an unusual ___ (4) ___. On mild sunny days in spring, so "
     "much solar power flows into the grid that demand from coal and gas plants falls close to "
     "zero around midday. The grid was designed for electricity moving in one direction, "
-    "from a few big stations outward, and it must now ___(5)___ millions of small sources "
+    "from a few big stations outward, and it must now ___ (5) ___ millions of small sources "
     "sending power the other way.\n\n"
-    "Batteries are one ___(6)___. Storing the midday surplus and releasing it in the "
+    "Batteries are one ___ (6) ___. Storing the midday surplus and releasing it in the "
     "evening flattens the curve, and household battery installations have risen sharply. "
-    "Another approach is to ___(7)___ demand into the middle of the day, by running hot "
-    "water systems and charging cars while the sun is high. Neither alone is ___(8)___, but "
+    "Another approach is to ___ (7) ___ demand into the middle of the day, by running hot "
+    "water systems and charging cars while the sun is high. Neither alone is ___ (8) ___, but "
     "together they make the surplus useful rather than awkward.",
   "items": [
     (1, "generates", [("consumes", "opposite"), ("purchases", "collocation"), ("requires", "nuance")],
@@ -165,20 +165,20 @@ PASSAGES = [
   "topic": "Australian History",
   "text":
     "At Cape Denison in Antarctica stand four timber buildings put up by Douglas Mawson's "
-    "expedition in 1912. The site is one of the ___(1)___ places on Earth. Winds pour off "
+    "expedition in 1912. The site is one of the ___ (1) ___ places on Earth. Winds pour off "
     "the ice plateau and reach the coast at an average of more than sixty kilometres an "
     "hour, gusting to well over three hundred.\n\n"
-    "The expedition had not ___(2)___ this. Mawson chose the site from a ship in calm "
+    "The expedition had not ___ (2) ___ this. Mawson chose the site from a ship in calm "
     "weather, and the wind began within days of the huts going up. Men learned to walk "
-    "leaning forward at an angle that looked ___(3)___ in photographs, and to fit their "
+    "leaning forward at an angle that looked ___ (3) ___ in photographs, and to fit their "
     "boots with crampons simply to cross open ground.\n\n"
-    "The huts ___(4)___, which is remarkable given the conditions. Ice filled the interior "
-    "over the following century, and that ice both damaged the timber and ___(5)___ it, "
+    "The huts ___ (4) ___, which is remarkable given the conditions. Ice filled the interior "
+    "over the following century, and that ice both damaged the timber and ___ (5) ___ it, "
     "sealing the buildings against the worst of the weather.\n\n"
-    "Conservation teams now visit for a few weeks each summer. Their work is ___(6)___ by "
+    "Conservation teams now visit for a few weeks each summer. Their work is ___ (6) ___ by "
     "the same wind that has preserved the site, and by a rule that nothing may be "
-    "___(7)___ from Antarctica. Materials must be carried in and all waste carried out. The "
-    "aim is not to make the huts look new but to ___(8)___ them roughly as the expedition "
+    "___ (7) ___ from Antarctica. Materials must be carried in and all waste carried out. The "
+    "aim is not to make the huts look new but to ___ (8) ___ them roughly as the expedition "
     "left them.",
   "items": [
     (1, "windiest", [("calmest", "opposite"), ("coldest", "collocation"), ("emptiest", "nuance")],
@@ -233,18 +233,18 @@ PASSAGES = [
   "topic": "Environment",
   "text":
     "Seagrass is not seaweed. It is a flowering plant with roots, and it grows in shallow "
-    "water where enough light ___(1)___ the seabed. Australia holds some of the largest "
+    "water where enough light ___ (1) ___ the seabed. Australia holds some of the largest "
     "meadows in the world, and one plant in Shark Bay covers nearly two hundred square "
-    "kilometres, making it among the largest ___(2)___ organisms known.\n\n"
-    "The meadows do several jobs at once. Their roots ___(3)___ the sediment, which keeps "
-    "the water clear. Their leaves shelter juvenile fish, so a healthy meadow ___(4)___ the "
+    "kilometres, making it among the largest ___ (2) ___ organisms known.\n\n"
+    "The meadows do several jobs at once. Their roots ___ (3) ___ the sediment, which keeps "
+    "the water clear. Their leaves shelter juvenile fish, so a healthy meadow ___ (4) ___ the "
     "fisheries offshore. They also store carbon in the mud beneath them at a rate that "
-    "___(5)___ most forests.\n\n"
-    "Seagrass is ___(6)___ to two things in particular. The first is anything that clouds "
+    "___ (5) ___ most forests.\n\n"
+    "Seagrass is ___ (6) ___ to two things in particular. The first is anything that clouds "
     "the water, since the plants need light. The second is physical damage: boat propellers "
-    "and moorings cut scars that can take decades to ___(7)___.\n\n"
+    "and moorings cut scars that can take decades to ___ (7) ___.\n\n"
     "Replanting is slow and expensive, so most effort now goes into protecting meadows that "
-    "are still ___(8)___. Moorings that float above the seabed rather than dragging across "
+    "are still ___ (8) ___. Moorings that float above the seabed rather than dragging across "
     "it have been installed at several popular anchorages, and the scars beneath them have "
     "begun to close.",
   "items": [

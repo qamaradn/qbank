@@ -6,10 +6,13 @@ batches after per-question validation passed clean. See tools/question_checks.py
 import pytest
 
 from tools.question_checks import (
+    COMPREHENSION_RELATIONS,
+    STRUCTURAL_RELATIONS,
     answer_shape_monotony,
     by_topic,
     distractor_relation_errors,
     disputes_its_own_key,
+    explanation_addresses_a_distractor,
     figure_svg_errors,
     leaked_working,
     length_tell,
@@ -244,6 +247,30 @@ def test_relations_reports_a_missing_map():
         "missing 'relations' map for the three distractors"]
 
 
+def test_relations_accepts_the_comprehension_vocabulary():
+    """A comprehension option is wrong about a proposition, not about a word."""
+    q = vq(key="Rain clouds pass without dropping rain",
+           d1="Sheep are being shorn nearby", d2="A storm has damaged the tank",
+           d3="The family has moved west",
+           r=("literal", "unsupported", "wrong_focus"))
+    assert distractor_relation_errors(q, vocabulary=COMPREHENSION_RELATIONS) == []
+
+
+def test_relations_keeps_the_two_vocabularies_apart():
+    """'literal' is not a way one word is wrong beside another, and vice versa."""
+    q = vq(r=("literal", "unsupported", "wrong_focus"))
+    assert any("unknown relation" in e for e in distractor_relation_errors(q))
+    q2 = vq(r=("collocation", "unsupported", "wrong_focus"))
+    assert any("unknown relation 'collocation'" in e for e in
+               distractor_relation_errors(q2, vocabulary=COMPREHENSION_RELATIONS))
+
+
+def test_relations_still_demands_incoherence_under_comprehension_vocabulary():
+    q = vq(r=("unsupported", "unsupported", "unsupported"))
+    assert any("cohere" in e for e in
+               distractor_relation_errors(q, vocabulary=COMPREHENSION_RELATIONS))
+
+
 def test_relation_monotony_flags_one_template_across_a_batch():
     """Each question can be individually sound while the batch runs a single template."""
     batch = [vq() for _ in range(12)]
@@ -324,3 +351,110 @@ def test_disputes_its_own_key_flags_an_untrustworthy_answer():
 def test_disputes_its_own_key_is_quiet_on_a_clean_explanation():
     assert not disputes_its_own_key(
         "The block covers 30 000 square metres and each plot 100, giving 300 plots.")
+
+
+# ------------------------------------------- explanation_addresses_a_distractor
+def cq(explanation, key="Rain clouds pass the farm without dropping any rain"):
+    return {"correct_answer": "A", "option_a": key,
+            "option_b": "Sheep are being shorn in the far paddock",
+            "option_c": "A storm has damaged the tank stand",
+            "option_d": "The family has moved further west",
+            "explanation": explanation}
+
+
+def test_explanation_must_quote_a_distractor_back():
+    """REGRESSION: the cloze checks passed batches with two defensible answers.
+
+    Every mechanical check was green; only reading the questions caught it. An author
+    made to write down why the strongest rival fails has to look at the rival.
+    """
+    assert explanation_addresses_a_distractor(cq(
+        "The clouds carry their rain past the property, so nothing falls on the farm. "
+        "It is a long, careful explanation about the key and about nothing else at all."
+    )) is not None
+
+
+def test_explanation_naming_a_distractor_passes():
+    assert explanation_addresses_a_distractor(cq(
+        "The clouds carry their rain past the property; 'wool' is a comparison for their "
+        "thickness, so a storm has damaged the tank stand invents an event the poem "
+        "never mentions.")) is None
+
+
+def test_explanation_matching_only_stopwords_does_not_count():
+    """A run of pure function words is coincidence, not a rival being discharged."""
+    q = {"correct_answer": "A", "option_a": "The rain falls on the farm",
+         "option_b": "It is not the rain that matters",
+         "option_c": "A storm damages the stand",
+         "option_d": "The family leaves",
+         "explanation": "The clouds pass over, and it is not going to fall here at all."}
+    assert explanation_addresses_a_distractor(q) is not None
+
+
+def test_explanation_matches_a_short_distractor_whole():
+    q = {"correct_answer": "A", "option_a": "absorbed", "option_b": "amused",
+         "option_c": "frightened", "option_d": "bored",
+         "explanation": "The speaker leans in rather than laughing; amused misses how "
+                        "still the watching is."}
+    assert explanation_addresses_a_distractor(q) is None
+
+
+def test_explanation_empty_is_reported():
+    assert "empty" in explanation_addresses_a_distractor(cq(""))
+
+
+# ---------------------------------------------------------------- STRUCTURAL_RELATIONS
+def test_structural_relations_describe_the_seam_not_the_world():
+    """A structural-cloze distractor can be perfectly true and still be the wrong sentence.
+
+    What fails is cohesion, so the vocabulary has to name the seam between two sentences
+    rather than a claim about the passage's subject.
+    """
+    q = vq(key="The 412 and the 421 leave from the same bay, one minute apart.",
+           d1="The interchange had been rebuilt the previous summer.",
+           d2="She had climbed onto the wrong one without looking up.",
+           d3="Mia got off at the next stop and waited.",
+           r=("off_topic", "redundant", "wrong_order"))
+    assert distractor_relation_errors(q, vocabulary=STRUCTURAL_RELATIONS) == []
+
+
+def test_structural_vocabulary_rejects_comprehension_relations():
+    """'literal' is a misreading of a figure; it says nothing about where a sentence goes."""
+    q = vq(r=("literal", "redundant", "off_topic"))
+    assert any("unknown relation 'literal'" in e for e in
+               distractor_relation_errors(q, vocabulary=STRUCTURAL_RELATIONS))
+
+
+def test_structural_still_demands_three_different_failures():
+    q = vq(r=("redundant", "redundant", "redundant"))
+    assert any("cohere" in e for e in
+               distractor_relation_errors(q, vocabulary=STRUCTURAL_RELATIONS))
+
+
+def test_unknown_words_accepts_a_possessive_of_a_known_word():
+    """"Ravi's" is the same word as "Ravi" — without this every possessive is reported."""
+    assert unknown_words("Ravi's bike", extra_ok={"ravi"}) == []
+    assert unknown_words("the dog's bowl") == []
+
+
+def test_unknown_words_still_catches_a_possessive_of_an_invented_word():
+    assert unknown_words("the mimec's handle") == ["mimec's"]
+
+
+def test_length_tell_floor_catches_the_over_correction():
+    """A key that is NEVER the longest is worth as much to a guesser as one that always is."""
+    batch = [q(correct="A", option_b="a much longer distractor than the key is") for _ in range(20)]
+    errs = length_tell(batch, floor=0.12)
+    assert len(errs) == 1 and "over-corrected" in errs[0]
+
+
+def test_length_tell_floor_is_off_by_default():
+    batch = [q(correct="A", option_b="a much longer distractor than the key is") for _ in range(20)]
+    assert length_tell(batch) == []
+
+
+def test_length_tell_floor_passes_a_group_sitting_near_chance():
+    batch = [q(correct="A", option_a="a much longer key than the distractors are")
+             for _ in range(5)]
+    batch += [q(correct="A", option_b="a much longer distractor than the key") for _ in range(15)]
+    assert length_tell(batch, floor=0.12) == []
