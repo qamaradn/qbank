@@ -247,3 +247,53 @@ def net_svg(cells, size=46, ox=None, oy=None, vw=340, vh=220):
     body += "".join(txt(ox + c * size + size / 2, oy + r * size + size / 2 + 6, k, 16)
                     for k, (c, r) in cells.items())
     return body
+
+
+# ------------------------------------------------------------------ tables
+def table(rows, col_w=None, row_h=24, pad=8, size=12.5, vw=340, header=True):
+    """Draw a table and size its own viewBox around it.
+
+    rows: list of rows, each a list of cell strings; row 0 is the header when `header`.
+
+    A timetable or two-way table is data the question reasons over, so it has to be a
+    figure rather than stem prose: the review UI renders the stem as markdown and the
+    Selectly player renders it as pre-wrapped plain text, and a pipe table survives
+    neither intact. Columns are measured from the widest cell so nothing collides.
+    """
+    ncol = max(len(r) for r in rows)
+    rows = [list(r) + [""] * (ncol - len(r)) for r in rows]
+    if col_w is None:
+        col_w = [max(7.0 * max(len(str(r[c])) for r in rows) + 2 * pad, 44)
+                 for c in range(ncol)]
+    total = sum(col_w)
+    if total > vw - 8:                                   # shrink to fit the canvas
+        col_w = [w * (vw - 8) / total for w in col_w]
+        total = sum(col_w)
+    h = row_h * len(rows)
+    ox, oy = (vw - total) / 2, 6
+    body = []
+    if header:
+        body.append(f'<rect x="{ox:.0f}" y="{oy:.0f}" width="{total:.0f}" '
+                    f'height="{row_h}" fill="currentColor" fill-opacity=".10"/>')
+    body.append(f'<rect x="{ox:.0f}" y="{oy:.0f}" width="{total:.0f}" height="{h}" '
+                f'stroke="currentColor" stroke-opacity=".85" stroke-width="1.6"/>')
+    # Every rule in one <path>: a five-column timetable drawn as separate <line> elements
+    # runs past the 3.5 KB budget figure_svg_errors enforces.
+    rules = []
+    y = oy
+    for r in range(1, len(rows)):
+        y += row_h
+        rules.append(f"M{ox:.0f} {y:.0f}H{ox + total:.0f}")
+    x = ox
+    for c in range(ncol - 1):
+        x += col_w[c]
+        rules.append(f"M{x:.0f} {oy:.0f}V{oy + h:.0f}")
+    body.append(f'<path d="{"".join(rules)}" stroke="currentColor" stroke-opacity=".45" '
+                f'stroke-width="1"/>')
+    for r, row in enumerate(rows):
+        x = ox
+        for c, cell in enumerate(row):
+            body.append(txt(x + col_w[c] / 2, oy + r * row_h + row_h / 2 + 4.5,
+                            str(cell), size, op=".95" if r == 0 and header else ".85"))
+            x += col_w[c]
+    return svg("".join(body), vb=f"0 0 {vw} {h + 12}")

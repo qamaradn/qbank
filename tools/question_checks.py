@@ -81,7 +81,14 @@ def length_tell(questions, group_of=by_topic, cap=0.6, min_group=5, floor=None):
         flags = []
         for q in qs:
             lens = {L: len(str(q.get("option_" + L.lower(), ""))) for L in "ABCD"}
-            flags.append(max(lens, key=lens.get) == str(q.get("correct_answer")))
+            longest = max(lens.values())
+            # Strictly longest, not merely tied for it. A key that ties with a distractor
+            # hands a guesser nothing, and `max` breaks ties toward A — which is exactly
+            # where every builder parks the key before the finaliser shuffles, so ties
+            # were being counted as a tell in the one place they cannot be one.
+            key_len = lens.get(str(q.get("correct_answer")), -1)
+            flags.append(key_len == longest
+                         and sum(1 for v in lens.values() if v == longest) == 1)
         n = sum(flags)
         if n / len(flags) > cap:
             errs.append(f"[{group}]: the correct answer is the longest option in {n} of "
