@@ -93,7 +93,8 @@ RC_EXTRA = AU_EXTRA | {
     "skilful", "skilfully", "coupe", "platypus", "petrakis",
     "unprofessionally", "unprofessional", "bushland", "lyrebird", "lyrebirds",
     "whipbird", "whipbirds", "rosella", "rosellas", "kookaburra", "kookaburras",
-    "lantana", "vegemite", "muesli",
+    "lantana", "vegemite", "muesli", "messaged", "beanbag", "beanbags",
+    "saltbush", "bluebush", "nullarbor", "eucalypt", "eucalypts", "quarry",
 }
 
 PARTS_OF_SPEECH = {"noun", "verb", "adjective", "adverb", "preposition", "conjunction",
