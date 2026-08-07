@@ -228,7 +228,8 @@ def validate(qs, nn, plan):
         if cats.get(q["category"], {}).get("needs_figure") and not q.get("figure_svg"):
             # Not every item in a figure category needs one — a timetable question can be
             # prose. Warn only when the stem points at something the reader cannot see.
-            if re.search(r"\bshown\b|\bdiagram\b|\bfigure\b|\bgraph\b|\bchart\b|\babove\b",
+            if re.search(r"\bshown\b|\bdiagram\b|\bfigure\b|\bgraph\b|\bchart\b|\babove\b"
+                         r"|\btable\b|\btimetable\b",
                          q["stem"], re.I):
                 errs.append(f"{tag}: stem refers to a figure but figure_svg is empty")
         phrase = positional_reference(q["explanation"])
