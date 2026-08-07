@@ -297,3 +297,45 @@ def table(rows, col_w=None, row_h=24, pad=8, size=12.5, vw=340, header=True):
                             str(cell), size, op=".95" if r == 0 and header else ".85"))
             x += col_w[c]
     return svg("".join(body), vb=f"0 0 {vw} {h + 12}")
+
+
+# ------------------------------------------------------------------ coordinate grids
+def coord_grid(points, xmax=6, ymax=6, cell=26, vw=340, pad=30, dots=True):
+    """Plot labelled points on a first-quadrant grid.
+
+    points: {label: (x, y)} in grid units. The dots and the axis numbering both come from
+    the same coordinates the question reasons about, so a plotted point cannot sit
+    somewhere other than where the stem says it is.
+    """
+    gw, gh = xmax * cell, ymax * cell
+    ox, oy = (vw - gw) / 2 + 8, pad
+    vh = gh + 2 * pad + 6
+
+    def px(x, y):
+        return ox + x * cell, oy + (ymax - y) * cell
+
+    rules = []
+    for i in range(xmax + 1):
+        x, _ = px(i, 0)
+        rules.append(f"M{x:.0f} {oy:.0f}V{oy + gh:.0f}")
+    for j in range(ymax + 1):
+        _, y = px(0, j)
+        rules.append(f"M{ox:.0f} {y:.0f}H{ox + gw:.0f}")
+    body = [f'<path d="{"".join(rules)}" stroke="currentColor" stroke-opacity=".25" '
+            f'stroke-width="1"/>']
+    x0, y0 = px(0, 0)
+    body.append(f'<path d="M{ox:.0f} {y0:.0f}H{ox + gw:.0f}M{x0:.0f} {oy:.0f}V{y0:.0f}" '
+                f'stroke="currentColor" stroke-opacity=".85" stroke-width="1.8"/>')
+    for i in range(xmax + 1):
+        x, _ = px(i, 0)
+        body.append(txt(x, y0 + 16, str(i), 11, op=".7"))
+    for j in range(1, ymax + 1):
+        _, y = px(0, j)
+        body.append(txt(x0 - 12, y + 4, str(j), 11, op=".7"))
+    for lab, (x, y) in points.items():
+        cx, cy = px(x, y)
+        if dots:
+            body.append(f'<circle cx="{cx:.0f}" cy="{cy:.0f}" r="4" fill="currentColor" '
+                        f'fill-opacity=".9"/>')
+        body.append(txt(cx + 12, cy - 7, lab, 14))
+    return svg("".join(body), vb=f"0 0 {vw} {vh:.0f}")

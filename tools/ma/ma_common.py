@@ -63,7 +63,12 @@ def deg(v):
 
 
 def unit(u):
-    return lambda v: f"{fmt_num(v)} {u}"
+    """Format a value with its unit. A count of one drops the plural: "1 cube", not
+    "1 cubes" — a stray plural is the kind of thing a reader trusts less than the maths."""
+    def f(v):
+        n = fmt_num(v)
+        return f"{n} {u[:-1] if n == '1' and u.endswith('s') and not u.endswith('ss') else u}"
+    return f
 
 
 PLAIN = fmt_num

@@ -112,6 +112,9 @@ def unit_agreement_errors(q):
     for k in KEYS:
         m = UNIT_RE.match(str(q.get(k, "")))
         units.append(m.group(1).strip() if m else None)
+    # "1 cube" and "6 cubes" are the same unit; only the count differs.
+    units = [u if u is None else (u[:-1] if u.endswith("s") and not u.endswith("ss") else u)
+             for u in units]
     named = [u for u in units if u]
     if named and len(named) != 4:
         return [f"only {len(named)} of 4 options carry a unit — a bare number among "
@@ -273,7 +276,10 @@ def bank_questions(skip_nn):
             by_id[q["id"]] = q
     con = sqlite3.connect(DB)
     con.row_factory = sqlite3.Row
-    for r in con.execute("SELECT * FROM questions WHERE source_book=?", (BOOK,)):
+    # Exclude this batch's own loaded rows, or re-checking a batch that is already in the
+    # DB reports every one of its stems as a 1.000 duplicate of itself.
+    for r in con.execute("SELECT * FROM questions WHERE source_book=? AND source_page!=?",
+                         (BOOK, skip_nn)):
         if r["id"] not in by_id:
             by_id[r["id"]] = dict(r)
     return list(by_id.values())
