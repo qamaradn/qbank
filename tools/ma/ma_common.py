@@ -209,3 +209,11 @@ def triangle_fig(left, right, labels, base=250, vw=340, vh=190):
         f = 0.30
         body.append(txt(px + (cx - px) * f, py + (cy - py) * f + 4, lab, 14))
     return svg("".join(body), vb=f"0 0 {vw} {vh}")
+
+
+def shoelace(pts):
+    """Polygon area from its vertices — an independent route to any area computed
+    by decomposing a shape into rectangles or halving a bounding box."""
+    n = len(pts)
+    return abs(sum(pts[i][0] * pts[(i + 1) % n][1] - pts[(i + 1) % n][0] * pts[i][1]
+                   for i in range(n))) / 2
