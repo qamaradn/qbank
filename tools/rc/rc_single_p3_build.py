@@ -315,7 +315,7 @@ PASSAGES = [
      "does not. The hat should be small enough to fit in a bag describes a hat being "
      "carried, which is what the note rules out."),
 
-    ("cause_effect", "medium", 0.92, ONE, [(0, 5)],
+    ("detail", "medium", 0.92, ONE, [(0, 5)],
      'According to the note, why must lunch leave no rubbish?',
      "the site is a conservation area and waste goes out with the group",
      [("the bus company charges extra for any rubbish left behind on board", "unsupported"),

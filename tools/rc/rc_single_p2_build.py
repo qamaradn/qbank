@@ -343,7 +343,7 @@ PASSAGES = [
      "repair. A spanner is the wrong size for the job reads a general point about "
      "difficulty as a point about one tool."),
 
-    ("cause_effect", "medium", 0.92, ONE, [(0, 6)],
+    ("detail", "medium", 0.92, ONE, [(0, 6)],
      'According to the instructions, what does a soft tyre most often cause?',
      "a tube pinched between the rim and the road",
      [("a wheel that goes out of shape over time", "wrong_focus"),

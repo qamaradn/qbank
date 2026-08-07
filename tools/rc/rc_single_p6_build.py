@@ -99,7 +99,7 @@ PASSAGES = [
      "The tooth and the photograph are the setting; Priya is what the passage keeps and "
      "ends on. A boy embarrassed by a school photograph stops halfway through the story."),
 
-    ("cause_effect", "medium", 0.92, ONE, [(0, 10), (0, 11)],
+    ("inference", "medium", 0.92, ONE, [(0, 10), (0, 11)],
      'The passage ends: "{q}" Why has the narrator decided not to explain?',
      "he prefers his grandmother's version of the picture",
      [("he cannot remember the day clearly enough", "contradicts"),
@@ -345,7 +345,7 @@ PASSAGES = [
      "Never move them under any circumstances drops the exception the sentence exists to "
      "make."),
 
-    ("main_idea", "hard", 0.90, ONE, [(0, 11), (0, 12)],
+    ("author_purpose", "hard", 0.90, ONE, [(0, 11), (0, 12)],
      'The card ends: "{q}" Why is this placed last rather than first?',
      "it applies to every situation above it",
      [("it is the least important of the instructions", "contradicts"),

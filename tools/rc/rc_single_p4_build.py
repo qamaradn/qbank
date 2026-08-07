@@ -99,7 +99,7 @@ PASSAGES = [
      "thought about was that discomfort. A family who were treated unfairly that night "
      "reverses the passage's own conclusion."),
 
-    ("cause_effect", "medium", 0.92, ONE, [(0, 7)],
+    ("detail", "medium", 0.92, ONE, [(0, 7)],
      'According to Mum, why had the man waited longer than they had?',
      "his injury was less urgent than the brother's",
      [("he had arrived at the hospital much later", "contradicts"),

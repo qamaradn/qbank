@@ -361,15 +361,15 @@ PASSAGES = [
      "student. Warn students that chickens are difficult to keep is not the tone of a "
      "list that assumes two students can manage it before the bell."),
 
-    ("cause_effect", "medium", 0.92, ONE, [(0, 3)],
-     'The instructions say: "{q}" What is the likely reason for this?',
-     "the water is useful to the garden rather than wasted",
-     [("the drain would be blocked by the old water", "unsupported"),
-      ("the garden needs to be watered every single morning without fail", "overreach"),
-      ("the coop has no drain anywhere near it at all", "contradicts")],
-     "Sending it to the garden puts it to a second use instead of losing it. The coop has "
-     "no drain anywhere near it at all cannot be right, because the instruction only "
-     "makes sense if there is a drain to avoid."),
+    ("vocabulary_in_context", "medium", 0.92, ONE, [(0, 0)],
+     'The instructions open: "{q}" What does "rostered" mean here?',
+     "put on a list saying whose turn it is",
+     [("chosen at random from the class each week", "wrong_sense"),
+      ("rewarded for looking after the chickens well", "wrong_focus"),
+      ("taught how to care for the chickens properly", "unsupported")],
+     "A roster is a list of whose turn it is, which is why one hangs on the door. Chosen "
+     "at random from the class describes how a name might reach the list, not what being "
+     "rostered means."),
   ],
  },
  {
@@ -533,7 +533,7 @@ PASSAGES = [
      "strangeness. The facts were all confirmed at the same time is what the sentence "
      "denies."),
 
-    ("cause_effect", "medium", 0.92, ONE, [(0, 8)],
+    ("author_purpose", "medium", 0.92, ONE, [(0, 8)],
      'The passage notes: "{q}" Why is this mentioned?',
      "it is one more way the animal breaks a rule",
      [("it explains why the first skin was sent to London", "unsupported"),

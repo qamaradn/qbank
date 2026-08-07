@@ -100,15 +100,14 @@ PASSAGES = [
      "Eleven visits since is the measure of what that night settled. A friendship that "
      "was damaged by one bad evening is the opposite of the ending."),
 
-    ("cause_effect", "medium", 0.92, ONE, [(0, 12)],
-     'The passage ends: "{q}" Why does this matter?',
-     "the smell was never really about the smell",
-     [("the family changed the washing powder afterwards", "unsupported"),
-      ("he lost his sense of smell that night", "literal"),
-      ("he stopped visiting the house so often", "contradicts")],
-     "Once he was settled the detail stopped mattering, which shows what it had stood "
-     "for. The family changed the washing powder afterwards invents an event the passage "
-     "never mentions."),
+    ("vocabulary_in_context", "medium", 0.92, ONE, [(0, 5)],
+     'The narrator says: "{q}" What does "the worst possible sum" mean here?',
+     "a calculation that only makes the waiting harder",
+     [("a piece of homework he had been set that night", "literal"),
+      ("an addition he was not able to finish", "wrong_focus"),
+      ("the largest number he was able to think of", "wrong_sense")],
+     "Counting the hours still to go is exactly what keeps him awake, so the sum works "
+     "against him. A piece of homework he had been set reads sum as a school exercise."),
   ],
  },
  {

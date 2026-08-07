@@ -95,6 +95,7 @@ RC_EXTRA = AU_EXTRA | {
     "whipbird", "whipbirds", "rosella", "rosellas", "kookaburra", "kookaburras",
     "lantana", "vegemite", "muesli", "messaged", "beanbag", "beanbags",
     "saltbush", "bluebush", "nullarbor", "eucalypt", "eucalypts", "quarry",
+    "handover", "postcode", "postcodes", "trampoline", "trampolines",
 }
 
 PARTS_OF_SPEECH = {"noun", "verb", "adjective", "adverb", "preposition", "conjunction",
@@ -118,9 +119,9 @@ TYPES = {
         "category": "vocabulary_cloze",
         "label": "Vocabulary cloze",
         "kind": "cloze",
-        "target_passages": 15,
+        "target_passages": 17,
         "items_per_passage": (8, 8),
-        "target_questions": 120,
+        "target_questions": 136,
         "relations": RELATIONS,
     },
     "structural": {
