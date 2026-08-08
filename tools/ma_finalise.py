@@ -231,9 +231,11 @@ def validate(qs, nn, plan):
             errs.append(f"{tag}: options not distinct")
         for e in figure_svg_errors(q.get("figure_svg")):
             errs.append(f"{tag}: {e}")
-        if cats.get(q["category"], {}).get("needs_figure") and not q.get("figure_svg"):
-            # Not every item in a figure category needs one — a timetable question can be
-            # prose. Warn only when the stem points at something the reader cannot see.
+        if not q.get("figure_svg"):
+            # Runs for every category, not just the ones flagged needs_figure: an averages
+            # item shipped naming a frequency table it never showed, because its category
+            # is not a figure category. What matters is whether the STEM points at
+            # something the reader cannot see.
             if re.search(r"\bshown\b|\bdiagram\b|\bfigure\b|\bgraph\b|\bchart\b|\babove\b"
                          r"|\bthe table\b|\bthe timetable\b|\btable shows\b",
                          q["stem"], re.I):
