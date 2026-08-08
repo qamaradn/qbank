@@ -38,7 +38,12 @@ GEN = ROOT / "run_data/output/logical_reasoning/generated"
 PLAN = GEN / "lr_PLAN.json"
 MANIFEST = GEN / "lr_MANIFEST.json"
 PROGRESS = GEN / "LR_PROGRESS.md"
-LOADED = GEN / "lr_LOADED.json"
+# tools/load_batch.py records loaded batches as <book>_LOADED.json; the first thirteen
+# batches were recorded by an earlier script as lr_LOADED.json. Reading only the old name
+# meant every already-loaded batch was counted TWICE — once from its batch file and once
+# from its DB rows — which inflated the manifest and the running key balance.
+LOADED = GEN / "lr_thinking_skills_LOADED.json"
+LOADED_LEGACY = GEN / "lr_LOADED.json"
 DB = ROOT / "run_data/db/qbank.db"
 REQUIRED = ["id", "subject", "stem", *KEYS, "correct_answer", "explanation", "topic",
             "difficulty", "confidence", "source_book", "source_page",
@@ -150,7 +155,12 @@ def near_duplicates(qs, nn, threshold=0.82):
 
 
 def loaded_set():
-    return set(json.loads(LOADED.read_text(encoding="utf-8"))) if LOADED.exists() else set()
+    done = set()
+    for f in (LOADED, LOADED_LEGACY):
+        if f.exists():
+            done |= {int(re.search(r"(\d+)", str(x)).group(1)) if not isinstance(x, int) else x
+                     for x in json.loads(f.read_text(encoding="utf-8"))}
+    return done
 
 
 def batch_no(f):
