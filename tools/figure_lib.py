@@ -481,3 +481,123 @@ def pie_chart(parts, r=62, vw=340, vh=None, lab_gap=24):
                         cy + (r + lab_gap) * math.sin(am) + 4, lab, 11.5))
         ang += sweep
     return svg("".join(body), vb=f"0 0 {vw} {vh}")
+
+
+# ------------------------------------------------------------------ figural reasoning
+def shapes_row(cellsets, labels=None, size=17, gap=26, vw=340, pad=12, marks=None):
+    """Draw several polyomino shapes side by side, bottom-aligned, each with a caption.
+
+    cellsets: one list of (col, row) per shape, row 0 at the bottom.
+    marks:    optional {shape_index: {(col, row): "X"}} to letter a particular square.
+
+    Like tile_stages, but for shapes that are alternatives or components rather than
+    successive stages of one pattern — and it can mark a named square, which is what a
+    rotation question needs to ask about.
+    """
+    labels = labels or [chr(65 + i) for i in range(len(cellsets))]
+    if len(labels) != len(cellsets):
+        raise ValueError("one label per shape")
+    marks = marks or {}
+    widths = [(max(c for c, _ in s) + 1) * size for s in cellsets]
+    heights = [(max(r for _, r in s) + 1) * size for s in cellsets]
+    total = sum(widths) + gap * (len(cellsets) - 1)
+    if total > vw - 8:
+        raise ValueError(f"shapes need {total:.0f}px, canvas is {vw}")
+    vh = max(heights) + 2 * pad + 22
+    ox = (vw - total) / 2
+    base = pad + max(heights)
+
+    d, texts = [], []
+    for i, (cells, lab, w) in enumerate(zip(cellsets, labels, widths)):
+        for c, r in cells:
+            x, y = ox + c * size, base - (r + 1) * size
+            d.append(f"M{x:.0f} {y:.0f}h{size}v{size}h-{size}z")
+            m = marks.get(i, {}).get((c, r))
+            if m:
+                texts.append(txt(x + size / 2, y + size / 2 + 5, m, 12))
+        texts.append(txt(ox + w / 2, base + 17, lab, 11, op=".75"))
+        ox += w + gap
+    body = (f'<path d="{"".join(d)}" stroke="currentColor" stroke-opacity=".85" '
+            f'stroke-width="1.6" fill="currentColor" fill-opacity=".08"/>' + "".join(texts))
+    return svg(body, vb=f"0 0 {vw} {vh:.0f}")
+
+
+def rotate_cells(cells, quarter_turns=1):
+    """Rotate a cell set a quarter turn clockwise, `quarter_turns` times, and re-seat it
+    at the origin. Answers about rotation are computed from this rather than pictured."""
+    cs = list(cells)
+    for _ in range(quarter_turns % 4):
+        cs = [(r, -c) for c, r in cs]
+        mc, mr = min(c for c, _ in cs), min(r for _, r in cs)
+        cs = [(c - mc, r - mr) for c, r in cs]
+    return sorted(cs)
+
+
+# Which of the seven segments each digit lights. a=top, b=top-right, c=bottom-right,
+# d=bottom, e=bottom-left, f=top-left, g=middle.
+SEGMENTS = {
+    "0": "abcdef", "1": "bc", "2": "abdeg", "3": "abcdg", "4": "bcfg",
+    "5": "acdfg", "6": "acdefg", "7": "abc", "8": "abcdefg", "9": "abcdfg",
+}
+
+
+def seven_segment(digits, dead=(), w=34, h=58, gap=16, vw=340, pad=14, t=6):
+    """Draw digits on a seven-segment display, with `dead` segments never lighting.
+
+    dead: segment letters that are broken, e.g. ("a", "f"). A dead segment is drawn faintly
+    so the reader can see the display has seven segments and which are unlit — otherwise
+    the question is unanswerable, because a missing stroke and an absent stroke look alike.
+    """
+    n = len(digits)
+    total = n * w + (n - 1) * gap
+    ox, oy = (vw - total) / 2, pad
+    vh = h + 2 * pad
+    on, off = [], []
+    for i, ch in enumerate(digits):
+        x = ox + i * (w + gap)
+        lit = set(SEGMENTS[ch]) - set(dead)
+        geo = {
+            "a": f"M{x + t} {oy}h{w - 2 * t}",
+            "b": f"M{x + w} {oy + t}v{h / 2 - 1.5 * t}",
+            "c": f"M{x + w} {oy + h / 2 + 0.5 * t}v{h / 2 - 1.5 * t}",
+            "d": f"M{x + t} {oy + h}h{w - 2 * t}",
+            "e": f"M{x} {oy + h / 2 + 0.5 * t}v{h / 2 - 1.5 * t}",
+            "f": f"M{x} {oy + t}v{h / 2 - 1.5 * t}",
+            "g": f"M{x + t} {oy + h / 2}h{w - 2 * t}",
+        }
+        for seg, path in geo.items():
+            (on if seg in lit else off).append(path)
+    body = (f'<path d="{"".join(off)}" stroke="currentColor" stroke-opacity=".13" '
+            f'stroke-width="{t}" stroke-linecap="round"/>'
+            f'<path d="{"".join(on)}" stroke="currentColor" stroke-opacity=".9" '
+            f'stroke-width="{t}" stroke-linecap="round"/>')
+    return svg(body, vb=f"0 0 {vw} {vh:.0f}")
+
+
+def symbol_grid(rows, size=30, vw=340, pad=10, shade=()):
+    """A grid of symbols — the repeating-pattern and tessellation stimulus.
+
+    rows:  list of rows, each a list of one- or two-character symbols ("" for empty).
+    shade: {(row, col)} to fill, for "the shaded tile" questions.
+    """
+    nr, nc = len(rows), max(len(r) for r in rows)
+    ox, oy = (vw - nc * size) / 2, pad
+    vh = nr * size + 2 * pad
+    fills = ""
+    if shade:
+        d = "".join(f"M{ox + c * size:.0f} {oy + r * size:.0f}h{size}v{size}h-{size}z"
+                    for r, c in shade)
+        fills = f'<path d="{d}" fill="currentColor" fill-opacity=".16"/>'
+    rules = []
+    for r in range(nr + 1):
+        rules.append(f"M{ox:.0f} {oy + r * size:.0f}h{nc * size}")
+    for c in range(nc + 1):
+        rules.append(f"M{ox + c * size:.0f} {oy:.0f}v{nr * size}")
+    grid = (f'<path d="{"".join(rules)}" stroke="currentColor" stroke-opacity=".55" '
+            f'stroke-width="1.3"/>')
+    texts = "".join(
+        f'<text x="{ox + c * size + size / 2:.0f}" y="{oy + r * size + size / 2 + 6:.0f}" '
+        f'font-family="system-ui,sans-serif" font-size="15" fill="currentColor" '
+        f'text-anchor="middle">{s}</text>'
+        for r, row in enumerate(rows) for c, s in enumerate(row) if s)
+    return svg(fills + grid + texts, vb=f"0 0 {vw} {vh:.0f}")
