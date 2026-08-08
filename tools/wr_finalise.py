@@ -62,9 +62,11 @@ AU_MARKERS = re.compile(
     r"\b(australia|australian|nsw|new south wales|sydney|melbourne|brisbane|perth|"
     r"adelaide|hobart|darwin|canberra|newcastle|wollongong|bendigo|ballarat|geelong|"
     r"toowoomba|armidale|dubbo|tamworth|bathurst|katoomba|parramatta|blue mountains|"
-    r"murray|murrumbidgee|hunter|riverina|outback|bushfire|bushland|magpie|kookaburra|"
-    r"platypus|wombat|possum|cockatoo|ibis|galah|banksia|wattle|eucalypt|gum tree|"
-    r"surf life saving|nippers|anzac|naidoc|clean up australia|landcare|wires|"
+    r"murray|murrumbidgee|hunter|riverina|outback|bushfires?|bushland|magpies?|"
+    r"kookaburras?|platypus|wombats?|possums?|cockatoos?|ibis|galahs?|banksias?|"
+    r"wattle|eucalypts?|gum trees?|koalas?|humpbacks?|"
+    r"aboriginal|torres strait|first nations|alice springs|snowy mountains|wagga|"
+    r"surf life saving|nippers|anzac|naidoc|clean up australia|landcare|wires|rspca|"
     r"ses|state emergency service|shire council|swimming carnival|year 7|"
     r"local council|shire|milo|footy|netball|cricket)\b", re.I)
 
@@ -82,7 +84,10 @@ WR_EXTRA = {"advice", "sheet", "wetland", "wetlands", "boardwalk", "revegetation
             "boardwalk", "footbridge", "statistician", "bilby",
             # invented Australian place names used in these prompts, listed so they are
             # a deliberate choice rather than something that slipped past a typo screen
-            "bilby creek", "wattle"}
+            "bilby creek", "wattle",
+            "interschool", "replanted", "fledge", "fledged", "dubbo", "rspca",
+            "riverina", "kindergarten", "humpback", "koala", "koalas", "hectares",
+            "bushfire", "bushfires", "skate", "skatepark"}
 
 
 def blob(p):

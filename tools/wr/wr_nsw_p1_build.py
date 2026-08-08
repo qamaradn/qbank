@@ -216,7 +216,7 @@ P("speech", "quote",
   "cleaner is in the building an hour before anybody else arrives. The canteen volunteer "
   "gives up a morning a week, year after year. None of them is ever mentioned at a school "
   "assembly in Australia, and none of them expects to be.",
-  "Your school holds an assembly each term at which a student speaks for three minutes "
+  "Your school holds an assembly each term at which a student speaks for two minutes "
   "about somebody whose work goes unnoticed. Write the speech you would give. Choose one "
   "person or one job — a crossing supervisor, a cleaner, a bus driver, a canteen "
   "volunteer — and make your audience see why the work matters. A speech is written to "
