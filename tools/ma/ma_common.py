@@ -62,6 +62,11 @@ def deg(v):
     return f"{fmt_num(v)}°"
 
 
+def pct(v):
+    """Per cent closes up too: "60%", never "60 %"."""
+    return f"{fmt_num(v)}%"
+
+
 def unit(u):
     """Format a value with its unit. A count of one drops the plural: "1 cube", not
     "1 cubes" — a stray plural is the kind of thing a reader trusts less than the maths."""

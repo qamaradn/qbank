@@ -453,11 +453,18 @@ def line_graph(labels, series, ystep=None, vw=340, h=130, pad_l=34, pad_r=12, pa
     return svg("".join(body), vb=f"0 0 {vw} {h + pad_t + 24}")
 
 
-def pie_chart(parts, r=62, vw=340, vh=170):
+def pie_chart(parts, r=62, vw=340, vh=None, lab_gap=24):
     """A pie chart from (label, count) pairs. Sector angles come from the counts, so a
-    sector labelled a quarter is a quarter."""
+    sector labelled a quarter is a quarter.
+
+    The canvas is sized from the label ring rather than fixed: at vh=170 a sector whose
+    midpoint fell near six o'clock put its label below the viewBox and it was clipped
+    away entirely. Only rendering showed it — the SVG was valid and under budget.
+    """
     total = sum(c for _, c in parts)
-    cx, cy = vw / 2, vh / 2 + 4
+    if vh is None:
+        vh = 2 * (r + lab_gap) + 30
+    cx, cy = vw / 2, vh / 2
     body, ang = [], -90.0
     for lab, c in parts:
         sweep = 360 * c / total
@@ -470,7 +477,7 @@ def pie_chart(parts, r=62, vw=340, vh=170):
                     f'stroke-opacity=".85" stroke-width="1.6" fill="currentColor" '
                     f'fill-opacity="{0.06 + 0.05 * len(body):.2f}"/>')
         am = math.radians(ang + sweep / 2)
-        body.append(txt(cx + (r + 24) * math.cos(am), cy + (r + 24) * math.sin(am) + 4,
-                        lab, 11.5))
+        body.append(txt(cx + (r + lab_gap) * math.cos(am),
+                        cy + (r + lab_gap) * math.sin(am) + 4, lab, 11.5))
         ang += sweep
     return svg("".join(body), vb=f"0 0 {vw} {vh}")
