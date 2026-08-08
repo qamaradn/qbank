@@ -24,6 +24,7 @@ offsets clipped the tallest column off the canvas. `check_stack` additionally re
 layout where a near column would paint over a far one, which face-culling cannot fix
 because such columns are not adjacent, merely overlapping in projection.
 """
+import math
 import re
 
 W, H, V = 30, 17, 34
@@ -372,3 +373,104 @@ def tile_stages(cellsets, labels=None, size=17, gap=24, vw=340, pad=12):
     body = (f'<path d="{"".join(d)}" stroke="currentColor" stroke-opacity=".85" '
             f'stroke-width="1.6" fill="currentColor" fill-opacity=".08"/>' + "".join(texts))
     return svg(body, vb=f"0 0 {vw} {vh:.0f}")
+
+
+# ------------------------------------------------------------------ charts
+def _axes(ox, oy, w, h, ymax, ystep, ylabel_every=1):
+    """Axis lines, horizontal gridlines and y-axis numbers, as one path plus texts."""
+    rules, texts = [], []
+    n = int(round(ymax / ystep))
+    for i in range(n + 1):
+        y = oy + h - (i * ystep / ymax) * h
+        rules.append(f"M{ox:.0f} {y:.0f}H{ox + w:.0f}")
+        if i % ylabel_every == 0:
+            texts.append(txt(ox - 10, y + 4, f"{i * ystep:g}", 10, anchor="end", op=".7"))
+    grid = (f'<path d="{"".join(rules)}" stroke="currentColor" stroke-opacity=".18" '
+            f'stroke-width="1"/>')
+    axis = (f'<path d="M{ox:.0f} {oy:.0f}V{oy + h:.0f}H{ox + w:.0f}" stroke="currentColor" '
+            f'stroke-opacity=".8" stroke-width="1.6"/>')
+    return grid + axis + "".join(texts)
+
+
+def bar_chart(labels, values, ystep=None, vw=340, h=132, pad_l=34, pad_r=10, pad_t=12):
+    """A column graph. Bars are drawn from the same values the question reasons about.
+
+    ystep defaults to something that gives 4-6 gridlines for the data given.
+    """
+    if len(labels) != len(values):
+        raise ValueError("one label per bar")
+    top = max(values)
+    if ystep is None:
+        ystep = next(s for s in (1, 2, 5, 10, 20, 25, 50, 100, 200, 500)
+                     if top / s <= 6)
+    ymax = ystep * int(-(-top // ystep))
+    w = vw - pad_l - pad_r
+    ox, oy = pad_l, pad_t
+    body = [_axes(ox, oy, w, h, ymax, ystep)]
+    slot = w / len(values)
+    bw = slot * 0.56
+    d = []
+    for i, v in enumerate(values):
+        bh = (v / ymax) * h
+        x = ox + slot * i + (slot - bw) / 2
+        d.append(f"M{x:.1f} {oy + h - bh:.1f}h{bw:.1f}v{bh:.1f}h-{bw:.1f}z")
+    body.append(f'<path d="{"".join(d)}" stroke="currentColor" stroke-opacity=".85" '
+                f'stroke-width="1.5" fill="currentColor" fill-opacity=".22"/>')
+    for i, lab in enumerate(labels):
+        body.append(txt(ox + slot * i + slot / 2, oy + h + 15, lab, 10.5, op=".8"))
+    return svg("".join(body), vb=f"0 0 {vw} {h + pad_t + 24}")
+
+
+def line_graph(labels, series, ystep=None, vw=340, h=130, pad_l=34, pad_r=12, pad_t=12):
+    """A line graph. `series` is one list of values, or {name: values} for two lines."""
+    if not isinstance(series, dict):
+        series = {"": series}
+    top = max(max(v) for v in series.values())
+    if ystep is None:
+        ystep = next(s for s in (1, 2, 5, 10, 20, 25, 50, 100) if top / s <= 6)
+    ymax = ystep * int(-(-top // ystep))
+    w = vw - pad_l - pad_r
+    ox, oy = pad_l, pad_t
+    body = [_axes(ox, oy, w, h, ymax, ystep)]
+    step = w / (len(labels) - 1)
+    for si, (name, vals) in enumerate(series.items()):
+        pts = [(ox + step * i, oy + h - (v / ymax) * h) for i, v in enumerate(vals)]
+        dash = ' stroke-dasharray="5 3"' if si else ""
+        body.append(f'<path d="M' + " L".join(f"{x:.1f} {y:.1f}" for x, y in pts) +
+                    f'" stroke="currentColor" stroke-opacity=".9" stroke-width="2"{dash}/>')
+        body.append("".join(f'<circle cx="{x:.1f}" cy="{y:.1f}" r="3" fill="currentColor" '
+                            f'fill-opacity=".9"/>' for x, y in pts))
+        if name:
+            # Legend inside the top-left of the plot, each name preceded by a sample of
+            # its own line style. Names alone at the right-hand end sat on top of the
+            # data and left no way to tell which line was the dashed one.
+            ly = oy + 11 + si * 14
+            body.append(f'<path d="M{ox + 6:.0f} {ly:.0f}h16" stroke="currentColor" '
+                        f'stroke-opacity=".9" stroke-width="2"{dash}/>')
+            body.append(txt(ox + 27, ly + 4, name, 10.5, anchor="start", op=".85"))
+    for i, lab in enumerate(labels):
+        body.append(txt(ox + step * i, oy + h + 15, lab, 10.5, op=".8"))
+    return svg("".join(body), vb=f"0 0 {vw} {h + pad_t + 24}")
+
+
+def pie_chart(parts, r=62, vw=340, vh=170):
+    """A pie chart from (label, count) pairs. Sector angles come from the counts, so a
+    sector labelled a quarter is a quarter."""
+    total = sum(c for _, c in parts)
+    cx, cy = vw / 2, vh / 2 + 4
+    body, ang = [], -90.0
+    for lab, c in parts:
+        sweep = 360 * c / total
+        a0, a1 = math.radians(ang), math.radians(ang + sweep)
+        x0, y0 = cx + r * math.cos(a0), cy + r * math.sin(a0)
+        x1, y1 = cx + r * math.cos(a1), cy + r * math.sin(a1)
+        large = 1 if sweep > 180 else 0
+        body.append(f'<path d="M{cx:.1f} {cy:.1f}L{x0:.1f} {y0:.1f}'
+                    f'A{r} {r} 0 {large} 1 {x1:.1f} {y1:.1f}Z" stroke="currentColor" '
+                    f'stroke-opacity=".85" stroke-width="1.6" fill="currentColor" '
+                    f'fill-opacity="{0.06 + 0.05 * len(body):.2f}"/>')
+        am = math.radians(ang + sweep / 2)
+        body.append(txt(cx + (r + 24) * math.cos(am), cy + (r + 24) * math.sin(am) + 4,
+                        lab, 11.5))
+        ang += sweep
+    return svg("".join(body), vb=f"0 0 {vw} {vh}")
