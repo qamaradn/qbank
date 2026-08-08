@@ -339,3 +339,36 @@ def coord_grid(points, xmax=6, ymax=6, cell=26, vw=340, pad=30, dots=True):
                         f'fill-opacity=".9"/>')
         body.append(txt(cx + 12, cy - 7, lab, 14))
     return svg("".join(body), vb=f"0 0 {vw} {vh:.0f}")
+
+
+# ------------------------------------------------------------------ growing patterns
+def tile_stages(cellsets, labels=None, size=17, gap=24, vw=340, pad=12):
+    """Draw successive stages of a growing tile pattern, side by side and bottom-aligned.
+
+    cellsets: one list of (col, row) per stage, row 0 at the bottom.
+
+    The count a question asks for comes from `len(cells)` on the very list drawn here, so
+    a pattern cannot show one number of tiles and be marked against another. Cells are
+    emitted as a single <path> — a five-stage pattern drawn as separate <rect> elements
+    runs past the 3.5 KB budget figure_svg_errors enforces.
+    """
+    labels = labels or [f"Stage {i + 1}" for i in range(len(cellsets))]
+    if len(labels) != len(cellsets):
+        raise ValueError("one label per stage")
+    widths = [(max(c for c, _ in s) + 1) * size for s in cellsets]
+    heights = [(max(r for _, r in s) + 1) * size for s in cellsets]
+    total = sum(widths) + gap * (len(cellsets) - 1)
+    vh = max(heights) + 2 * pad + 22
+    ox = (vw - total) / 2
+    base = pad + max(heights)
+
+    d, texts = [], []
+    for cells, lab, w in zip(cellsets, labels, widths):
+        for c, r in cells:
+            x, y = ox + c * size, base - (r + 1) * size
+            d.append(f"M{x:.0f} {y:.0f}h{size}v{size}h-{size}z")
+        texts.append(txt(ox + w / 2, base + 17, lab, 11, op=".75"))
+        ox += w + gap
+    body = (f'<path d="{"".join(d)}" stroke="currentColor" stroke-opacity=".85" '
+            f'stroke-width="1.6" fill="currentColor" fill-opacity=".08"/>' + "".join(texts))
+    return svg(body, vb=f"0 0 {vw} {vh:.0f}")

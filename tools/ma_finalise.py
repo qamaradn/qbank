@@ -108,10 +108,16 @@ def unit_agreement_errors(q):
     # question. Everything else that mixes them is testing reading, not reasoning.
     if q.get("mixed_units"):
         return []
+    stop = {"the", "a", "an", "of", "per", "and", "or", "by", "to", "from",
+            "plus", "minus", "times", "stage", "position", "number"}
     units = []
     for k in KEYS:
         m = UNIT_RE.match(str(q.get(k, "")))
-        units.append(m.group(1).strip() if m else None)
+        u = m.group(1).strip() if m else None
+        words = u.split() if u else []
+        if not words or len(words) > 2 or any(w.lower() in stop for w in words):
+            u = None
+        units.append(u)
     # "1 cube" and "6 cubes" are the same unit; only the count differs.
     units = [u if u is None else (u[:-1] if u.endswith("s") and not u.endswith("ss") else u)
              for u in units]
@@ -229,7 +235,7 @@ def validate(qs, nn, plan):
             # Not every item in a figure category needs one — a timetable question can be
             # prose. Warn only when the stem points at something the reader cannot see.
             if re.search(r"\bshown\b|\bdiagram\b|\bfigure\b|\bgraph\b|\bchart\b|\babove\b"
-                         r"|\btable\b|\btimetable\b",
+                         r"|\bthe table\b|\bthe timetable\b|\btable shows\b",
                          q["stem"], re.I):
                 errs.append(f"{tag}: stem refers to a figure but figure_svg is empty")
         phrase = positional_reference(q["explanation"])
