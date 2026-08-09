@@ -294,8 +294,11 @@ def table(rows, col_w=None, row_h=24, pad=8, size=12.5, vw=340, header=True):
     for r, row in enumerate(rows):
         x = ox
         for c, cell in enumerate(row):
-            body.append(txt(x + col_w[c] / 2, oy + r * row_h + row_h / 2 + 4.5,
-                            str(cell), size, op=".95" if r == 0 and header else ".85"))
+            # An empty cell still costs ~40 bytes as <text></text>, and a blank logic-grid
+            # is mostly empty cells — enough to push a 5-column grid past the size budget.
+            if str(cell).strip():
+                body.append(txt(x + col_w[c] / 2, oy + r * row_h + row_h / 2 + 4.5,
+                                str(cell), size, op=".95" if r == 0 and header else ".85"))
             x += col_w[c]
     return svg("".join(body), vb=f"0 0 {vw} {h + 12}")
 
