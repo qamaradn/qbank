@@ -46,6 +46,7 @@ from tools.question_checks import (  # noqa: E402
     explanation_addresses_a_distractor,
     figure_svg_errors,
     length_tell,
+    doubled_token_errors,
     options_distinct,
     positional_reference,
 )
@@ -229,6 +230,8 @@ def validate(qs, nn, plan):
                         f"'Category: <key> — <title>' (em dash)")
         if not options_distinct(q):
             errs.append(f"{tag}: options not distinct")
+        for msg in doubled_token_errors(q):
+            errs.append(f"{tag}: {msg}")
         for e in figure_svg_errors(q.get("figure_svg")):
             errs.append(f"{tag}: {e}")
         if not q.get("figure_svg"):

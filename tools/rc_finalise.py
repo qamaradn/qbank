@@ -60,6 +60,7 @@ from tools.question_checks import (  # noqa: E402
     distractor_relation_errors,
     explanation_addresses_a_distractor,
     length_tell,
+    doubled_token_errors,
     options_distinct,
     positional_reference,
     relation_monotony,
@@ -240,6 +241,8 @@ def validate(qs, nn, T):
         seen_ids.add(q.get("id"))
         if not options_distinct(q):
             errs.append(f"{tag}: options not distinct")
+        for msg in doubled_token_errors(q):
+            errs.append(f"{tag}: {msg}")
         phrase = positional_reference(q.get("explanation"))
         if phrase:
             errs.append(f"{tag}: explanation names an option position ({phrase!r})")

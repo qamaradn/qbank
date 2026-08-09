@@ -511,3 +511,30 @@ def options_distinct(q):
     """
     opts = [str(q.get(k, "")).strip().lower() for k in KEYS]
     return len(set(opts)) == 4
+
+
+def doubled_token_errors(q):
+    """Options where a word or possessive is repeated back to back: "the the dog", "Yan's's".
+
+    This is not a typo class — it is the signature of a formatter applied to text that
+    already carries what the formatter adds. A builder that writes `fmt=lambda v: f"the
+    {v}"` gets a clean key, because the key is the bare computed value, and three broken
+    distractors, because those were written out in full. The key therefore stays the only
+    well-formed option, which hands the answer to any student who notices.
+
+    It has happened three times in this build (`the the bird`, `Yan's's`, and the
+    `1st`/`second` mapping that crashed rather than shipping), always the same way, so it
+    is screened here rather than left to whoever reads the batch.
+    """
+    bad = []
+    for k in KEYS:
+        text = str(q.get(k, "") or "")
+        if re.search(r"'s's\b", text):
+            bad.append(f"{k}: doubled possessive in {text!r}")
+            continue
+        words = text.lower().split()
+        for a, b in zip(words, words[1:]):
+            if a == b and a.isalpha():
+                bad.append(f"{k}: doubled word {a!r} in {text!r}")
+                break
+    return bad
