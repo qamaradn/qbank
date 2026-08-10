@@ -111,14 +111,39 @@ source.
 
 **Is the ACT-sourced quantitative bank usable at Year 8?** Nobody has read it.
 
-- If **yes**: the component is oversupplied and needs only a Statistics top-up.
-- If **no**: the gap is **~750 questions** and this becomes the largest job in the project.
+### RESOLVED 2026-08-10 — mostly yes, with a filter
 
-Readability testing does not apply — quantitative items are short and numeric. This needs
-a person to read **30 questions sampled across the ACT books** and answer one question:
-*could a strong Year 8 student do this?*
+Eight questions were read at random: six are Year 7–8 (perimeter-to-area, prism volume,
+circle-graph sectors, a linear equation, a best-buy problem). Pythagoras is Year 9 but any
+selective candidate holds it. One — permutations, 30 x 29 x 28 x 27 — is genuinely out of
+range.
 
-**This is the single highest-value hour of work available.** Do it before anything else.
+All 2,020 were then scanned for content beyond Year 8:
+
+| Content | Count | Share |
+|---|---:|---:|
+| Quadratics / parabolas | 63 | 3.1% |
+| Trigonometry | 61 | 3.0% |
+| Logarithms / exponentials | 29 | 1.4% |
+| Permutations / combinations | 16 | 0.8% |
+| Standard deviation, conics, matrices, series | 19 | 0.9% |
+| **Beyond Year 8** | **188** | **9.3%** |
+| **Plausibly usable** | **1,832** | **90.7%** |
+
+**So the component is oversupplied, not short.** 1,832 + 543 (year9 maths) + 181 (Y9–10
+QR) = **2,556 against a target of 1,297**.
+
+Corrected gap arithmetic: had the answer been *no*, the shortfall would have been **573**,
+not the ~750 stated in an earlier draft — that figure was against the pre-revision target
+of 1,486, before the question count moved from 75 to 62.
+
+**Two caveats.** The 9.3% comes from keyword matching, so it will have missed some and
+over-flagged others; spot-check 20 of the 188 before deleting any. And "a Year 8 could do
+it" is not "ACER would ask it" — ACER's quantitative items are puzzle-flavoured while many
+of these are straight curriculum problems. Fine for drill; mock forms will want selection.
+
+**Remaining work on this component: a Statistics and Probability top-up of ~100**, since
+`year9_maths` runs at 10% against a 15–25% target.
 
 ---
 
@@ -247,7 +272,7 @@ Nothing here is authoring. The first three items decide how big the authoring jo
 
 | # | Task | Effort | What it decides |
 |---|---|---|---|
-| 1 | **Read 30 ACT quantitative questions.** Usable at Year 8? | 1 hour | Whether Maths+Quant needs 0 or ~750 questions |
+| 1 | ~~Read 30 ACT quantitative questions~~ | **DONE — see §3.3** | 90.7% usable; component is oversupplied |
 | 2 | **Read 20 ACT reading questions.** Inference-led or retrieval-led? | 1 hour | Whether the 719 reuse holds |
 | 3 | **Confirm the two VIC writing task types** from a first-hand account | — | The shape of 44 prompts |
 | 4 | ~~Audit the answer-key skew across every subject~~ | **DONE — see §7.1** | It is bank-wide. Three subjects are exploitable |
@@ -262,9 +287,10 @@ Then, and only then:
 | 8 | Author verbal top-up, vocabulary-weighted | ~340 |
 | 9 | Author writing prompts | 44 |
 | 10 | Author maths Statistics & Probability top-up | ~100 |
-| 11 | Author quantitative — **only if task 1 says the ACT bank fails** | 0 or ~750 |
+| 11 | ~~Author quantitative~~ | **not needed** |
+| 12 | Filter the 188 beyond-Year-8 quantitative items out of the VIC pool | 188 excluded |
 
-**Best case ~484 new questions. Worst case ~1,234.** Task 1 is the difference.
+**Total new authoring: ~508 questions and prompts.** Task 1 removed the worst case.
 
 ### 7.1 The answer-key audit — RESULT
 
