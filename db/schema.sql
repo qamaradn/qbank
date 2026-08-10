@@ -26,7 +26,14 @@ CREATE TABLE IF NOT EXISTS questions (
                                 CHECK (review_status IN ('pending','approved','rejected')),
     created_at              TEXT NOT NULL,
     reviewed_at             TEXT,
-    edited                  INTEGER NOT NULL DEFAULT 0
+    edited                  INTEGER NOT NULL DEFAULT 0,
+    -- Fixed-form delivery (selective_exam_delivery_SPEC.md §6.2). A question belongs to
+    -- exactly one form at a time, so columns are enough and a join table is not needed.
+    -- form_id carries the exam, so VIC needs no schema change: nsw-drill-ts-007,
+    -- nsw-drill-read-012, nsw-mock-003, vic-drill-vr-004.
+    form_id                 TEXT,
+    form_position           INTEGER,
+    form_kind               TEXT CHECK (form_kind IS NULL OR form_kind IN ('drill','mock'))
 );
 
 CREATE TABLE IF NOT EXISTS books (
@@ -42,6 +49,7 @@ CREATE INDEX IF NOT EXISTS idx_subject       ON questions(subject);
 CREATE INDEX IF NOT EXISTS idx_review_status ON questions(review_status);
 CREATE INDEX IF NOT EXISTS idx_confidence    ON questions(confidence);
 CREATE INDEX IF NOT EXISTS idx_source_book   ON questions(source_book);
+CREATE INDEX IF NOT EXISTS idx_form          ON questions(form_id, form_position);
 
 CREATE TABLE IF NOT EXISTS writing_prompts (
     id                  TEXT PRIMARY KEY,
