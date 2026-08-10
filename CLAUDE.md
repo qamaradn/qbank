@@ -787,6 +787,11 @@ CREATE INDEX IF NOT EXISTS idx_wp_review_status ON writing_prompts(review_status
       "Mathematical Reasoning" (verified 2026-08-04)
 - [ ] Selectly: make pushed questions addressable (send qbank uuid as the row id) — see
       CURRENT STATUS item 1; blocks the VR exclusion and every future correction
+- [x] NSW Thinking Skills built 300 -> 956/880, every named subcategory at target (2026-08-10)
+- [x] NSW Reading 649/649, Mathematical Reasoning 839/838, Writing 42 prompts
+- [x] Fixed-form delivery: form_id/form_position/form_kind in schema.sql,
+      db/migrations/001_form_columns.py applied, tools/assign_forms.py deals 117 NSW
+      drill forms (2026-08-10)
 - [ ] QR pages rerun with GEMINI_MODEL=gemini-2.5-flash (full model, no thinking)
 - [ ] writing_prompts table + generator implemented (see WRITING PROMPTS section above)
 - [ ] First batch synced to Supabase
@@ -795,28 +800,45 @@ CREATE INDEX IF NOT EXISTS idx_wp_review_status ON writing_prompts(review_status
 
 ## CURRENT STATUS
 
-**Last worked on:** 2026-08-04
-**PLATFORM DIRECTION CHANGED — read these two before generating anything (2026-08-05):**
-- `pdfs/selective_exam_delivery_SPEC.md` — Selectly moves from random selection to **fixed
-  drill and mock forms**, so percentile scoring and progress tracking become possible.
-  Drill is timed at **exact exam pace**. Exam dates, section structures, schema changes and
-  the release calendar are all there. Note VIC has restructured to three components and
-  `schools.ts` is wrong.
-- `pdfs/nsw_content_taxonomy_TASK.md` — every NSW category and subcategory with a build
-  target, classified from the official UCLES practice paper.
+**Last worked on:** 2026-08-10
+**Read before generating anything:**
+- `pdfs/selective_exam_delivery_SPEC.md` — fixed drill and mock forms, exact-exam-pace
+  timing, the release calendar, and the data model (§6).
+- `pdfs/nsw_content_taxonomy_TASK.md` — every NSW category and subcategory with a target.
 
-**Next task:** human review. 1611 pending, of which 602 are newly authored and unseen:
-183 VR (`vr_vic_acer`), 120 RC cloze (`rc_nsw_cloze`), 299 LR (`lr_thinking_skills`).
-The review UI has a **source book** filter, which is how to isolate each set.
+**NSW is content-complete across all four components.**
 
-All generation work in the task brief (§3 VIC verbal, §4 NSW thinking skills, §5 NSW
-vocabulary cloze) is complete, and the leaked-working defect is repaired.
+| Component | Built | Target | Drill forms |
+|---|---:|---:|---:|
+| Reading | 649 | 649 | 27 |
+| Mathematical Reasoning | 839 | 838 | 42 |
+| Thinking Skills | 956 | 880 | 48 |
+| Writing | 42 prompts | 21 | mock-only, no drill allocation |
+
+**DB totals:** 8480 questions — QR 2240, MA 1382, RC 1368, SR 1322, VR 1212, LR 956.
+5313 approved, 3103 pending, 64 rejected.
+
+**Next task: human review.** 3103 pending, of which 954 Thinking Skills and 649 NSW
+Reading have never been seen. That queue, not authoring, is what gates launch — drill
+serves the approved bank (SPEC §5.1) and NSW currently has ~0 approved outside maths.
+
+**Forms are dealt.** `tools/assign_forms.py` assigned 117 NSW drill forms over 2441
+questions; manifest in `run_data/output/forms/nsw_forms_manifest.json`. The deal covers
+approved AND pending, because gating on approval would have produced nothing. It is
+therefore provisional: `--report` shows which forms hold a rejected question and
+`--repair` lifts them out and renumbers. **`--repair` is pre-launch only** — once
+students have sat a form, removing a question re-bases every score recorded against it,
+and the fix moves downstream to Selectly's `questions.active`.
+
+**Mock plan (decided 2026-08-10).** Nothing is reserved for mocks; the whole bank goes to
+drill. Mocks are authored fresh, born `form_kind='mock'`, and retire into drill when
+superseded. 19 forms are needed for a September launch with weekly mocks over the last
+three months — about 25 questions a week, best front-loaded into Sep–Jan so the intensive
+phase needs no authoring.
 
 **Blockers:** two, both below. Neither stops new questions being generated; both stop
-questions already pushed from being corrected or withdrawn.
-
-**DB totals:** 6988 questions — MA 1075, QR 2240, SR 1322, VR 1212, RC 839, LR 300.
-5313 approved, 1611 pending, 64 rejected.
+questions already pushed from being corrected or withdrawn — and blocker 1 now also
+blocks pushing the form assignments.
 
 **Explanation quality — repaired 2026-08-04.** 139 questions carried the generating
 model's own working in the `explanation` field ("Oh, wait.", "Why did I select B?"),

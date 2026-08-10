@@ -21,6 +21,20 @@ WHAT IT DOES INSTEAD
     4 to 8 slots, so four passages is anywhere from 16 to 32 questions, and the timer
     (§5.1.1) would range 19 to 38 minutes for what claims to be the same test.
 
+REJECTIONS AFTER THE DEAL
+    Forms are dealt over approved AND pending questions, because gating on approval would
+    have produced almost nothing — NSW sits at roughly zero approved. Review therefore
+    happens to questions that already carry a form_id, and some will be rejected.
+
+    Before launch that is repairable: --repair lifts rejected questions out of their
+    forms and renumbers the rest. A form losing one of twenty is invisible; the timer is
+    derived from the slot count, so it follows automatically.
+
+    AFTER launch it is not. §5.1 fixes membership and §5.4 ranks students within a form,
+    so removing a question re-bases every score already recorded against it. From that
+    point the fix belongs downstream: Selectly's questions.active drops the item from
+    scoring while form membership stays exactly as it was. --repair refuses to help.
+
 REPRODUCIBILITY
     Deterministic given the seed. Refuses to overwrite an existing assignment without
     --force, because §5.1 requires fixed membership: once students have sat a form,
@@ -185,6 +199,51 @@ def order_within(form, reading):
     return interleave(groups)
 
 
+def health(conn, a):
+    """Form health, and optionally the pre-launch repair."""
+    rows = conn.execute(
+        "SELECT form_id, form_position, review_status, id FROM questions "
+        "WHERE form_id IS NOT NULL ORDER BY form_id, form_position").fetchall()
+    per_slot = {"ts": 60, "math": 69, "read": 71}
+    forms = collections.OrderedDict()
+    for r in rows:
+        forms.setdefault(r["form_id"], []).append(r)
+
+    hurt = {f: [r for r in qs if r["review_status"] == "rejected"]
+            for f, qs in forms.items()}
+    hurt = {f: v for f, v in hurt.items() if v}
+    print(f"{len(forms)} forms, {len(rows)} questions")
+    print(f"{len(hurt)} form(s) hold a rejected question "
+          f"({sum(len(v) for v in hurt.values())} in total)")
+
+    for f, bad in sorted(hurt.items()):
+        live = len(forms[f]) - len(bad)
+        slug = f.split("-")[2]
+        t = timer_seconds(live, per_slot[slug])
+        flag = "  << below floor" if live < a.floor else ""
+        print(f"  {f}: {len(forms[f])} -> {live} slots, timer {t // 60}m{t % 60:02d}{flag}")
+
+    if not a.repair:
+        if hurt:
+            print("\nrun with --repair to lift them out (pre-launch only)")
+        return
+
+    if not hurt:
+        print("\nnothing to repair")
+        return
+    n = 0
+    for f, bad in hurt.items():
+        conn.executemany("UPDATE questions SET form_id=NULL, form_position=NULL, "
+                         "form_kind=NULL WHERE id=?", [(r["id"],) for r in bad])
+        keep = [r for r in forms[f] if r["review_status"] != "rejected"]
+        conn.executemany("UPDATE questions SET form_position=? WHERE id=?",
+                         [(i, r["id"]) for i, r in enumerate(keep, 1)])
+        n += len(bad)
+    conn.commit()
+    print(f"\nlifted {n} rejected question(s) out and renumbered "
+          f"{len(hurt)} form(s). Re-run --report to confirm.")
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--db", default=DB)
@@ -196,11 +255,20 @@ def main():
     ap.add_argument("--dry-run", action="store_true")
     ap.add_argument("--force", action="store_true",
                     help="re-deal questions that already carry a form_id")
+    ap.add_argument("--report", action="store_true",
+                    help="show form health — slot counts, timers, rejected members")
+    ap.add_argument("--repair", action="store_true",
+                    help="lift rejected questions out of their forms and renumber. "
+                         "PRE-LAUNCH ONLY — see the module docstring")
+    ap.add_argument("--floor", type=int, default=17,
+                    help="warn when a form falls below this many slots (default 17)")
     a = ap.parse_args()
 
     statuses = [s.strip() for s in a.status.split(",")]
     conn = sqlite3.connect(a.db)
     conn.row_factory = sqlite3.Row
+    if a.report or a.repair:
+        return health(conn, a)
     wanted = a.component or list(COMPONENTS)
     manifest = {"version": VERSION, "seed": a.seed, "statuses": statuses,
                 "generated_at": datetime.datetime.now(datetime.timezone.utc)
