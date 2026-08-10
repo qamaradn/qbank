@@ -61,6 +61,7 @@ from tools.question_checks import (  # noqa: E402
     explanation_addresses_a_distractor,
     length_tell,
     doubled_token_errors,
+    key_restates_passage,
     option_wording_errors,
     options_distinct,
     positional_reference,
@@ -184,6 +185,25 @@ TYPES = {
         "min_cross_extract": 3,
         "min_skills_per_group": 3,
     },
+    "vic_inference": {
+        "book": "rc_vic_inference",
+        "category": "informational_inference",
+        "label": "VIC informational inference top-up",
+        "kind": "set",
+        "target_passages": 28,
+        "items_per_passage": (3, 3),
+        "target_questions": 84,
+        "relations": COMPREHENSION_RELATIONS,
+        "extract_labels": [],
+        "min_cross_extract": 0,
+        "min_skills_per_group": 3,
+        # vic_reading_TASK.md §3. These items exist BECAUSE the surrounding ACT questions
+        # are retrieval wearing an inference stem; a key that restates a passage sentence
+        # would reproduce the very defect. `detail` is the one skill exempt — §4.1 wants
+        # 20% access-and-retrieve, and there the key is SUPPOSED to echo the text.
+        "max_key_overlap": 0.35,
+        "retrieval_skills": {"detail"},
+    },
     "poetry": {
         "book": "rc_nsw_poetry",
         "category": "poetry",
@@ -269,6 +289,12 @@ def validate(qs, nn, T):
             bad = unknown_words(q.get(k), extra_ok=RC_EXTRA | from_passage)
             if bad:
                 errs.append(f"{tag}: option {q[k]!r} is not made of real words: {bad}")
+        if T.get("max_key_overlap") is not None and \
+                q.get("skill") not in T.get("retrieval_skills", set()):
+            msg = key_restates_passage(q, T["max_key_overlap"])
+            if msg:
+                errs.append(f"{tag}: {msg}")
+
         if len(str(q.get("explanation") or "").split()) < 8:
             errs.append(f"{tag}: explanation too thin — say why the key fits AND why the "
                         f"strongest distractor does not")

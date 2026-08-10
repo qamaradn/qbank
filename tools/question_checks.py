@@ -562,3 +562,50 @@ def option_wording_errors(q):
             if suffix != want:
                 bad.append(f"{k}: {num}{suffix} should be {num}{want}")
     return bad
+
+
+# ---------------------------------------------------------------- retrieval disguised as inference
+# An "inference" item whose key restates one passage sentence is a retrieval item wearing
+# an inference stem. 37% of the ACT reading bank's implies/suggests questions do exactly
+# that, and it is the defect vic_reading_TASK.md §3 exists to prevent reintroducing.
+#
+# The threshold is fitted, not guessed. 40 ACT reading questions were hand-labelled
+# retrieval or inference; content-word overlap between the key and the passage averaged
+# 0.53 for retrieval against 0.19 for inference, and 0.35 was the decision boundary that
+# maximised agreement — 82% accuracy, 95% precision on the retrieval side.
+_RESTATE_STOP = frozenset("""
+the a an of and or to in is are was were for with on at by that this it its as be been
+from which who what not their they them then than there these those has have had will
+would could should may might can do does did but if so such other more most some any
+""".split())
+
+
+def _content_words(text):
+    return {w for w in re.findall(r"[a-z]+", str(text or "").lower())
+            if len(w) > 3 and w not in _RESTATE_STOP}
+
+
+def key_overlap_with_passage(question):
+    """Fraction of the key's content words that also appear in the passage."""
+    key = question.get("option_" + str(question.get("correct_answer", "")).lower())
+    kw = _content_words(key)
+    if not kw:
+        return 0.0
+    return len(kw & _content_words(question.get("passage"))) / len(kw)
+
+
+def key_restates_passage(question, threshold=0.35):
+    """Return an error if a non-retrieval item's key merely restates the passage.
+
+    Pass `threshold=None` on items deliberately written as access-and-retrieve (§4.1
+    wants 20% of them) — there the key SHOULD echo the text, and the honest fix is a
+    retrieval stem, not a reworded key.
+    """
+    if threshold is None:
+        return None
+    ov = key_overlap_with_passage(question)
+    if ov >= threshold:
+        return (f"key repeats {100 * ov:.0f}% of its content words from the passage "
+                f"(limit {100 * threshold:.0f}%) — this is retrieval, not inference; "
+                f"either rewrite the key as a synthesis or label the item retrieval")
+    return None

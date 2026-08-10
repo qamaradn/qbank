@@ -1,0 +1,292 @@
+#!/usr/bin/env python3
+"""VIC informational inference top-up, batch p1 — 6 passages x 3 items.
+
+    env -u PYTHONPATH .venv/bin/python3.11 -m tools.rc.rc_vic_inference_p1_build
+
+WHY THIS BUILDER IS DIFFERENT FROM EVERY OTHER rc/ BUILDER
+
+It does not author a passage. vic_reading_TASK.md §2 caps informational at 372 of 743
+and we already hold ~670 informational questions over 144 ACT passages — the passages are
+good (160 words median, right level, Australian) and the SHORTAGE is inference-led
+questions, not text. So this builder reads the passage out of the database and writes new
+questions against it.
+
+THE PASSAGE MUST COME OUT BYTE-IDENTICAL. Selectly derives passageId by hashing the
+passage text; one drifted character splits the group and the student is shown the same
+passage twice in one drill. So the text is never retyped here — it is SELECTed, matched
+against a prefix for identification only, and passed through untouched.
+
+WHAT MAKES AN ITEM ADMISSIBLE (§3)
+
+The defect being repaired is that 67.5% of the existing ACT reading questions are
+retrieval wearing an inference stem — 37% of their implies/suggests items are answered by
+a near-verbatim restatement of one passage sentence. So every key here must satisfy
+`question_checks.key_restates_passage`: under 35% content-word overlap with the passage,
+a threshold fitted to 40 hand-labelled questions (82% accuracy, 95% precision).
+
+That forces the answer to be one of three things the text does not say outright:
+synthesis across separated statements, the FUNCTION of a sentence or example, or the
+stance a word choice commits the author to.
+"""
+import hashlib
+import pathlib
+import sqlite3
+import sys
+import uuid
+from datetime import datetime, timezone
+
+ROOT = pathlib.Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(ROOT))
+
+DB = ROOT / "run_data/db/qbank.db"
+OUT = ROOT / "run_data/output/reading_comprehension/generated/rc_vic_inference_p1.json"
+BOOK = "rc_vic_inference"
+PAGE = 1
+
+# (title, source_book, source_page, unique passage prefix) — the prefix identifies the
+# row; the text itself is taken from the database, never from here.
+PASSAGES = [
+    ("reef_threats",   "act_test9",  735, "The Great Barrier Reef, a UNESCO World Heritage site, is facing unprecedented"),
+    ("reef_biodiv",    "act_test4",  304, "The Great Barrier Reef, a UNESCO World Heritage site, is an ecosystem of unparalleled"),
+    ("reef_largest",   "act_test8",  645, "The Great Barrier Reef, a UNESCO World Heritage site, is the world's largest coral reef"),
+    ("nullarbor",      "act_test8",  648, "The vast expanse of the Nullarbor Plain"),
+    ("outback",        "act_test10", 820, "The Australian outback, often perceived"),
+    ("henty",          "act_test5",  392, "The annual Henty Field Days"),
+]
+
+# title -> list of (skill, stem, [A,B,C,D], key, explanation, {distractor: relation}, quotes)
+ITEMS = {
+"reef_threats": [
+ ("author_purpose",
+  "The passage gives the reef's annual contribution to the economy and the number of jobs it supports. Including these figures alongside the ecological detail mainly works to:",
+  ["show that tourism has caused most of the damage to the reef",
+   "widen the case for acting beyond ecology alone",
+   "suggest the reef will pay for its own recovery",
+   "compare Queensland with the other Australian states"],
+  "B",
+  "The figures sit next to the ecological account rather than replacing it, so they add a second kind of reason to act. The idea that tourism has caused most of the damage reverses the passage, which names rising sea temperatures as the driver.",
+  {"A": "contradicts", "C": "overreach", "D": "unsupported"}, []),
+ ("structure",
+  "The word 'However' in the final sentence turns the passage:",
+  ["from present damage back to its historical causes",
+   "from scientific evidence to public opinion",
+   "from what is being done to how much is left to do",
+   "from national programs to international treaties"],
+  "C",
+  "Everything before the turn lists conservation work under way; everything after it weighs that work against the size of the problem. Moving from present damage back to its historical causes describes no part of the passage, which never discusses how the threats arose.",
+  {"A": "wrong_focus", "B": "unsupported", "D": "overreach"}, ["However"]),
+ ("inference",
+  "Research into heat-resistant corals is mentioned as one conservation measure. What does pursuing that particular line of research suggest?",
+  ["that bleaching events have already been brought under control by conservation",
+   "that corals have adapted well enough to no longer need cooler water",
+   "that tourism pays for most reef science",
+   "that warming is expected to persist while remedies are sought"],
+  "D",
+  "Breeding for heat tolerance only makes sense if the heat is assumed to stay, so the measure implies a long problem rather than a solved one. That bleaching events have already been brought under control runs against the passage, which reports an alarming increase in them.",
+  {"A": "contradicts", "B": "overreach", "C": "unsupported"}, []),
+],
+"reef_biodiv": [
+ ("structure",
+  "Which best describes how the passage is organised?",
+  ["a history of the reef's formation over time",
+   "abundance first, then danger, then response",
+   "a case against commercial fishing on the reef",
+   "an account of coral polyps and how they build"],
+  "B",
+  "The passage opens on the variety of life, turns to threats, and closes on conservation and the reason it matters. An account of coral polyps and how they build covers only one clause of the opening, not the shape of the whole.",
+  {"A": "unsupported", "C": "overreach", "D": "wrong_focus"}, []),
+ ("inference",
+  "The passage notes that coastal communities rely economically on tourism and fishing. This most strongly implies:",
+  ["that commercial fishing has been banned outright in order to save the reef",
+   "that those communities have begun moving inland",
+   "that guarding the reef and guarding livelihoods point the same way",
+   "that tourism income exceeds all other Australian exports"],
+  "C",
+  "The reliance is offered as a reason to protect the reef, which only follows if the two interests run together rather than against each other. That commercial fishing has been banned outright is not something the passage states, and it would cut against the reliance it describes.",
+  {"A": "contradicts", "B": "unsupported", "D": "overreach"}, []),
+ ("author_purpose",
+  "Naming the clownfish and the Maori wrasse rather than simply reporting that many fish live on the reef mainly serves to:",
+  ["identify the two species most at risk",
+   "show which fish visitors most want to see",
+   "explain how the reef structure is built",
+   "make a general claim about variety feel particular"],
+  "D",
+  "Named examples give a reader something specific to hold onto in place of an abstract total. To identify the two species most at risk goes past the text, which never ranks any species by risk.",
+  {"A": "overreach", "B": "unsupported", "C": "wrong_focus"}, []),
+],
+"reef_largest": [
+ ("comparison",
+  "How do the two climate-related pressures described in the passage differ in the way they act on the reef?",
+  ["both are described as consequences of overfishing by commercial fleets",
+   "one strikes living coral, the other undermines the making of skeletons and shells",
+   "acidification is described as affecting only those species that live in deeper water",
+   "bleaching is presented as a purely local problem rather than a global one"],
+  "B",
+  "Heat drives corals to expel their algae, while acidification is described as hindering growth and shell formation, so the two work by different routes. Bleaching is presented as a purely local problem rather than a global one misreads the passage, which ties bleaching to climate change and lists pollution separately as the local impact.",
+  {"A": "contradicts", "C": "unsupported", "D": "wrong_focus"}, []),
+ ("main_idea",
+  "The passage as a whole presents the reef as:",
+  ["a region where conservation has already succeeded",
+   "a fishing ground of falling commercial value",
+   "a celebrated place whose size has not kept it safe",
+   "a catalogue of the species found on one reef"],
+  "C",
+  "Its scale and significance are set out first and then shown to be no defence against the pressures that follow. A region where conservation has already succeeded contradicts the closing sentence, which treats conservation as still necessary to future survival.",
+  {"A": "contradicts", "B": "unsupported", "D": "wrong_focus"}, []),
+ ("author_purpose",
+  "The final sentence lists marine park zoning, research and global action together. This grouping mainly works to:",
+  ["argue that local measures on their own will be enough to save the reef",
+   "rank the three measures by what they cost",
+   "explain how zoning rules are enforced",
+   "show that any answer has to operate at several levels at once"],
+  "D",
+  "The three named measures run from the local to the international, so listing them together says no single level will do. To argue that local measures on their own will be enough to save the reef is the opposite of what the grouping shows.",
+  {"A": "contradicts", "B": "unsupported", "C": "wrong_focus"}, []),
+],
+"nullarbor": [
+ ("vocabulary_in_context",
+  "The passage twice reaches for the word 'seemingly' when describing the plain. That choice works to:",
+  ["concede that the plain supports almost no life of any real interest",
+   "flag a difference between the impression given and the reality",
+   "signal doubt about the scientific record",
+   "stress the extreme summer temperatures"],
+  "B",
+  "Each use of the word introduces a fact that cuts against the appearance it names, so it marks appearance rather than truth. To concede that the plain supports almost no life of any real interest takes the appearance at face value, which is exactly what the passage sets out to overturn.",
+  {"A": "contradicts", "C": "unsupported", "D": "wrong_focus"}, ["seemingly"]),
+ ("structure",
+  "The passage moves through the life of the Nullarbor by going:",
+  ["from the largest animals down to the smallest",
+   "from what lives on the surface to what lives beneath it",
+   "toward an argument that the plain should be protected",
+   "from South Australia across to Western Australia"],
+  "B",
+  "Kangaroos and emus on the open grasslands come first, then the blind shrimp in the caves below. From the largest animals down to the smallest happens to fit those two examples, but size is not what orders the passage, and the cultural material at the end has no size at all.",
+  {"A": "half_right", "C": "overreach", "D": "wrong_focus"}, []),
+ ("inference",
+  "The passage ends on Dreaming stories and a connection spanning millennia. Closing there implies:",
+  ["that Dreaming stories map the cave systems",
+   "that the region was settled comparatively recently",
+   "that cultural worth depends on rare species being present",
+   "that what the plain means is not only a matter of biology"],
+  "D",
+  "Setting the cultural material after the ecological survey adds a kind of significance the earlier paragraphs do not cover. That Dreaming stories map the cave systems attaches them to a detail from a different sentence; the passage links them to the land as a whole.",
+  {"A": "unsupported", "B": "contradicts", "C": "overreach"}, []),
+],
+"outback": [
+ ("author_purpose",
+  "The passage opens by calling the outback a place often perceived as desolate and empty. Opening this way works to:",
+  ["set up a correction of a common belief",
+   "agree that the outback holds little of interest",
+   "introduce a disagreement between two groups of scientists",
+   "describe the region's rainfall pattern"],
+  "A",
+  "The clause reports what people think and the rest of the sentence immediately answers it with resilience and biodiversity. To agree that the outback holds little of interest takes the perception as the passage's own view rather than the view it is about to overturn.",
+  {"B": "contradicts", "C": "unsupported", "D": "wrong_focus"}, []),
+ ("comparison",
+  "Invasive animals and unsustainable grazing are both given as modern challenges. How do they differ in the passage's account?",
+  ["both are presented as direct consequences of a changing climate",
+   "both are described as already eliminated",
+   "one is a living rival, the other a lasting change to the land",
+   "both are said to affect only the semi-arid margins"],
+  "C",
+  "Camels and rabbits are described as competing with native wildlife, while grazing and clearing are tied to erosion and desertification, which outlast the animals. Both are presented as direct consequences of a changing climate imports a cause the passage never names.",
+  {"A": "unsupported", "B": "contradicts", "D": "overreach"}, []),
+ ("inference",
+  "Conservation work is described as often being carried out in partnership with Indigenous communities. Placing that detail after the account of traditional knowledge suggests:",
+  ["that conservation groups have taken over from traditional owners",
+   "that such partnerships are required by law",
+   "that the knowledge described earlier is being put to work",
+   "that Indigenous communities pay for the protected areas"],
+  "C",
+  "The partnership follows directly from the paragraph praising that knowledge, so the two are presented as connected rather than separate. That conservation groups have taken over from traditional owners inverts a partnership into a replacement.",
+  {"A": "contradicts", "B": "unsupported", "D": "overreach"}, []),
+],
+"henty": [
+ ("author_purpose",
+  "Drone crop monitoring and water-efficient irrigation are named one after the other. Pairing them mainly works to:",
+  ["claim that drought has now been solved by new farming technology",
+   "weigh the cost of two farming methods",
+   "show innovation aimed at named pressures rather than novelty",
+   "describe the competition between exhibitors"],
+  "C",
+  "Both examples are attached in the same sentence to the difficulties the passage goes on to name, so each is presented as an answer to something. To claim that drought has now been solved by new farming technology pushes well past showcasing solutions to a problem the passage still calls a challenge.",
+  {"A": "overreach", "B": "unsupported", "D": "wrong_focus"}, []),
+ ("structure",
+  "Across its length the passage moves:",
+  ["from the event's early history through to its plans for the future",
+   "from a national view of farming to an international one",
+   "from machinery prices to livestock breeding",
+   "from what is on show, to what is talked about, to who benefits"],
+  "D",
+  "It begins with exhibits and technology, turns to the discussions held there, and closes on the gain to local communities. From the event's early history through to its plans for the future describes neither end of the passage, which gives no history and no plans.",
+  {"A": "unsupported", "B": "overreach", "C": "wrong_focus"}, []),
+ ("inference",
+  "The passage refers to the complex economic realities of farming in this century. In context this suggests:",
+  ["that most farms are now held by large companies",
+   "that running a farm now asks for more than agricultural skill",
+   "that financial planning has taken the place of practical farming",
+   "that exhibitors attend mainly for the competitions"],
+  "B",
+  "The phrase arrives attached to market trends and financial planning, which sit beside rather than inside the practical work of farming. That financial planning has taken the place of practical farming turns an addition into a replacement, which the passage does not support.",
+  {"A": "unsupported", "C": "overreach", "D": "contradicts"}, []),
+],
+}
+
+
+def fetch_passages():
+    conn = sqlite3.connect(DB)
+    conn.row_factory = sqlite3.Row
+    out = {}
+    for title, book, page, prefix in PASSAGES:
+        rows = {r["passage"] for r in conn.execute(
+            "SELECT passage FROM questions WHERE source_book=? AND source_page=? "
+            "AND review_status!='rejected' AND passage LIKE ?", (book, page, prefix + "%"))}
+        if len(rows) != 1:
+            raise SystemExit(f"{title}: prefix matched {len(rows)} passages, expected 1")
+        out[title] = rows.pop()
+    return out
+
+
+def build():
+    texts = fetch_passages()
+    now = datetime.now(timezone.utc).isoformat()
+    qs = []
+    for title, book, page, _ in PASSAGES:
+        passage = texts[title]
+        for skill, stem, opts, key, expl, rel, quotes in ITEMS[title]:
+            qs.append({
+                "id": str(uuid.uuid5(uuid.NAMESPACE_URL,
+                                     f"qbank/{BOOK}/{title}/{skill}/{stem[:40]}")),
+                "subject": "reading_comprehension",
+                "stem": stem,
+                "option_a": opts[0], "option_b": opts[1],
+                "option_c": opts[2], "option_d": opts[3],
+                "correct_answer": key,
+                "explanation": expl,
+                "topic": "Informational inference",
+                "difficulty": "hard" if skill in ("structure", "comparison") else "medium",
+                "confidence": 0.9,
+                "source_book": BOOK,
+                "source_page": PAGE,
+                "source_page_description": f"[reuses {book} p{page} passage: {title}]",
+                "passage": passage,
+                "figure_svg": None,
+                "review_status": "pending",
+                "created_at": now,
+                # authored by letter for readability; the checker wants distractor TEXT
+                # as the key so the map survives the answer shuffle.
+                "relations": {opts["ABCD".index(L)]: r for L, r in rel.items()},
+                "passage_title": title,
+                "skill": skill,
+                "quote_lines": quotes,
+                "extracts": [],
+            })
+    return qs
+
+
+if __name__ == "__main__":
+    import json
+    qs = build()
+    OUT.parent.mkdir(parents=True, exist_ok=True)
+    OUT.write_text(json.dumps(qs, indent=1, ensure_ascii=False))
+    print(f"{len(qs)} questions over {len(PASSAGES)} passages -> {OUT}")

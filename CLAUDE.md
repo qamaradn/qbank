@@ -792,6 +792,19 @@ CREATE INDEX IF NOT EXISTS idx_wp_review_status ON writing_prompts(review_status
 - [x] Fixed-form delivery: form_id/form_position/form_kind in schema.sql,
       db/migrations/001_form_columns.py applied, tools/assign_forms.py deals 117 NSW
       drill forms (2026-08-10)
+- [x] VIC reading reuse verified by reading 40 questions (2026-08-10) — retrieval-led,
+      67.5%; the 718 are kept but the authoring gap grows from ~24 to ~300-360
+- [x] Answer-key skew repaired across 2,913 VIC-scope questions (2026-08-10) —
+      tools/repair_key_skew.py, 2,734 reordered, 45 blocked as defective
+- [ ] Reading length tell: pad short distractors so the key stops being the longest
+      (still 48.7% after the shuffle — reordering cannot fix it)
+- [ ] Triage the 45 questions repair_key_skew blocked as defective
+- [x] `pdfs/vic_reading_TASK.md` written (2026-08-10) — text-type split agreed
+      (informational 50 / narrative 25 / persuasive 15 / poetry 10), 394 items to author
+- [x] VIC reading batch p1: 18 inference items on 6 existing ACT passages, loaded
+      (rc_vic_inference, 2026-08-10)
+- [ ] VIC reading: informational top-up p2-p? — 66 of 84 remaining, 22 passages
+- [ ] VIC reading: poetry 74 (12 new passages), narrative 156 (28), persuasive 81 (15)
 - [ ] QR pages rerun with GEMINI_MODEL=gemini-2.5-flash (full model, no thinking)
 - [ ] writing_prompts table + generator implemented (see WRITING PROMPTS section above)
 - [ ] First batch synced to Supabase
@@ -844,18 +857,50 @@ not 27, against 10 held), and **Maths + Quantitative is ~62 questions, not 75**.
 
 Two assessments were reversed by reading the content rather than its metadata:
 
-- **719 ACT-sourced reading questions ARE usable for VIC.** Rejected first on a briefing's
-  `target_year: 11-12`, then on a Flesch-Kincaid median of grade 16. FK is inflated by
-  long-but-ordinary words; three passages read in full sit at Year 9-11. VIC Reading falls
-  from ~743 new questions to ~24 plus a repair pass.
+- **719 ACT-sourced reading questions ARE usable for VIC** — the passages are. Rejected
+  first on a briefing's `target_year: 11-12`, then on a Flesch-Kincaid median of grade 16.
+  FK is inflated by long-but-ordinary words; three passages read in full sit at Year 9-11.
+  **But the QUESTIONS are retrieval-led, which was checked separately on 2026-08-10** by
+  hand-reading 40 in two independent random samples: **67.5% retrieval, 32.5% inference**
+  (95% CI 53-82%; a key-to-passage lexical-overlap proxy that under-calls retrieval by
+  construction puts the floor at 59.5%, consistent across all ten books at 55-71%). 232
+  stems promise inference and 37% of those are answered by a near-verbatim restatement.
+  §4.1 wants retrieval at 20%. So the reuse holds for drill and for the passages, but
+  **VIC reading authoring goes from ~24 to ~300-360 inference-led items** — and the
+  cheaper route is writing new questions against the 718 existing passages rather than
+  authoring passages. Robust to §4.1 being wrong: even at a 40% retrieval target the
+  shortfall is ~213.
 - **90.7% of the ACT quantitative bank is usable at Year 8.** Only 188 of 2,020 are beyond
   it — quadratics, trigonometry, logs, permutations. The component is oversupplied (2,556
   against a target of 1,297) rather than 573 short.
 
-VIC authoring now stands at **~508 items**: verbal top-up ~340, writing 44, maths
-Statistics top-up ~100, reading ~24.
+VIC authoring now stands at **~815 items**: verbal top-up ~340, reading ~300-360
+inference-led (revised up from ~24 on 2026-08-10 — see the reading finding above),
+maths Statistics top-up ~100, writing 44.
 
-**A bank-wide defect was found: the answer key is skewed.** `reading_comprehension` runs
+**Answer-key skew — REPAIRED in VIC scope 2026-08-10.** `tools/repair_key_skew.py`
+reordered 2,734 of 2,913 questions (718 ACT reading + 2,195 quantitative). Reading went
+from C 47.6% to worst-letter 25.8%, quantitative from A 37.8% to 25.6%; every source book
+is within a point of 25/25/25/25. Full before/after state per row is in
+`run_data/output/key_skew_manifest.json`, so `--revert` restores it exactly.
+
+Three things that repair established, none of which were in the plan:
+
+- **Sorting numeric options ascending is the wrong fix.** It looks tidier and imposes a
+  real exam convention, but measured over the 1,550 numeric items it makes the cheat
+  slightly *worse* (37% vs 35%), because distractors bracket the key — 71% of keys are
+  the 2nd or 3rd smallest of four. Shuffling gets it to 26%. The bracketing itself is
+  unfixed and needs distractor *values* regenerated, which is authoring.
+- **The length tell survives.** In ACT reading the key averages 62.1 characters against
+  54.9, so "pick the longest option" still scores **48.7%** — reordering moves options
+  without changing them. This is now the single biggest exploitable defect in the bank.
+- **45 questions are defective, not merely misordered**, and were refused: 16 with
+  duplicate option text (several duplicate the key, so a right answer is marked wrong),
+  17 whose explanation shows the answer being chosen rather than derived, 8 admitting two
+  options are equal, 2 with a stale inline `A) B) C)` enumeration, 1 missing an option,
+  1 where A-D are geometry point labels. They are listed in the manifest and need a human.
+
+**The original bank-wide defect:** `reading_comprehension` runs
 37% C, `quantitative_reasoning` 38% A with D at 8%. A student who never picks D loses
 almost nothing. Within VIC scope that is **2,913 questions** — 718 ACT reading and 2,195
 quantitative. `logical_reasoning`, `mathematics` and the `rc_nsw_*` set are clean at
