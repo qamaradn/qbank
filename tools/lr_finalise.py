@@ -31,6 +31,7 @@ from tools.question_checks import (  # noqa: E402
     figure_svg_errors,
     length_tell,
     doubled_token_errors,
+    option_wording_errors,
     options_distinct,
     positional_reference,
 )
@@ -96,7 +97,7 @@ def validate(qs, nn, plan):
         seen_ids.add(q.get("id"))
         if not options_distinct(q):
             errs.append(f"{tag}: options not distinct (case/whitespace-insensitive)")
-        for msg in doubled_token_errors(q):
+        for msg in doubled_token_errors(q) + option_wording_errors(q):
             errs.append(f"{tag}: {msg}")
         if not re.match(r"Category: (\w+) — (.+)$", q.get("source_page_description", "")):
             errs.append(f"{tag}: source_page_description must be 'Category: <key> — <title>' (em dash)")

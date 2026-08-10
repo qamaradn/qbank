@@ -538,3 +538,27 @@ def doubled_token_errors(q):
                 bad.append(f"{k}: doubled word {a!r} in {text!r}")
                 break
     return bad
+
+
+def option_wording_errors(q):
+    """Malformed ordinals in options: "the 22th".
+
+    Not a typo but formatter output applied without regard to the value it received —
+    `f"the {n}th"` is right for 29 and wrong for 22. Same family as doubled_token_errors,
+    and invisible to every check that looks at meaning rather than at the rendered string.
+
+    An a/an check was written alongside this and REMOVED. Swept over the whole bank it
+    flagged 22 options and only 2 were real: "a and b" and "a as" are algebra variables,
+    "an L" is a unit, and "a eucalypt" is correct English because the vowel is sounded
+    "yoo". Two hits in twenty is not a check, it is noise that teaches you to skim the
+    output, which costs more than the two it would catch.
+    """
+    bad = []
+    for k in KEYS:
+        for num, suffix in re.findall(r"(\d+)(st|nd|rd|th)\b", str(q.get(k, "") or "")):
+            n = int(num)
+            want = ("th" if 11 <= n % 100 <= 13
+                    else {1: "st", 2: "nd", 3: "rd"}.get(n % 10, "th"))
+            if suffix != want:
+                bad.append(f"{k}: {num}{suffix} should be {num}{want}")
+    return bad
