@@ -836,6 +836,33 @@ superseded. 19 forms are needed for a September launch with weekly mocks over th
 three months — about 25 questions a week, best front-loaded into Sep–Jan so the intensive
 phase needs no authoring.
 
+**VIC is planned, not built.** `pdfs/vic_content_taxonomy_TASK.md` (2026-08-10) is the
+Victorian equivalent of the NSW taxonomy — researched from ACER's own site, since coaching
+providers mostly still describe the pre-2026 five-component format. Two corrections to the
+delivery spec fall out of it: **Writing is TWO tasks, not one** (so 54 prompts are needed,
+not 27, against 10 held), and **Maths + Quantitative is ~62 questions, not 75**.
+
+Two assessments were reversed by reading the content rather than its metadata:
+
+- **719 ACT-sourced reading questions ARE usable for VIC.** Rejected first on a briefing's
+  `target_year: 11-12`, then on a Flesch-Kincaid median of grade 16. FK is inflated by
+  long-but-ordinary words; three passages read in full sit at Year 9-11. VIC Reading falls
+  from ~743 new questions to ~24 plus a repair pass.
+- **90.7% of the ACT quantitative bank is usable at Year 8.** Only 188 of 2,020 are beyond
+  it — quadratics, trigonometry, logs, permutations. The component is oversupplied (2,556
+  against a target of 1,297) rather than 573 short.
+
+VIC authoring now stands at **~508 items**: verbal top-up ~340, writing 44, maths
+Statistics top-up ~100, reading ~24.
+
+**A bank-wide defect was found: the answer key is skewed.** `reading_comprehension` runs
+37% C, `quantitative_reasoning` 38% A with D at 8%. A student who never picks D loses
+almost nothing. Within VIC scope that is **2,913 questions** — 718 ACT reading and 2,195
+quantitative. `logical_reasoning`, `mathematics` and the `rc_nsw_*` set are clean at
+25/25/25/25, because their finalisers shuffle for key balance and the Gemini pipeline
+never did. No question is wrong — they are in the wrong order — so it is a shuffle, not a
+rewrite. Repairing it is worth more per hour than any authoring in the VIC plan.
+
 **Blockers:** two, both below. Neither stops new questions being generated; both stop
 questions already pushed from being corrected or withdrawn — and blocker 1 now also
 blocks pushing the form assignments.
