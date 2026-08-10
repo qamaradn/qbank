@@ -3,44 +3,17 @@
 
     env -u PYTHONPATH .venv/bin/python3.11 -m tools.rc.rc_vic_inference_p1_build
 
-WHY THIS BUILDER IS DIFFERENT FROM EVERY OTHER rc/ BUILDER
-
-It does not author a passage. vic_reading_TASK.md §2 caps informational at 372 of 743
-and we already hold ~670 informational questions over 144 ACT passages — the passages are
-good (160 words median, right level, Australian) and the SHORTAGE is inference-led
-questions, not text. So this builder reads the passage out of the database and writes new
-questions against it.
-
-THE PASSAGE MUST COME OUT BYTE-IDENTICAL. Selectly derives passageId by hashing the
-passage text; one drifted character splits the group and the student is shown the same
-passage twice in one drill. So the text is never retyped here — it is SELECTed, matched
-against a prefix for identification only, and passed through untouched.
-
-WHAT MAKES AN ITEM ADMISSIBLE (§3)
-
-The defect being repaired is that 67.5% of the existing ACT reading questions are
-retrieval wearing an inference stem — 37% of their implies/suggests items are answered by
-a near-verbatim restatement of one passage sentence. So every key here must satisfy
-`question_checks.key_restates_passage`: under 35% content-word overlap with the passage,
-a threshold fitted to 40 hand-labelled questions (82% accuracy, 95% precision).
-
-That forces the answer to be one of three things the text does not say outright:
-synthesis across separated statements, the FUNCTION of a sentence or example, or the
-stance a word choice commits the author to.
+Passages and items only; the machinery and the reasoning behind it live in
+tools/rc/vic_inference_common.py.
 """
-import hashlib
 import pathlib
-import sqlite3
 import sys
-import uuid
-from datetime import datetime, timezone
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
 
-DB = ROOT / "run_data/db/qbank.db"
-OUT = ROOT / "run_data/output/reading_comprehension/generated/rc_vic_inference_p1.json"
-BOOK = "rc_vic_inference"
+from tools.rc.vic_inference_common import build, write  # noqa: E402
+
 PAGE = 1
 
 # (title, source_book, source_page, unique passage prefix) — the prefix identifies the
@@ -233,60 +206,5 @@ ITEMS = {
 }
 
 
-def fetch_passages():
-    conn = sqlite3.connect(DB)
-    conn.row_factory = sqlite3.Row
-    out = {}
-    for title, book, page, prefix in PASSAGES:
-        rows = {r["passage"] for r in conn.execute(
-            "SELECT passage FROM questions WHERE source_book=? AND source_page=? "
-            "AND review_status!='rejected' AND passage LIKE ?", (book, page, prefix + "%"))}
-        if len(rows) != 1:
-            raise SystemExit(f"{title}: prefix matched {len(rows)} passages, expected 1")
-        out[title] = rows.pop()
-    return out
-
-
-def build():
-    texts = fetch_passages()
-    now = datetime.now(timezone.utc).isoformat()
-    qs = []
-    for title, book, page, _ in PASSAGES:
-        passage = texts[title]
-        for skill, stem, opts, key, expl, rel, quotes in ITEMS[title]:
-            qs.append({
-                "id": str(uuid.uuid5(uuid.NAMESPACE_URL,
-                                     f"qbank/{BOOK}/{title}/{skill}/{stem[:40]}")),
-                "subject": "reading_comprehension",
-                "stem": stem,
-                "option_a": opts[0], "option_b": opts[1],
-                "option_c": opts[2], "option_d": opts[3],
-                "correct_answer": key,
-                "explanation": expl,
-                "topic": "Informational inference",
-                "difficulty": "hard" if skill in ("structure", "comparison") else "medium",
-                "confidence": 0.9,
-                "source_book": BOOK,
-                "source_page": PAGE,
-                "source_page_description": f"[reuses {book} p{page} passage: {title}]",
-                "passage": passage,
-                "figure_svg": None,
-                "review_status": "pending",
-                "created_at": now,
-                # authored by letter for readability; the checker wants distractor TEXT
-                # as the key so the map survives the answer shuffle.
-                "relations": {opts["ABCD".index(L)]: r for L, r in rel.items()},
-                "passage_title": title,
-                "skill": skill,
-                "quote_lines": quotes,
-                "extracts": [],
-            })
-    return qs
-
-
 if __name__ == "__main__":
-    import json
-    qs = build()
-    OUT.parent.mkdir(parents=True, exist_ok=True)
-    OUT.write_text(json.dumps(qs, indent=1, ensure_ascii=False))
-    print(f"{len(qs)} questions over {len(PASSAGES)} passages -> {OUT}")
+    write(build(PASSAGES, ITEMS, PAGE), PAGE)

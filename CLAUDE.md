@@ -801,9 +801,9 @@ CREATE INDEX IF NOT EXISTS idx_wp_review_status ON writing_prompts(review_status
 - [ ] Triage the 45 questions repair_key_skew blocked as defective
 - [x] `pdfs/vic_reading_TASK.md` written (2026-08-10) — text-type split agreed
       (informational 50 / narrative 25 / persuasive 15 / poetry 10), 394 items to author
-- [x] VIC reading batch p1: 18 inference items on 6 existing ACT passages, loaded
-      (rc_vic_inference, 2026-08-10)
-- [ ] VIC reading: informational top-up p2-p? — 66 of 84 remaining, 22 passages
+- [x] VIC reading batches p1+p2: 36 inference items on 12 existing ACT passages, loaded
+      (rc_vic_inference, 2026-08-10), keys even at 9/9/9/9
+- [ ] VIC reading: informational top-up p3-p5 — 48 of 84 remaining, 16 passages
 - [ ] VIC reading: poetry 74 (12 new passages), narrative 156 (28), persuasive 81 (15)
 - [ ] QR pages rerun with GEMINI_MODEL=gemini-2.5-flash (full model, no thinking)
 - [ ] writing_prompts table + generator implemented (see WRITING PROMPTS section above)
