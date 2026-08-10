@@ -231,3 +231,42 @@ def best(options, cost, want="min"):
     if len(winners) != 1:
         raise AssertionError(f"{len(winners)} options tie at {target}: {winners}")
     return winners[0], target
+
+
+def _grids(items, attr_a, attr_b, clues):
+    out = []
+    for pa in itertools.permutations(attr_a):
+        for pb in itertools.permutations(attr_b):
+            grid = {it: {"a": pa[i], "b": pb[i]} for i, it in enumerate(items)}
+            if all(c(grid) for c in clues):
+                out.append(grid)
+    return out
+
+
+def solve2(items, attr_a, attr_b, clues, cross):
+    """Assign TWO attributes to each item — a real logic grid, not two puzzles side by side.
+
+    `cross` holds the clues that LINK the two attributes ("the one with the cat rides the
+    blue bicycle"). They are required, and required to matter: the build fails unless
+    removing them leaves the puzzle undetermined.
+
+    That check exists because the first eight grids written with this helper did not need
+    it. Each had clues about colours and clues about pets and no clue joining them, so
+    the pet question was answerable from the pet clues alone and the colours were
+    scenery. The puzzle looked twice as hard on the page and was not, which is worse than
+    a plain grid — it wastes the student's time rather than testing anything.
+
+    Clues receive {item: {"a": ..., "b": ...}}.
+    """
+    if not cross:
+        raise AssertionError("a two-attribute grid needs at least one clue joining them, "
+                             "or it is two separate puzzles printed together")
+    found = _grids(items, attr_a, attr_b, list(clues) + list(cross))
+    if len(found) != 1:
+        raise AssertionError(f"grid has {len(found)} solutions, not 1: {found[:2]}")
+    without = _grids(items, attr_a, attr_b, clues)
+    if len(without) == 1:
+        raise AssertionError(
+            "the puzzle is already solved without the linking clues, so the second "
+            "attribute is decoration — the student never has to cross-reference")
+    return found[0]
