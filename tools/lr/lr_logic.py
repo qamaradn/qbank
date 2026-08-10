@@ -171,3 +171,63 @@ class Scenario:
         good = [t for t, c in options
                 if c is not None and c is not NOTHING and self.entails(c)]
         return _decide(good, [t for t, c in options if c is NOTHING], "rules")
+
+
+# ---------------------------------------------------------------- search
+
+# p18 and p19 each carry their own copies of these, written before this module existed.
+# Those two are left alone on purpose: both are loaded into the database, and rebuilding
+# them would mint fresh uuids and orphan the rows. New batches import from here.
+
+def solve(items, options, clues):
+    """The one assignment of `options` to `items` satisfying every clue.
+
+    Raises on none (over-constrained) and on several (the puzzle has two answers, which
+    is the failure a hand-written logic grid actually suffers from).
+    """
+    found = [dict(zip(items, p)) for p in itertools.permutations(options)
+             if all(c(dict(zip(items, p))) for c in clues)]
+    if len(found) != 1:
+        raise AssertionError(f"puzzle has {len(found)} solutions, not 1: {found[:4]}")
+    return found[0]
+
+
+def order(names, clues):
+    """The one arrangement of `names` satisfying every clue. Positions are 1-based."""
+    found = [{n: i + 1 for i, n in enumerate(p)} for p in itertools.permutations(names)]
+    found = [pos for pos in found if all(c(pos) for c in clues)]
+    if len(found) != 1:
+        raise AssertionError(f"{len(found)} arrangements fit, not 1: {found[:4]}")
+    return found[0]
+
+
+def truth(names, clues):
+    """The one self-consistent pattern of who tells the truth."""
+    found = [dict(zip(names, p))
+             for p in itertools.product([True, False], repeat=len(names))
+             if all(c(dict(zip(names, p))) for c in clues)]
+    if len(found) != 1:
+        raise AssertionError(f"{len(found)} consistent patterns, not 1: {found}")
+    return found[0]
+
+
+def only(cands, pred, what="value"):
+    """The single candidate satisfying pred.
+
+    A number puzzle that quietly admits both 7 and 27 is the arithmetic form of an
+    ambiguous logic grid, and just as invisible to reading.
+    """
+    hits = [c for c in cands if pred(c)]
+    if len(hits) != 1:
+        raise AssertionError(f"{len(hits)} {what}s fit the clues, not 1: {hits[:8]}")
+    return hits[0]
+
+
+def best(options, cost, want="min"):
+    """The cheapest or dearest option, raising unless one is strictly best."""
+    vals = {k: cost(k) for k in options}
+    target = min(vals.values()) if want == "min" else max(vals.values())
+    winners = [k for k, v in vals.items() if v == target]
+    if len(winners) != 1:
+        raise AssertionError(f"{len(winners)} options tie at {target}: {winners}")
+    return winners[0], target
