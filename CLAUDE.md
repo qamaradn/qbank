@@ -808,8 +808,8 @@ CREATE INDEX IF NOT EXISTS idx_wp_review_status ON writing_prompts(review_status
       2026-08-10), keys 19/18/19/18, confidence 0.87-0.93
 - [x] VIC reading narrative COMPLETE — 156/156 over 26 authored passages
       (rc_vic_narrative p1-p5, 2026-08-10), keys 39/39/39/39
-- [ ] VIC reading: persuasive 0/81 (15 new passages) — type registered, none built.
-      VIC reading stands at 314/394 authored
+- [ ] VIC reading: persuasive 30/81 built (rc_vic_persuasive p1, 5 of 14 passages);
+      9 passages / 51 items remain. VIC reading stands at 344/394 authored
 - [ ] QR pages rerun with GEMINI_MODEL=gemini-2.5-flash (full model, no thinking)
 - [ ] writing_prompts table + generator implemented (see WRITING PROMPTS section above)
 - [ ] First batch synced to Supabase

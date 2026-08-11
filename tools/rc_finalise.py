@@ -224,7 +224,9 @@ TYPES = {
         "category": "persuasive",
         "label": "VIC persuasive",
         "kind": "set",
-        "target_passages": 15,
+        # 14 rather than the taxonomy's rounded 15: 81 items divide as 5x6 + 5x6 + 4x(6,5,5,5),
+        # and items_per_passage has a floor of 5, so 15 passages cannot carry exactly 81.
+        "target_passages": 14,
         "items_per_passage": (5, 6),
         "target_questions": 81,
         "relations": COMPREHENSION_RELATIONS,
