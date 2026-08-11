@@ -79,7 +79,14 @@ CREATE TABLE IF NOT EXISTS writing_prompts (
                             CHECK (review_status IN ('pending','approved','rejected')),
     created_at          TEXT NOT NULL,
     reviewed_at         TEXT,
-    edited              INTEGER NOT NULL DEFAULT 0
+    edited              INTEGER NOT NULL DEFAULT 0,
+    -- A writing drill is a PAIR, not a prompt: the VIC paper sets a short task and an
+    -- extended one in 40 minutes, and budgeting across the two is the skill. Unlike MCQ,
+    -- halving it does not preserve what is being practised. form_position 1 = short,
+    -- 2 = extended. See db/migrations/002_writing_form_columns.py.
+    form_id             TEXT,
+    form_position       INTEGER,
+    form_kind           TEXT CHECK (form_kind IS NULL OR form_kind IN ('drill','mock'))
 );
 
 CREATE INDEX IF NOT EXISTS idx_wp_school_type   ON writing_prompts(school_type);

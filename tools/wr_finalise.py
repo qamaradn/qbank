@@ -64,11 +64,8 @@ PROFILES = {
         "prompt_types": {"narrative", "persuasive", "article", "diary",
                          "email", "speech", "advice_sheet", "news_report"},
         "target_year": "5-6",
-        "time_limit": 30,
-        "min_words": 150,
-        # the most a Year 6 writer produces in 30 minutes, planning included
-        "max_words": 350,
         "exam": "NSW: one prompt, 30 minutes, sat in Year 6",
+        "bands": {"only": (150, 350, 30)},
         "target": 21,
     },
     "wr_vic_acer": {
@@ -79,11 +76,13 @@ PROFILES = {
         # which sit inside those two slots rather than beside them.
         "prompt_types": {"narrative", "persuasive"},
         "target_year": "7-8",
-        "time_limit": 20,
-        "min_words": 130,
-        # ~20 minutes for a Year 8 writer once planning and a read-back are taken out
-        "max_words": 280,
-        "exam": "VIC: two tasks in 40 minutes (~20 each), sat in Year 8",
+        # The paper's two tasks are NOT the same size: a short piece of about 150 words
+        # and an extended one of about 250, 40 minutes across both. A prompt must sit in
+        # one band or the other -- a range would let them drift back to a uniform middle,
+        # which is what the first 44 did and what a drill cannot practise. Each band is
+        # (min_words, max_words, minutes).
+        "bands": {"short": (130, 170, 15), "extended": (220, 290, 25)},
+        "exam": "VIC: two tasks in 40 minutes — a short one and an extended one, Year 8",
         # 18 mock forms x 2 tasks = 36, inflated 1.5x so forms can be assembled by
         # selection rather than by exhausting the pool (taxonomy §6).
         "target": 54,
@@ -97,9 +96,7 @@ _P = PROFILES[BOOK]
 SCHOOL_TYPE = _P["school_type"]
 PROMPT_TYPES = _P["prompt_types"]
 TARGET_YEAR = _P["target_year"]
-TIME_LIMIT = _P["time_limit"]
-MIN_WORDS = _P["min_words"]
-MAX_WORDS = _P["max_words"]
+BANDS = _P["bands"]
 EXAM = _P["exam"]
 TARGET = _P["target"]
 
@@ -191,13 +188,14 @@ def validate(ps, nn):
         if p["target_year"] != TARGET_YEAR:
             errs.append(f"{tag}: target_year is {p['target_year']!r}; {EXAM}, "
                         f"so it must be {TARGET_YEAR!r}")
-        if p["time_limit_minutes"] != TIME_LIMIT:
-            errs.append(f"{tag}: time_limit_minutes is {p['time_limit_minutes']}; {EXAM}, "
-                        f"so each task gets {TIME_LIMIT} minutes")
-        lo, hi = p["word_count_min"], p["word_count_max"]
-        if not (MIN_WORDS <= lo < hi <= MAX_WORDS):
-            errs.append(f"{tag}: word range {lo}-{hi} is outside {MIN_WORDS}-{MAX_WORDS}, "
-                        f"which is what that writer produces in {TIME_LIMIT} minutes")
+        # A prompt must land exactly on one of the exam's task shapes. Anything between
+        # them is a task the paper never sets and a drill cannot rehearse.
+        shape = (p["word_count_min"], p["word_count_max"], p["time_limit_minutes"])
+        if shape not in set(BANDS.values()):
+            wanted = "; ".join(f"{name} {lo}-{hi} words in {mins} min"
+                               for name, (lo, hi, mins) in BANDS.items())
+            errs.append(f"{tag}: {shape[0]}-{shape[1]} words in {shape[2]} min matches no "
+                        f"band. {EXAM}, so a prompt must be one of: {wanted}")
 
         # the task has to name its own form
         form = p["prompt_type"].replace("_", " ")
@@ -235,8 +233,15 @@ def existing():
 
 
 def near_duplicates(ps, threshold=0.72):
-    """Two prompts that ask nearly the same thing waste one of only 21 slots."""
-    prior = [(p["prompt_type"], p["task_instruction"]) for p in existing()]
+    """Two prompts that ask nearly the same thing waste one of a small number of slots.
+
+    The batch's own rows are excluded from the comparison. Without that, re-running
+    --check-only on a batch that has already been loaded reports every prompt as a 1.000
+    match against itself, which buries any real finding underneath it.
+    """
+    mine = {p["id"] for p in ps}
+    prior = [(p["prompt_type"], p["task_instruction"]) for p in existing()
+             if p["id"] not in mine]
     errs, batch = [], []
     for p in ps:
         low = p["task_instruction"].lower()

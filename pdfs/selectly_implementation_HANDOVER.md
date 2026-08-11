@@ -201,6 +201,50 @@ A question belongs to exactly one form, so columns suffice — no join table.
 currently a hardcoded pair. Note for §5: the drill selector ignores `schoolIds` entirely, so
 it cannot be used to withdraw a question from drill.
 
+### 4.1a Selectly — `writing_prompts` needs the same three columns
+
+**A writing drill is a PAIR, not a prompt.** The VIC paper sets two tasks in 40 minutes —
+a short one of ~150 words and an extended one of ~250 — and the drill has to serve both.
+
+This is the one component that does not survive being halved. For MCQ, halving the
+question count and the clock preserves seconds-per-question, so a 20-question drill
+predicts a 40-question paper. Writing has no equivalent invariant:
+
+- **Budgeting across two tasks is the skill.** A candidate who spends 28 of the 40 minutes
+  on the piece they are enjoying has failed the paper, and will never discover that by
+  practising one piece at a time.
+- **The second task is written tired**, by someone who has already spent their best ideas.
+  That is where marks are lost, and a single-prompt drill never reaches it.
+- The two tasks are different shapes — at 150 words every "and also" is unaffordable, at
+  250 there is room to develop. The candidate has to feel the difference.
+
+| Column | Type | Purpose |
+|---|---|---|
+| `qbank_id` | uuid, unique, nullable, indexed | same rationale as `questions` |
+| `form_id` | text, nullable | e.g. `vic-drill-wr-004` |
+| `form_position` | integer | **1 = short task, 2 = extended task** |
+| `form_kind` | text | `drill` \| `mock` |
+
+**27 VIC writing drill forms are dealt** (`tools/assign_writing_forms.py`, manifest in
+`run_data/output/forms/vic_writing_forms_manifest.json`). Every form is one creative plus
+one persuasive task, one short plus one extended, totalling exactly 40 minutes. All 54
+prompts are `pending`, so none should be served until reviewed.
+
+Two things the app must do differently for a writing form:
+
+1. **Serve both prompts as one timed sitting of 40 minutes**, not two 15/25-minute
+   sittings. Whether the candidate is free to move between the two tasks within the 40
+   minutes is the app's call, but the clock must be one clock — that is the whole point.
+   The per-prompt `time_limit_minutes` (15 and 25) is guidance to show the candidate, not
+   a timer to enforce.
+2. **Position order is a qbank convention, not a fact about the paper.** ACER does not
+   publish which task comes first. Position 1 is the short one here; if that turns out to
+   be wrong it is one `UPDATE` in qbank and no app change.
+
+Writing is not scored out of a mark total the way MCQ is, so `form_attempts.score` /
+`max_score` do not apply to a writing form. It needs its own result shape, or those
+columns need to be nullable.
+
 ### 4.2 Selectly — `form_attempts` (new table)
 
 One row per student per form per round.
@@ -215,9 +259,14 @@ One row per student per form per round.
 
 ### 4.3 qbank — already applied, for reference
 
-`form_id`, `form_position`, `form_kind` exist in `db/schema.sql` (migration
-`db/migrations/001_form_columns.py`, applied). Forms are authored and reviewed in qbank and
-pushed down, not assembled in the app.
+`form_id`, `form_position`, `form_kind` exist in `db/schema.sql` on **both** `questions`
+(migration `db/migrations/001_form_columns.py`) and `writing_prompts` (migration
+`db/migrations/002_writing_form_columns.py`), both applied. Forms are authored and reviewed
+in qbank and pushed down, not assembled in the app.
+
+**`push_to_selectly.py` does not push writing prompts at all yet** — it sends `questions`
+only. A writing push path is still to be written, and needs `/api/writing-prompts/import`
+or equivalent on the Selectly side.
 
 `push_to_selectly.py` **now sends** `qbankId` (it always did), the three form fields, and
 real per-question `schoolIds`. **Selectly's import schema must be extended to accept

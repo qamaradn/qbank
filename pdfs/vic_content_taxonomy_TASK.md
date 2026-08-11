@@ -306,6 +306,40 @@ of the page and then answers *"No, the selective entry exam is entirely multiple
 in its own FAQ. The 62-question planning figure leans on that site and should be treated
 as softer than "Confidence: Medium" suggests.
 
+### The two tasks are different SIZES, and a drill must serve both
+
+Corrected 2026-08-12 on the owner's first-hand knowledge of the paper: the two tasks are
+**not alike**. One is short — about **150 words** — and the other about **250**. The 54
+prompts were first built to a single ~20-minute, 160–260 word band, which is a task the
+paper never sets.
+
+**And a writing drill has to serve the pair, not one of them.** This is the component that
+does not survive being halved. Halving an MCQ drill preserves seconds-per-question, so a
+20-question set predicts a 40-question paper. Writing has no equivalent invariant:
+budgeting across two tasks *is* the skill, the second task is written by a tired writer who
+has already spent their best ideas, and the two tasks are different shapes that a candidate
+has to feel the difference between.
+
+| Band | Words | Minutes |
+|---|---:|---:|
+| short | 130–170 | 15 |
+| extended | 220–290 | 25 |
+
+**Length is orthogonal to genre**, because which genre carries which length is not
+published anywhere found. Both slots hold prompts in both bands, and each dealt form pairs
+one creative with one persuasive such that one is short and one extended. If the real
+pairing is fixed, that is a re-band of one column.
+
+Re-banding broke 11 task instructions and they were re-cut, not just renumbered: three
+named the writing clock in their own text ("Twenty minutes is one scene"), and eight asked
+for two deliverables or for a counter-argument, which at 150 words is the same trap the ten
+legacy prompts carried at 20 minutes. Marking focus followed — a short persuasive prompt
+that no longer asks for a counter is no longer marked on one.
+
+**27 writing drill forms are dealt**, each one creative + one persuasive, one short + one
+extended, totalling exactly 40 minutes. `writing_prompts` gained `form_id`/`form_position`/
+`form_kind` (`db/migrations/002_writing_form_columns.py`) to carry them.
+
 **Built 2026-08-12: 54/54.** 27 creative (narrative) + 27 persuasive, all pending. The ten
 legacy prompts were recalibrated from 30 min / Year 9–10 / 350–500 words to 20 min /
 Year 7–8 / 150–260, and three whose instructions asked for three separate deliverables

@@ -842,10 +842,14 @@ CREATE INDEX IF NOT EXISTS idx_wp_review_status ON writing_prompts(review_status
       explanations cleaned. Found by READING, not by a sweep; the August pattern missed
       them. question_checks gained `rewrites_the_question` — the model editing the
       question inside the explanation, which always means the stored item is unanswerable
-- [x] VIC writing COMPLETE 2026-08-12 — 54/54. Two-task format confirmed from ACER's own
-      page (§6 was "Confidence: Low"). 27 creative + 27 persuasive, all pending. The 10
-      legacy prompts recalibrated 30min/Y9-10/350-500w -> 20min/Y7-8/150-260w, 3 re-cut
-      from three deliverables to two. WR_BOOK=wr_vic_acer selects the VIC profile
+- [x] VIC writing COMPLETE 2026-08-12 — 54/54 in 27 paired drill forms. Two-task format
+      confirmed from ACER's own page (§6 was "Confidence: Low"). The two tasks are
+      DIFFERENT SIZES (owner, first-hand): short ~150 words / 15 min and extended ~250 /
+      25 min, and a writing drill serves the PAIR because writing is the one component
+      that does not survive halving — budgeting across two tasks is the skill. 11 tasks
+      re-cut when the band moved. writing_prompts gained form columns (migration 002);
+      tools/assign_writing_forms.py deals 27 forms of exactly 40 minutes.
+      WR_BOOK=wr_vic_acer selects the VIC profile and enforces the two bands
 - [ ] QR pages rerun with GEMINI_MODEL=gemini-2.5-flash (full model, no thinking)
 - [ ] writing_prompts table + generator implemented (see WRITING PROMPTS section above)
 - [ ] First batch synced to Supabase
