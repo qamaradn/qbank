@@ -828,10 +828,10 @@ CREATE INDEX IF NOT EXISTS idx_wp_review_status ON writing_prompts(review_status
       12 new poems, narrative 156 over 26, persuasive 81 over 14. All pending review;
       every prose key under the 0.35 restatement limit; confidence authored per item
       0.85-0.95 rather than a flat constant. 80 new passages written.
-- [ ] VIC maths Statistics & Probability top-up — 7/100 built (ma_vic_stats p1).
-      Scaffolding COMPLETE and proven end to end: ma_vic_stats_PLAN.json (6 categories),
-      MA_BOOK env var switches ma_common and ma_finalise to a non-NSW book,
-      tools/ma/ma_vic_p1_build.py. Remaining 93 are authoring against that harness
+- [x] VIC maths Statistics & Probability COMPLETE — 100/100 (ma_vic_stats p1-p5,
+      2026-08-11). Six categories all at target, keys 25/25/25/25, 34 figures, all
+      pending. Strand share across the VIC maths pool rises 10.5% -> 24.5% against a
+      15-25% target. MA_BOOK env var switches ma_common and ma_finalise to a non-NSW book
 - [ ] QR pages rerun with GEMINI_MODEL=gemini-2.5-flash (full model, no thinking)
 - [ ] writing_prompts table + generator implemented (see WRITING PROMPTS section above)
 - [ ] First batch synced to Supabase

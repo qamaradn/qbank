@@ -241,9 +241,17 @@ def validate(qs, nn, plan):
             # item shipped naming a frequency table it never showed, because its category
             # is not a figure category. What matters is whether the STEM points at
             # something the reader cannot see.
+            # A stem may DESCRIBE a display without showing one -- "a bar chart is drawn
+            # with its axis starting at 90" is a question about chart design, and the
+            # reader needs no picture because the stem states everything. What must be
+            # refused is a stem that POINTS at a display: "the chart shows", "shown".
+            # The article carries the distinction, so an indefinite mention is exempt.
+            pointed = re.sub(r"\b(a|an|two|three|some)\s+(bar chart|line graph|pie chart|"
+                             r"pie charts|histogram|chart|graph|diagram|pictogram)\b", " ",
+                             q["stem"], flags=re.I)
             if re.search(r"\bshown\b|\bdiagram\b|\bfigure\b|\bgraph\b|\bchart\b|\babove\b"
                          r"|\bthe table\b|\bthe timetable\b|\btable shows\b",
-                         q["stem"], re.I):
+                         pointed, re.I):
                 errs.append(f"{tag}: stem refers to a figure but figure_svg is empty")
         phrase = positional_reference(q["explanation"])
         if phrase:
