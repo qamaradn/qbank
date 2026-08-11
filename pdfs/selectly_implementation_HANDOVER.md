@@ -39,8 +39,13 @@ document, and it is a Selectly-side change.
 
 ### What is wrong
 
-`/api/questions/import` is insert-only and lets Postgres mint its own `uuid` for each row.
-qbank therefore has **no handle on the row it created**. There is no key on which to issue
+**qbank already sends the field.** `pipeline/push_to_selectly.py` has always included
+`qbankId` in the payload, with a comment saying Selectly upserts on it. It does not.
+`/api/questions/import` **drops the field**, is insert-only, and lets Postgres mint its own
+`uuid` for each row. qbank therefore has **no handle on the row it created**.
+
+This is a Selectly-side fix only. No change to the pusher is needed for `qbankId` itself
+(the form fields and `schoolIds` in §4.3 are a separate matter). There is no key on which to issue
 an update, a withdrawal, or a correction. All 5,321 pushed questions are unaddressable.
 
 Selectly already has the machinery to act on a question — `questions.active` (both the
@@ -50,8 +55,8 @@ by **Selectly's** uuid, which qbank never learns.
 ### The fix
 
 1. **Add `qbank_id` to `questions`**: `uuid`, unique, nullable, indexed.
-2. **`/api/questions/import` must accept and store it.** qbank ids are already uuid-v4, so
-   they can be used directly. Do **not** make `qbank_id` the primary key — five tables hold
+2. **`/api/questions/import` must stop discarding it and store it.** The field is already
+   arriving in every payload; qbank ids are uuid-v4, so they can be used directly. Do **not** make `qbank_id` the primary key — five tables hold
    foreign keys onto `questions.id` (`question_mastery`, `question_responses`,
    `drill_responses`, `question_flags`, `writing_feedback`), so `id` can never be rewritten.
 3. **Make import upsert on `qbank_id`**, not insert-only, so a corrected question replaces
