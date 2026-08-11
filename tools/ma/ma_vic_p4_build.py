@@ -39,8 +39,8 @@ BAG = {"red": 5, "blue": 3, "green": 4}
 BTOT = sum(BAG.values())
 
 B.Q("probability_single", "single_step",
-    "A bag holds 5 red, 3 blue and 4 green counters. One counter is drawn at random. What "
-    "is the probability that it is blue?",
+    "A tin at the front desk contains 5 red, 3 blue and 4 green raffle tokens. A student "
+    "takes one without looking. How likely is it to be blue?",
     key=out_of(BAG["blue"], BTOT), verify=out_of(BTOT - 5 - 4, BTOT),
     wrong=[(out_of(BAG["blue"], BTOT - BAG["blue"]), "misread_data"),
            (out_of(BAG["red"], BTOT), "off_by_one"),
@@ -51,8 +51,8 @@ B.Q("probability_single", "single_step",
     fmt=PLAIN),
 
 B.Q("probability_single", "single_step",
-    "From the same bag of 12 counters, what is the probability of drawing a counter that "
-    "is NOT red?",
+    "Taking one token from that same tin of 12, how likely is it to be any colour other "
+    "than red?",
     key=out_of(BTOT - BAG["red"], BTOT), verify=out_of(BAG["blue"] + BAG["green"], BTOT),
     wrong=[(out_of(BAG["red"], BTOT), "inverse"), (out_of(BAG["green"], BTOT), "partial_step"),
            (out_of(BTOT - BAG["red"], BAG["red"]), "misread_data")],
@@ -62,8 +62,7 @@ B.Q("probability_single", "single_step",
     fmt=PLAIN),
 
 B.Q("probability_single", "single_step",
-    "An ordinary six-sided dice is rolled once. What is the probability of rolling a number "
-    "greater than 4?",
+    "One throw is made with a fair six-sided dice. How likely is a score of more than four?",
     key=out_of(2, 6), verify=out_of(6 - 4, 6),
     wrong=[(out_of(1, 6), "off_by_one"), (out_of(4, 6), "inverse"), (out_of(3, 6), "misread_data")],
     expl="Only 5 and 6 are greater than 4, so 2 out of 6. 1 out of 6 counts the 6 alone, "
@@ -83,8 +82,8 @@ B.Q("probability_single", "single_step",
 
 CARDS = 52
 B.Q("probability_single", "single_step",
-    "One card is drawn from a standard deck of 52. What is the probability that it is a "
-    "heart?",
+    "A single card is taken from a shuffled deck of 52. How likely is it to belong to the "
+    "hearts suit?",
     key=out_of(13, CARDS), verify=out_of(CARDS // 4, CARDS),
     wrong=[(out_of(4, CARDS), "misread_data"), (out_of(1, 13), "wrong_attribute"),
            (out_of(26, CARDS), "off_by_one")],
@@ -278,7 +277,7 @@ B.Q("probability_combined", "multi_step",
     fmt=PLAIN),
 
 B.Q("probability_combined", "multi_step",
-    "From the same bag of 4 red and 6 blue counters, two are drawn WITHOUT replacement. "
+    "From a separate bag of 4 red and 6 blue counters, two are drawn WITHOUT replacement. "
     "What is the probability that both are red?",
     key=out_of(12, 90), verify=out_of(4 * 3, 10 * 9),
     wrong=[(out_of(16, 100), "ignored_constraint"), (out_of(12, 100), "partial_step"),
