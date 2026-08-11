@@ -171,6 +171,12 @@ reading the diffs found them.
 |---|---|---:|---:|---|
 | 1 | Informational inference top-up | 83 | 0 | Cheapest, no passage authoring, proves the `key_restates_passage` rule against real text |
 | 2 | Poetry | 74 | 12 | Nothing held at all, and the NSW `rc_poetry_*` builders and `poetry_common.py` port directly |
+
+**The restatement rule does not apply to verse.** The 0.35 threshold was fitted to 160-word
+prose, where a key echoing the text means the answer was copied out. A poem runs ~100 words,
+its content words are few and reused, and the skill itself is naming what an image does —
+which cannot avoid the poem's own nouns. `vic_poetry` therefore omits `max_key_overlap`;
+the distractor-relation and skill-spread checks carry the weight instead.
 | 3 | Narrative / literary | 156 | 28 | Largest block; needs the most new prose |
 | 4 | Persuasive | 81 | 15 | Smallest new-passage block |
 

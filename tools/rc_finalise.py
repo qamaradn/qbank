@@ -204,6 +204,26 @@ TYPES = {
         "max_key_overlap": 0.35,
         "retrieval_skills": {"detail"},
     },
+    "vic_poetry": {
+        "book": "rc_vic_poetry",
+        "category": "poetry_vic",
+        "label": "VIC poetry",
+        "kind": "verse",
+        "target_passages": 12,
+        "items_per_passage": (5, 8),
+        "target_questions": 74,
+        "relations": COMPREHENSION_RELATIONS,
+        "extract_labels": [],
+        "min_cross_extract": 0,
+        "min_skills_per_group": 3,
+        # NOTE no `max_key_overlap`. The 0.35 restatement threshold was fitted to 160-word
+        # PROSE passages, where a key sharing the text's wording means the answer was
+        # copied out. Verse inverts that: a poem runs ~100 words, so its content words are
+        # few and heavily reused, and the whole skill is naming what an image DOES — "the
+        # shells hold the shape of what has gone" is an interpretation that cannot avoid
+        # the poem's own nouns. Applying the prose threshold here would reject the good
+        # items and keep the vague ones.
+    },
     "poetry": {
         "book": "rc_nsw_poetry",
         "category": "poetry",

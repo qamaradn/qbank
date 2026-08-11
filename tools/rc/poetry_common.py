@@ -38,14 +38,24 @@ def render(poem) -> str:
 def quote(poem, refs):
     """Cut the named lines out of the poem. Never retyped, so it cannot disagree.
 
-    The trailing comma of a mid-sentence line is dropped from what the stem SHOWS, since
+    The trailing comma or full stop of the last quoted line is dropped from what the stem
+    SHOWS, since
     `"a coin that is not money here," The line shows...` reads as a mistake. `quote_lines`
     keeps the lines exactly as the poem has them, so the finaliser still checks the quote
     against the passage verbatim.
     """
+    # Whole-poem items -- mood, structure -- quote nothing. They still need a stem and an
+    # empty quote_lines, not an IndexError. NSW never hit this because every one of its
+    # items happened to quote a line.
+    if not refs:
+        return "", []
     lines = [poem["stanzas"][s][ln] for s, ln in refs]
     shown = list(lines)
-    shown[-1] = shown[-1].rstrip(",")
+    # Also strip a trailing full stop, for the same reason as the comma: `The line "...
+    # turning over." mainly conveys:` reads as a stitched-together sentence. quote_lines
+    # below keeps the lines exactly as the poem has them, so the finaliser still checks
+    # the quotation against the passage verbatim.
+    shown[-1] = shown[-1].rstrip(",.")
     return " / ".join(shown), lines
 
 
