@@ -152,6 +152,7 @@ WR_EXTRA = {"advice", "sheet", "wetland", "wetlands", "boardwalk", "revegetation
             "geelong", "ballarat", "bendigo", "melbourne", "laminated",
             "sebastopol", "gumboot", "gumboots", "keyring", "dairy",
             "tue", "thu", "mon", "wed", "fri", "torquay", "lorne",
+            "shortlisted", "netball", "bequest", "app", "turnout",
             "textas", "reconnection", "northerly", "swooping", "butcher's",
             "riverina", "kindergarten", "humpback", "koala", "koalas", "hectares",
             "bushfire", "bushfires", "skate", "skatepark"}
