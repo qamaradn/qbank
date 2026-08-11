@@ -99,6 +99,27 @@ And the reverse trap: **do not write a retrieval item with an inference stem.** 
 answer is stated, say "According to the passage". The 20% retrieval share is real — ACER
 names *access and retrieve* first — so retrieval items are wanted, just labelled honestly.
 
+### Confidence is authored per item, and it is a second opinion
+
+The ACT questions carry Gemini's own confidence, which is near-uniformly high and so
+carries no information — the review UI shows the number so a reviewer can decide where to
+look first, and a column of 0.95 tells them nothing. Items authored here are written and
+judged by a different model, which makes the number worth spending.
+
+It scores one thing only: **how safe is the key against its strongest rival** — not how
+hard the item is, and not how well written it is.
+
+| Range | Meaning |
+|---|---|
+| 0.95–0.98 | the key is the only defensible reading; every distractor fails on something stated outright |
+| 0.88–0.94 | the key is clearly best; the strongest rival needs a misreading a careful student would not make |
+| 0.80–0.87 | the key is best but the strongest rival is arguable — **a reviewer should read this one properly** |
+| below 0.80 | do not ship it; rewrite the rival or drop the item |
+
+Items turning on the *function* of a phrase sit lower by default than items turning on a
+stated relation, because function is a matter of degree and two readers can rank two
+purposes differently. Batches p1–p2 came out at 0.85–0.95, mean 0.909.
+
 ### Do not reintroduce the length tell
 
 The existing reading key averages 62.1 characters against 54.9 for distractors, so "pick

@@ -43,6 +43,30 @@ BOOK = "rc_vic_inference"
 # rather than one sentence, so they are the two skills marked hard.
 HARD_SKILLS = {"structure", "comparison"}
 
+# CONFIDENCE IS AUTHORED PER ITEM, NOT SET TO A CONSTANT
+#
+# The surrounding ACT questions carry Gemini's own confidence, which is near-uniformly
+# high and therefore useless as a triage signal — the review UI shows confidence so a
+# reviewer can decide where to look first, and a column of 0.95 tells them nothing. These
+# items are written and judged by a different model, so the number is a genuine second
+# opinion and worth spending.
+#
+# What it scores is ONE thing: how safe is the key against its strongest rival? Not how
+# hard the question is, and not how well written it is.
+#
+#   0.95-0.98  the key is the only defensible reading; every distractor fails on
+#              something the passage states outright
+#   0.88-0.94  the key is clearly best; the strongest rival needs a misreading a careful
+#              student would not make
+#   0.80-0.87  the key is best but the strongest rival is arguable — a reviewer should
+#              read this one properly
+#   below 0.80 do not ship it; rewrite the rival or drop the item
+#
+# Items turning on the FUNCTION of a phrase ("this works to...") sit lower by default than
+# items turning on a stated relation, because function is a matter of degree and a
+# reasonable reader can rank two purposes differently.
+MIN_CONFIDENCE = 0.80
+
 
 def fetch_passages(passages):
     """passages: [(title, source_book, source_page, unique_prefix)] -> {title: text}."""
@@ -62,13 +86,17 @@ def fetch_passages(passages):
 
 def build(passages, items, page):
     """Assemble one batch. `items` maps title -> list of
-    (skill, stem, [A,B,C,D], key, explanation, {key_letter: relation}, quote_lines)."""
+    (skill, stem, [A,B,C,D], key, explanation, {key_letter: relation}, quote_lines,
+    confidence)."""
     texts = fetch_passages(passages)
     now = datetime.now(timezone.utc).isoformat()
     qs = []
     for title, book, src_page, _ in passages:
         passage = texts[title]
-        for skill, stem, opts, key, expl, rel, quotes in items[title]:
+        for skill, stem, opts, key, expl, rel, quotes, conf in items[title]:
+            if not MIN_CONFIDENCE <= conf <= 1.0:
+                raise SystemExit(f"{title}/{skill}: confidence {conf} outside "
+                                 f"[{MIN_CONFIDENCE}, 1.0] — see the rubric above")
             qs.append({
                 "id": str(uuid.uuid5(uuid.NAMESPACE_URL,
                                      f"qbank/{BOOK}/{title}/{skill}/{stem[:40]}")),
@@ -80,7 +108,7 @@ def build(passages, items, page):
                 "explanation": expl,
                 "topic": "Informational inference",
                 "difficulty": "hard" if skill in HARD_SKILLS else "medium",
-                "confidence": 0.9,
+                "confidence": conf,
                 "source_book": BOOK,
                 "source_page": page,
                 "source_page_description": f"[reuses {book} p{src_page} passage: {title}]",
