@@ -69,6 +69,7 @@ PROFILES = {
         # the most a Year 6 writer produces in 30 minutes, planning included
         "max_words": 350,
         "exam": "NSW: one prompt, 30 minutes, sat in Year 6",
+        "target": 21,
     },
     "wr_vic_acer": {
         "school_type": "victorian_selective",
@@ -83,6 +84,9 @@ PROFILES = {
         # ~20 minutes for a Year 8 writer once planning and a read-back are taken out
         "max_words": 280,
         "exam": "VIC: two tasks in 40 minutes (~20 each), sat in Year 8",
+        # 18 mock forms x 2 tasks = 36, inflated 1.5x so forms can be assembled by
+        # selection rather than by exhausting the pool (taxonomy §6).
+        "target": 54,
     },
 }
 
@@ -97,6 +101,7 @@ TIME_LIMIT = _P["time_limit"]
 MIN_WORDS = _P["min_words"]
 MAX_WORDS = _P["max_words"]
 EXAM = _P["exam"]
+TARGET = _P["target"]
 
 REQUIRED = ["id", "prompt_type", "school_type", "stimulus_type", "stimulus_content",
             "stimulus_image_desc", "task_instruction", "word_count_min", "word_count_max",
@@ -109,6 +114,13 @@ AU_MARKERS = re.compile(
     r"\b(australia|australian|nsw|new south wales|sydney|melbourne|brisbane|perth|"
     r"adelaide|hobart|darwin|canberra|newcastle|wollongong|bendigo|ballarat|geelong|"
     r"toowoomba|armidale|dubbo|tamworth|bathurst|katoomba|parramatta|blue mountains|"
+    # Victorian places, added when WR_BOOK gained a VIC profile — the list above is NSW
+    # by history, and a VIC prompt set in Footscray was failing the Australian-context
+    # check for being too Australian in the wrong state.
+    r"victoria|victorian|wimmera|gippsland|mornington|dandenong|footscray|preston|"
+    r"castlemaine|port fairy|warrnambool|shepparton|mildura|yarra|grampians|otway|"
+    r"phillip island|st kilda|brunswick|werribee|sunbury|echuca|torquay|lorne|"
+    r"healesville|macedon|bellarine|bacchus marsh|colac|horsham|traralgon|"
     r"murray|murrumbidgee|hunter|riverina|outback|bushfires?|bushland|magpies?|"
     r"kookaburras?|platypus|wombats?|possums?|cockatoos?|ibis|galahs?|banksias?|"
     r"wattle|eucalypts?|gum trees?|koalas?|humpbacks?|"
@@ -133,6 +145,14 @@ WR_EXTRA = {"advice", "sheet", "wetland", "wetlands", "boardwalk", "revegetation
             # a deliberate choice rather than something that slipped past a typo screen
             "bilby creek", "wattle",
             "interschool", "replanted", "fledge", "fledged", "dubbo", "rspca",
+            # VIC place names and Australian usages the system wordlist lacks
+            "wimmera", "footscray", "castlemaine", "dandenong", "gippsland",
+            "warrnambool", "shepparton", "mildura", "grampians", "otway",
+            "bellarine", "traralgon", "healesville", "werribee", "echuca", "horsham",
+            "geelong", "ballarat", "bendigo", "melbourne", "laminated",
+            "sebastopol", "gumboot", "gumboots", "keyring", "dairy",
+            "tue", "thu", "mon", "wed", "fri", "torquay", "lorne",
+            "textas", "reconnection", "northerly", "swooping", "butcher's",
             "riverina", "kindergarten", "humpback", "koala", "koalas", "hectares",
             "bushfire", "bushfires", "skate", "skatepark"}
 
@@ -246,16 +266,18 @@ def main():
         sys.exit(1)
 
     have = collections.Counter(p["prompt_type"] for p in existing()
-                               if p["school_type"] == "nsw_selective")
+                               if p["school_type"] == SCHOOL_TYPE)
     add = collections.Counter(p["prompt_type"] for p in ps)
     print(f"OK {path.name}: {len(ps)} prompts")
     print(f"  stimulus types {dict(collections.Counter(p['stimulus_type'] for p in ps))}")
     total = 0
-    for t in sorted(PROMPT_TYPES):
+    for t in sorted(set(PROMPT_TYPES) | set(have) | set(add)):
         n = have[t] + add[t]
         total += n
-        print(f"    {t:14} {have[t]:2} + {add[t]:2} = {n:2}{'  <- none' if n == 0 else ''}")
-    print(f"  NSW writing prompts after loading: {total}/21")
+        legacy = "" if t in PROMPT_TYPES else "  <- legacy form, counts to its slot"
+        print(f"    {t:14} {have[t]:2} + {add[t]:2} = {n:2}"
+              f"{'  <- none' if n == 0 else legacy}")
+    print(f"  {SCHOOL_TYPE} prompts after loading: {total}/{TARGET}")
 
 
 if __name__ == "__main__":

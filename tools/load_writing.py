@@ -47,10 +47,16 @@ def main():
         [[p[c] for c in COLUMNS] for p in prompts])
     con.commit()
 
-    after = con.execute("SELECT COUNT(*) FROM writing_prompts WHERE school_type='nsw_selective'"
-                        ).fetchone()[0]
+    # Report the school_type this batch actually belongs to. It was hardcoded to
+    # nsw_selective, so loading the first VIC batch printed the NSW total and looked as
+    # though nothing had landed.
+    school_types = sorted({p["school_type"] for p in prompts})
     print(f"{path.name}: inserted {len(prompts)} prompts")
-    print(f"NSW writing prompts now: {after}")
+    for st in school_types:
+        after = con.execute(
+            "SELECT COUNT(*) FROM writing_prompts WHERE school_type = ?", (st,)
+        ).fetchone()[0]
+        print(f"{st} writing prompts now: {after}")
 
     done = json.loads(LOADED.read_text(encoding="utf-8")) if LOADED.exists() else []
     if path.name not in done:
