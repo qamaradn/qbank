@@ -41,7 +41,7 @@ PASSAGES = [
     ("was angry and trying not to show it", "overreach"),
     ("had been hoping for this announcement", "contradicts")],
    "Right registers the news and Good accepts it, and the gap between them is the work of getting from one to the other. Was angry and trying not to show it reads more into a pause than the story will support."),
-  ("author_purpose", "medium", 0.90, ["which is what he does instead of finishing a conversation"],
+  ("author_purpose", "medium", 0.90, ["what he does instead of finishing a conversation"],
    'The narrator adds that putting the kettle on is "{q}". This aside works to:',
    "name a habit of leaving things unsaid",
    [("criticise a father who drinks too much tea", "wrong_focus"),

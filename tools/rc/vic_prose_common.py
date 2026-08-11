@@ -46,11 +46,50 @@ def render(passage):
     return "\n\n".join(passage["paragraphs"])
 
 
-def quote(text, fragments):
+# Three faults recurred in every hand-written batch and none of them are caught by
+# rc_finalise, which checks that a quotation is accurate but not that it reads. They are
+# build-time failures here so the next batch cannot repeat them.
+_DANGLING_OPENERS = ("it ", "he ", "she ", "they ", "and ", "which ", "but ", "so ")
+
+
+def quote(text, fragments, stem_tpl=""):
     """Verify each fragment appears verbatim, and join them for display."""
     for f in fragments:
         if f not in text:
             raise SystemExit(f"quoted fragment not in passage: {f[:70]!r}")
+        if '"' in f:
+            raise SystemExit(
+                f"fragment carries its own quote marks, so the stem will show doubled "
+                f"quotes: {f[:70]!r}. Drop them and put the words in the stem instead.")
+        # Only a LOWERCASE opener dangles. A fragment starting with a capital is a whole
+        # sentence quoted deliberately ('The narrator states plainly: "It was not the
+        # running."'), and a template that introduces the quote with a colon has already
+        # supplied the grammar.
+        # A verb of saying immediately before the quote supplies the grammar too:
+        # `...and adds "which she never once said out loud"` is fine, while
+        # `...putting the kettle on is "which is what he does..."` is not, so `is` and
+        # other linking verbs are deliberately absent from this list.
+        _SAYING = {"says", "said", "adds", "notes", "explains", "records", "reports",
+                   "calls", "describes", "glosses", "observes", "remarks", "writes",
+                   "states", "asks", "admits", "concedes", "quotes",
+                   # complementisers license a following clause just as well:
+                   # `The narrator explains that "she would have said almost nothing"`
+                   "that", "how", "why", "whether"}
+        before = stem_tpl.split('"{q}"')[0].rstrip().split()
+        introduced = (': "{q}"' in stem_tpl
+                      or (before and before[-1].lower().strip(",:") in _SAYING))
+        if not introduced and f.startswith(_DANGLING_OPENERS):
+            raise SystemExit(
+                f"fragment opens with {f.split()[0]!r}, which dangles after a lead-in "
+                f"that has already named the subject — 'the bin \"it stayed there\"'. "
+                f"Start the fragment at the verb: {f[:70]!r}")
+    if '{q}" ' in stem_tpl:
+        after = stem_tpl.split('{q}" ', 1)[1][:1]
+        if after.isupper():
+            raise SystemExit(
+                f"stem runs a quotation straight into a new sentence — the closing "
+                f"punctuation is stripped, so write '{{q}}\". ' not '{{q}}\" ': "
+                f"{stem_tpl[:80]!r}")
     shown = " ... ".join(f.rstrip(" ,.") for f in fragments)
     return shown, list(fragments)
 
@@ -61,7 +100,7 @@ def build(passages, book, page, category, label):
     for p in passages:
         text = render(p)
         for skill, diff, conf, frags, stem_tpl, key, distractors, expl in p["items"]:
-            shown, lines = quote(text, frags)
+            shown, lines = quote(text, frags, stem_tpl)
             opts = [key] + [d for d, _ in distractors]
             out.append({
                 "id": str(uuid.uuid5(uuid.NAMESPACE_URL,
