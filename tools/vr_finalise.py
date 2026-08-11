@@ -68,7 +68,11 @@ REQUIRED = ["id", "subject", "stem", *KEYS, "correct_answer", "explanation", "to
 # excluded on purpose: there the coherent distractor bloc IS the item — TASK §3.3 asks
 # for three distractors that form their own group so a student pattern-matching on
 # "which three go together" picks wrong.
-RELATION_CATEGORIES = {"vocabulary_synonym", "antonym", "shades_of_meaning"}
+# sentence_completion joins these: a blank filled by four words is exactly the case
+# where three distractors sharing one failure mode (all too formal, all the wrong
+# tense) hand the answer to a student who never read the sentence.
+RELATION_CATEGORIES = {"vocabulary_synonym", "antonym", "shades_of_meaning",
+                       "sentence_completion"}
 
 # Words a capable Year 8 student meets in reading, not in a word list. TASK §3 records
 # comfort ratings of 8.5-9.5/10 on the real paper and warns our bank is harder than the

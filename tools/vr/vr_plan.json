@@ -1,10 +1,31 @@
 {
-  "book_id": "vr_vic_acer",
-  "note": "VIC SEHS (ACER) verbal reasoning top-up. Target mix from pdfs/selective_verbal_reasoning_TASK.md §3.",
-  "categories": [
-    {"key": "vocabulary_synonym", "label": "Vocabulary in context / synonyms", "target": 126},
-    {"key": "antonym",            "label": "Antonyms / opposites",             "target": 25},
-    {"key": "shades_of_meaning",  "label": "Shades of meaning / connotation",  "target": 22},
-    {"key": "word_group",         "label": "Word-group classification",        "target": 10}
-  ]
+ "book_id": "vr_vic_acer",
+ "note": "VIC SEHS (ACER) verbal reasoning top-up. Target mix from pdfs/selective_verbal_reasoning_TASK.md §3. Targets raised 2026-08-11 to carry the ~340-item top-up in vic_content_taxonomy_TASK.md §5.3: the mix is vocabulary-poor, which is the defect §1 was written to fix and only partly did. Totals are CUMULATIVE, not per-batch.",
+ "categories": [
+  {
+   "key": "vocabulary_synonym",
+   "label": "Vocabulary in context / synonyms",
+   "target": 311
+  },
+  {
+   "key": "antonym",
+   "label": "Antonyms / opposites",
+   "target": 85
+  },
+  {
+   "key": "shades_of_meaning",
+   "label": "Shades of meaning / connotation",
+   "target": 57
+  },
+  {
+   "key": "word_group",
+   "label": "Word-group classification",
+   "target": 10
+  },
+  {
+   "key": "sentence_completion",
+   "label": "Sentence completion",
+   "target": 60
+  }
+ ]
 }
