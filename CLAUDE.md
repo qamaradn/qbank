@@ -840,7 +840,26 @@ CREATE INDEX IF NOT EXISTS idx_wp_review_status ON writing_prompts(review_status
 
 ## CURRENT STATUS
 
-**Last worked on:** 2026-08-10
+**Last worked on:** 2026-08-12
+
+**CLEAN RELOAD DECIDED 2026-08-12.** No students are onboarded — only a reviewer
+(fouijnu@) and admin (qamar.adn@) account, and every question is being re-reviewed after
+the reload — so Selectly's `questions` and `question_flags` tables will be wiped and
+reloaded rather than backfilled. `pipeline/backfill_qbank_ids.py` is no longer the plan.
+This resolves the 3,133 divergent rows, the 7 rejected-but-live rows, the 158 §6 verbal
+types and the form assignments in one step. The migration and deploy are still required —
+the wipe removes the backfill, not the addressability. Plan: `pdfs/selectly_implementation_HANDOVER.md` §1.1 and §6.
+
+`push_to_selectly.py` is ready: `schoolIds` now routes per question from Selectly's
+schools.ts (it was hardcoded to both exams — vic-seal has no mathematics section), §6
+banned types are excluded, form fields ride along. Of 5,306 approved, **4,194 are
+sendable**: 156 §6 verbal and 956 science_reasoning (no exam section maps to it) are held
+back. Only 531 carry a form, so deal the rest before reloading.
+
+**Selectly blockers remaining:** merge `feature/qbank-id-addressability` (commit
+`c52ffa9`, local only), apply `supabase/migrations/0001_add_questions_qbank_id.sql`,
+and add `formId`/`formPosition`/`formKind` to the `questions` table AND the import zod
+schema — they are being sent now and silently stripped.
 **Read before generating anything:**
 - `pdfs/selectly_implementation_HANDOVER.md` — what the Selectly APP must implement:
   qbank_id, fixed forms, exact-pace timing, the DB columns, and the fact that 3,133
