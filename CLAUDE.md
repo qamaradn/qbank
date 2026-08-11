@@ -985,8 +985,14 @@ all 17 categories at target, 34 with inline SVG figures, per-question confidence
 
 **Two things needing attention:**
 
-1. **Nothing already pushed to Selectly can be reached again.** This blocks the VR
-   exclusion below, and every future correction. `/api/questions/import` is insert-only
+1. **Nothing already pushed to Selectly can be reached again — BUT THE FIX IS WRITTEN
+   AND UNDEPLOYED (verified 2026-08-12).** Selectly commit `c52ffa9` on the unmerged local
+   branch `feature/qbank-id-addressability` adds `questions.qbank_id`, makes
+   `/api/questions/import` upsert on it, and lets `/api/admin/questions-fix` address rows
+   by it; qbank has `pipeline/backfill_qbank_ids.py` (with `--dry-run`). The remaining work
+   is merge, apply the migration, deploy, backfill, and deactivate whatever stays null.
+   `push_to_selectly.py` has always sent `qbankId` — the sending side was never the
+   problem. Until this ships it blocks the VR exclusion below, and every future correction. `/api/questions/import` is insert-only
    and lets Postgres mint its own uuid, so qbank has no handle on the row it created —
    all 5321 approved questions are out there unaddressable. Selectly *does* have the
    machinery: `questions.active` (both the exam and drill selectors honour it) and an

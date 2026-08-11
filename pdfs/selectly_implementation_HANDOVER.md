@@ -31,7 +31,13 @@ old key letter for 3,133 questions.** Anything scored against them is scored aga
 key that qbank no longer agrees with.
 
 The cause is §1 below. Fixing §1 is the prerequisite for every other item in this
-document, and it is a Selectly-side change.
+document.
+
+**The code for §1 already exists on both sides and is not deployed.** Selectly commit
+`c52ffa9` on the unmerged local branch `feature/qbank-id-addressability` adds the column,
+the upsert, and `qbankId` addressing in `questions-fix`; qbank has
+`pipeline/backfill_qbank_ids.py`. So §1 is a **merge, deploy, migrate and verify** job,
+not a build job. Until it ships, everything below stays blocked.
 
 ---
 
@@ -45,8 +51,9 @@ document, and it is a Selectly-side change.
 `uuid` for each row. qbank therefore has **no handle on the row it created**.
 
 This is a Selectly-side fix only. No change to the pusher is needed for `qbankId` itself
-(the form fields and `schoolIds` in §4.3 are a separate matter). There is no key on which to issue
-an update, a withdrawal, or a correction. All 5,321 pushed questions are unaddressable.
+(the form fields and `schoolIds` in §4.3 are a separate matter). Until the fix ships there is
+no key on which to issue an update, a withdrawal, or a correction, and all 5,321 pushed
+questions are unaddressable.
 
 Selectly already has the machinery to act on a question — `questions.active` (both the
 exam and drill selectors honour it) and `/api/admin/questions-fix` — but both address rows
@@ -61,9 +68,14 @@ by **Selectly's** uuid, which qbank never learns.
    `drill_responses`, `question_flags`, `writing_feedback`), so `id` can never be rewritten.
 3. **Make import upsert on `qbank_id`**, not insert-only, so a corrected question replaces
    its predecessor instead of duplicating it.
-4. **Backfill the existing 5,321.** Dump current rows via `/api/admin/questions-dump` and
-   match on `stem`. Expect a small number of failures where a stem was edited on either
-   side; report them rather than guessing.
+4. **Backfill the existing 5,321.** `pipeline/backfill_qbank_ids.py` does this: it dumps
+   current rows via `/api/admin/questions-dump`, matches on `stem`, disambiguates stem
+   collisions by options, and reports anything still unmatched or ambiguous rather than
+   guessing. Run `--dry-run` first.
+5. **Deactivate every row still holding `qbank_id IS NULL` after the backfill.** These are
+   rows qbank can never address again. Leaving them active means a re-push inserts a
+   *second* copy of the same question while the stale original keeps being served. This step
+   is what makes the re-push safe.
 
 ### What unblocks the moment this lands
 
@@ -244,8 +256,10 @@ never been looked at by a human.
 
 ## 6. SUGGESTED ORDER OF WORK
 
-1. **`qbank_id`** — add the column, accept it on import, make import upsert, backfill the
-   5,321. Nothing else in this document can proceed first.
+1. **`qbank_id`** — merge `feature/qbank-id-addressability`, apply
+   `supabase/migrations/0001_add_questions_qbank_id.sql`, deploy, then run
+   `pipeline/backfill_qbank_ids.py --dry-run` and inspect the unmatched count before
+   writing. Deactivate whatever stays null. Nothing else here can proceed first.
 2. **Deactivate the 7 rejected-but-live questions**, as the first real use of the new handle.
 3. **Push the 3,133 repaired questions**, restoring agreement between the two databases.
 4. **`form_attempts` table and the two selector changes** — fixed forms and exact-pace
