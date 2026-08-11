@@ -796,6 +796,10 @@ CREATE INDEX IF NOT EXISTS idx_wp_review_status ON writing_prompts(review_status
       67.5%; the 718 are kept but the authoring gap grows from ~24 to ~300-360
 - [x] Answer-key skew repaired across 2,913 VIC-scope questions (2026-08-10) —
       tools/repair_key_skew.py, 2,734 reordered, 45 blocked as defective
+- [ ] VIC reading: the ~233 ACT questions counted as inference-led rest on a hand-read
+      of 40 (67.5% retrieval, 95% CI 53-82%). ACCEPTED AS-IS 2026-08-11 — top up after
+      launch if the mix proves wrong. The 395 authored items are not affected: they are
+      inference by construction and every key passed key_restates_passage
 - [x] Reading length tell REPAIRED (2026-08-11) — tools/repair_length_tell.py, 153
       hand-written distractor extensions; "pick the longest" 48.7% -> 29.3%
 - [x] Triaged the 45 questions repair_key_skew blocked (2026-08-11) —
