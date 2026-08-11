@@ -102,6 +102,14 @@ SCOPES = {
            "OR subject = 'quantitative_reasoning')",
     "reading": "(subject = 'reading_comprehension' AND source_book LIKE 'act_%')",
     "quantitative": "(subject = 'quantitative_reasoning')",
+    # The four Gemini-built verbal books. vr_vic_acer is excluded: it is hand-built and
+    # already even at 25/25/25/25, because its finaliser deals the letters out.
+    #
+    # These were rated "mild" in vic_content_taxonomy_TASK.md §7.1 and passed over. That
+    # rating came from the SUBJECT average, and the books skew in opposite directions --
+    # external_vr_300526 is 43% A while direct_ve_290526 is 43% B -- so they cancel out
+    # to a harmless-looking 27/29/24/19. Per book, three of the four are exploitable.
+    "verbal": "(subject = 'verbal_reasoning' AND source_book != 'vr_vic_acer')",
 }
 
 

@@ -785,6 +785,11 @@ CREATE INDEX IF NOT EXISTS idx_wp_review_status ON writing_prompts(review_status
       (vr_vic_acer p10-p20): vocabulary 186, antonyms 60, sentence completion 60,
       shades of meaning 35. Book now 522, keys 25.1/24.9/25.1/24.9, all pending.
       sentence_completion is a new category in vr_plan.json and vr_finalise
+- [x] VIC verbal_reasoning key skew REPAIRED 2026-08-11 — repair_key_skew --scope verbal,
+      980 of 1021 reordered across the four Gemini books. §7.1 rated verbal "mild" from the
+      SUBJECT average, which hid it: the books skew in opposite directions
+      (external_vr_300526 43% A against direct_ve_290526 43% B) and cancelled out. Every
+      book now within a point of 25/25/25/25. Manifest: key_skew_verbal_manifest.json
 - [ ] VIC verbal_reasoning: exclude the off-target §6 questions (blocked — see item 1)
 - [x] NSW reading_comprehension vocabulary cloze — 120 questions, 15 passages (2026-08-04)
 - [x] Selectly: `mathematics` in schools.ts union — already done, mapped to nsw-shspt
