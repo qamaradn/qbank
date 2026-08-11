@@ -1,7 +1,22 @@
 #!/usr/bin/env python3
-"""Finalise one NSW writing-prompt batch.
+"""Finalise one writing-prompt batch, NSW or VIC.
 
 Usage:  env -u PYTHONPATH .venv/bin/python3.11 -m tools.wr_finalise <NN> [--check-only]
+        WR_BOOK=wr_vic_acer env -u PYTHONPATH .venv/bin/python3.11 -m tools.wr_finalise <NN>
+
+WR_BOOK selects the calibration profile, the way MA_BOOK does for maths. The two exams are
+nothing like each other and a prompt written for one is wrong for the other:
+
+    NSW   one task,  30 minutes, sat in Year 6, eight named text types
+    VIC   TWO tasks, 40 minutes total (~20 each), sat in Year 8, creative + persuasive
+
+The VIC shape was confirmed against ACER's own preparation page on 2026-08-12: "The
+writing test consists of two tasks", 40 minutes, inside a 2h35m paper. Three secondary
+sources agree the two are completed (roughly 20 minutes each) rather than chosen between;
+one prep site describes choosing one of two, which is the minority reading and is recorded
+in vic_content_taxonomy_TASK.md §6 rather than followed. Twenty minutes is why VIC prompts
+cap at 280 words while the ten already in the table ask for up to 500 in a 30-minute task
+they will never be given.
 
 Writing prompts are not MCQs, so almost none of the question_checks apply: there are no
 options, no key, no distractors. What can go wrong here is different and mostly a matter
@@ -26,6 +41,7 @@ read by a Year 6 candidate under time pressure and a misspelling costs them seco
 import argparse
 import collections
 import json
+import os
 import pathlib
 import re
 import sqlite3
@@ -39,17 +55,48 @@ from tools.question_checks import unknown_words  # noqa: E402
 
 GEN = ROOT / "run_data/output/writing/generated"
 DB = ROOT / "run_data/db/qbank.db"
-BOOK = "wr_nsw_selective"
 
-PROMPT_TYPES = {"narrative", "persuasive", "article", "diary",
-                "email", "speech", "advice_sheet", "news_report"}
 STIMULUS_TYPES = {"text", "image", "quote", "scenario", "data"}
 
-# §1: sat in Year 6, one prompt, 30 minutes.
-TARGET_YEAR = "5-6"
-TIME_LIMIT = 30
-MAX_WORDS = 350          # the most a Year 6 writer produces in 30 minutes, planning included
-MIN_WORDS = 150
+PROFILES = {
+    "wr_nsw_selective": {
+        "school_type": "nsw_selective",
+        "prompt_types": {"narrative", "persuasive", "article", "diary",
+                         "email", "speech", "advice_sheet", "news_report"},
+        "target_year": "5-6",
+        "time_limit": 30,
+        "min_words": 150,
+        # the most a Year 6 writer produces in 30 minutes, planning included
+        "max_words": 350,
+        "exam": "NSW: one prompt, 30 minutes, sat in Year 6",
+    },
+    "wr_vic_acer": {
+        "school_type": "victorian_selective",
+        # The VIC paper sets one creative task and one persuasive/analytical task. Keeping
+        # the two slots to `narrative` and `persuasive` makes a matched pair unambiguous
+        # when forms are dealt; the ten legacy VIC rows also use article/speech/diary,
+        # which sit inside those two slots rather than beside them.
+        "prompt_types": {"narrative", "persuasive"},
+        "target_year": "7-8",
+        "time_limit": 20,
+        "min_words": 130,
+        # ~20 minutes for a Year 8 writer once planning and a read-back are taken out
+        "max_words": 280,
+        "exam": "VIC: two tasks in 40 minutes (~20 each), sat in Year 8",
+    },
+}
+
+BOOK = os.environ.get("WR_BOOK", "wr_nsw_selective")
+if BOOK not in PROFILES:
+    raise SystemExit(f"WR_BOOK={BOOK!r} is not one of {sorted(PROFILES)}")
+_P = PROFILES[BOOK]
+SCHOOL_TYPE = _P["school_type"]
+PROMPT_TYPES = _P["prompt_types"]
+TARGET_YEAR = _P["target_year"]
+TIME_LIMIT = _P["time_limit"]
+MIN_WORDS = _P["min_words"]
+MAX_WORDS = _P["max_words"]
+EXAM = _P["exam"]
 
 REQUIRED = ["id", "prompt_type", "school_type", "stimulus_type", "stimulus_content",
             "stimulus_image_desc", "task_instruction", "word_count_min", "word_count_max",
@@ -104,9 +151,9 @@ def validate(ps, nn):
             errs.append(f"{tag}: missing field(s) {missing}")
             continue
         if p["prompt_type"] not in PROMPT_TYPES:
-            errs.append(f"{tag}: prompt_type must be one of the eight NSW forms")
-        if p["school_type"] != "nsw_selective":
-            errs.append(f"{tag}: school_type must be nsw_selective")
+            errs.append(f"{tag}: prompt_type must be one of {sorted(PROMPT_TYPES)}")
+        if p["school_type"] != SCHOOL_TYPE:
+            errs.append(f"{tag}: school_type must be {SCHOOL_TYPE}")
         if p["stimulus_type"] not in STIMULUS_TYPES:
             errs.append(f"{tag}: bad stimulus_type {p['stimulus_type']!r}")
         if p["difficulty"] not in ("medium", "hard"):
@@ -121,15 +168,15 @@ def validate(ps, nn):
 
         # calibration against §1
         if p["target_year"] != TARGET_YEAR:
-            errs.append(f"{tag}: target_year is {p['target_year']!r}; NSW is sat in Year 6, "
+            errs.append(f"{tag}: target_year is {p['target_year']!r}; {EXAM}, "
                         f"so it must be {TARGET_YEAR!r}")
         if p["time_limit_minutes"] != TIME_LIMIT:
-            errs.append(f"{tag}: time_limit_minutes is {p['time_limit_minutes']}; §1 gives "
-                        f"the NSW writing task {TIME_LIMIT} minutes")
+            errs.append(f"{tag}: time_limit_minutes is {p['time_limit_minutes']}; {EXAM}, "
+                        f"so each task gets {TIME_LIMIT} minutes")
         lo, hi = p["word_count_min"], p["word_count_max"]
         if not (MIN_WORDS <= lo < hi <= MAX_WORDS):
             errs.append(f"{tag}: word range {lo}-{hi} is outside {MIN_WORDS}-{MAX_WORDS}, "
-                        f"which is what a Year 6 writer produces in {TIME_LIMIT} minutes")
+                        f"which is what that writer produces in {TIME_LIMIT} minutes")
 
         # the task has to name its own form
         form = p["prompt_type"].replace("_", " ")
