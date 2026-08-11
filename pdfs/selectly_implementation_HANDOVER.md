@@ -68,14 +68,35 @@ by **Selectly's** uuid, which qbank never learns.
    `drill_responses`, `question_flags`, `writing_feedback`), so `id` can never be rewritten.
 3. **Make import upsert on `qbank_id`**, not insert-only, so a corrected question replaces
    its predecessor instead of duplicating it.
-4. **Backfill the existing 5,321.** `pipeline/backfill_qbank_ids.py` does this: it dumps
-   current rows via `/api/admin/questions-dump`, matches on `stem`, disambiguates stem
-   collisions by options, and reports anything still unmatched or ambiguous rather than
-   guessing. Run `--dry-run` first.
-5. **Deactivate every row still holding `qbank_id IS NULL` after the backfill.** These are
-   rows qbank can never address again. Leaving them active means a re-push inserts a
-   *second* copy of the same question while the stale original keeps being served. This step
-   is what makes the re-push safe.
+4. **Do not backfill — wipe and reload instead (decided 2026-08-12).** See §1.1.
+   `pipeline/backfill_qbank_ids.py` exists and works, but it is no longer the plan.
+
+### 1.1 The decision: wipe `questions` and reload, do not backfill
+
+**No students are onboarded.** The only two accounts are a reviewer and an admin, and every
+question will be re-reviewed from scratch after the reload. There is therefore no student
+history to preserve, which removes the only real objection to a wipe.
+
+That makes the clean reload strictly better than a backfill:
+
+- No stem-matching. Nothing is guessed at, nothing is left ambiguous.
+- **No orphans.** A backfill leaves unmatched rows with `qbank_id NULL`; re-pushing then
+  inserts a *second* copy while the stale original keeps being served. A wipe cannot
+  produce that state.
+- The 156 live §6 verbal questions are withdrawn by simply not sending them (§5.2).
+- 956 `science_reasoning` questions stop being imported at all (§5.4).
+- `qbank_id` is set on insert rather than reconstructed.
+
+**Scope it to `questions`, plus `question_flags`.** Not the whole database — accounts,
+school config and the two reviewer logins must survive. `question_flags` holds the
+reviewer's earlier notes, which have already been actioned in qbank.
+
+**The migration and deploy are still required.** A wipe removes the *backfill* step, not the
+*addressability* step. Without `qbank_id` stored on import you are back to unaddressable
+rows the first time a question needs correcting.
+
+**Do steps 2 and 3 of §6 before the wipe**, or you reload form-less questions today and
+reload again later — which is the confusion the wipe exists to avoid.
 
 ### What unblocks the moment this lands
 
@@ -198,8 +219,10 @@ One row per student per form per round.
 `db/migrations/001_form_columns.py`, applied). Forms are authored and reviewed in qbank and
 pushed down, not assembled in the app.
 
-`push_to_selectly.py` must be changed to send `qbankId`, the three form fields, and real
-per-question `schoolIds`.
+`push_to_selectly.py` **now sends** `qbankId` (it always did), the three form fields, and
+real per-question `schoolIds`. **Selectly's import schema must be extended to accept
+`formId`, `formPosition` and `formKind`** — zod currently strips them silently, so they
+arrive and are discarded.
 
 ### 4.4 A constraint that will bite you: `passageId`
 
@@ -234,15 +257,30 @@ Poetry passages use **markdown hard line breaks** (two trailing spaces). Selectl
 the passage as plain text in a `white-space: pre-wrap` div, which is correct; do not run it
 through a markdown emphasis pass, or the trailing spaces and any `*` will surface.
 
-### 5.2 Withdrawals pending, blocked on §1
+### 5.2 Banned-type verbal questions — resolved by the reload
 
-149 verbal questions are of types the VIC brief says never to generate — dictionary and
-alphabetical ordering, word codes, hidden words, anagrams, alphabet position. **147 are
-approved and being served today.**
+**158 verbal questions**, of which **156 are approved and served today**, are of types the
+VIC brief says never to generate: dictionary/alphabetical ordering (61), letter and number
+codes (50), hidden words (32), anagrams (11), alphabet position (4). Representative stems:
+*"If MAP = 13116, what does POT equal?"*, *"Find the hidden word in 'She listened with
+attention.'"*, *"Arrange the following words in dictionary (alphabetical) order"*.
 
-The lever is `questions.active = false`, **not** `schoolIds`: `verbal_reasoning` is a
-VIC-only category so there is no other exam to route them to, and the drill selector ignores
-`schoolIds`.
+Earlier drafts of this document said 149 and CLAUDE.md said 166. Both came from ad-hoc
+classifiers that were never committed. The figure is now derived by
+`tools/vr_banned_types.py`, which is committed, tested, and records which rule fired on
+each row. **158 is the number.**
+
+`push_to_selectly.py` no longer sends them, so the reload withdraws them at no cost. No
+`active=false` pass is needed.
+
+### 5.4 Two categories that will not be imported
+
+- **`science_reasoning`, 956 approved.** No section in either exam maps to it — it is parked
+  for JMSS. Importing it would add 956 rows that are never served.
+- **A note on `mathematics`, 1,073 approved.** All of it routes to nsw-shspt, whose entry
+  point is **Year 7**. 542 of those rows come from `year9_maths`. Worth a look before
+  launch: Year 9 material in a Year 7 paper is a difficulty mismatch, not a bug in the
+  routing. Flagged, not acted on.
 
 ### 5.3 Bank totals as at 2026-08-11
 
@@ -260,13 +298,16 @@ never been looked at by a human.
    `supabase/migrations/0001_add_questions_qbank_id.sql`, deploy, then run
    `pipeline/backfill_qbank_ids.py --dry-run` and inspect the unmatched count before
    writing. Deactivate whatever stays null. Nothing else here can proceed first.
-2. **Deactivate the 7 rejected-but-live questions**, as the first real use of the new handle.
-3. **Push the 3,133 repaired questions**, restoring agreement between the two databases.
-4. **`form_attempts` table and the two selector changes** — fixed forms and exact-pace
+2. **Add `form_id`, `form_position`, `form_kind`** to the `questions` table **and to the
+   import zod schema** — they are being sent already and silently dropped.
+3. **`form_attempts` table and the two selector changes** — fixed forms and exact-pace
    timing.
-5. **Push the 117 NSW drill form assignments.**
-6. **Withdraw the 149 banned-type verbal questions.**
-7. VIC content import, once reviewed.
+4. **Wipe `questions` and `question_flags`** (§1.1).
+5. **Reload.** `push_to_selectly.py --reset-tracking`, then push. This single step replaces
+   the old steps 2, 3, 5 and 6: the 3,133 repairs, the 7 rejected-but-live rows, the 158
+   banned verbal types and the form assignments all resolve because the bank is rebuilt
+   from qbank's current state rather than patched toward it.
+6. VIC content import, once reviewed.
 
 ---
 
