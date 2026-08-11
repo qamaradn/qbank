@@ -77,6 +77,13 @@ READING_BOOK_SCHOOLS: list[tuple[str, list[str]]] = [
 # but not sending them. Regenerate with tools/vr_banned_types.py --manifest.
 BANNED_MANIFEST = REPO_ROOT / "run_data" / "output" / "vr_banned_types.json"
 
+# Quantitative questions pitched beyond Year 8. quantitative_reasoning routes to vic-seal
+# only, so there is no other exam to demote them to -- out of the VIC pool is out of the
+# bank. They are correct questions aimed two years high, not rejects, so they stay
+# 'approved' in qbank against a later senior or JMSS product. Regenerate with
+# tools/qr_beyond_year8.py --manifest.
+BEYOND_Y8_MANIFEST = REPO_ROOT / "run_data" / "output" / "qr_beyond_year8.json"
+
 
 def banned_ids() -> set[str]:
     """Ids excluded from every push. Absent manifest means nothing is excluded, which is
@@ -85,6 +92,15 @@ def banned_ids() -> set[str]:
         return set()
     data = json.loads(BANNED_MANIFEST.read_text())
     return {b["id"] for b in data.get("banned", [])}
+
+
+def beyond_year8_ids() -> set[str]:
+    """Quantitative ids ruled beyond Year 8 by hand. Same absent-manifest contract as
+    banned_ids()."""
+    if not BEYOND_Y8_MANIFEST.exists():
+        return set()
+    data = json.loads(BEYOND_Y8_MANIFEST.read_text())
+    return {b["id"] for b in data.get("excluded", [])}
 
 
 def school_ids_for(row: dict) -> list[str]:
@@ -277,6 +293,15 @@ def run(args: argparse.Namespace) -> None:
     banned_here = [r for r in all_rows if r["id"] in excluded]
     all_rows = [r for r in all_rows if r["id"] not in excluded]
 
+    beyond = beyond_year8_ids()
+    if not beyond:
+        logger.warning(
+            "No beyond-Year-8 manifest found — quantitative items pitched at Year 11-12 "
+            "will be sent. Run: python -m tools.qr_beyond_year8 --manifest"
+        )
+    beyond_here = [r for r in all_rows if r["id"] in beyond]
+    all_rows = [r for r in all_rows if r["id"] not in beyond]
+
     # A question with no exam to belong to would import and then never be served. Better
     # to say so than to ship it silently.
     homeless = [r for r in all_rows if not school_ids_for(r)]
@@ -292,6 +317,8 @@ def run(args: argparse.Namespace) -> None:
     logger.info(f"Approved, sendable: {len(all_rows)}")
     if banned_here:
         logger.info(f"Excluded (§6 banned types): {len(banned_here)}")
+    if beyond_here:
+        logger.info(f"Excluded (beyond Year 8, quantitative): {len(beyond_here)}")
     if homeless:
         by_subj: dict[str, int] = {}
         for r in homeless:
