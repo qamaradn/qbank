@@ -781,6 +781,10 @@ CREATE INDEX IF NOT EXISTS idx_wp_review_status ON writing_prompts(review_status
 - [x] Move LR tooling out of gitignored run_data/ into tools/ and commit (2026-08-04)
 - [ ] Human review of 299 pending logical_reasoning questions
 - [x] VIC verbal_reasoning: 183 new questions built and loaded (2026-08-04), all pending
+- [x] VIC verbal_reasoning top-up COMPLETE — 341 items authored 2026-08-11
+      (vr_vic_acer p10-p20): vocabulary 186, antonyms 60, sentence completion 60,
+      shades of meaning 35. Book now 522, keys 25.1/24.9/25.1/24.9, all pending.
+      sentence_completion is a new category in vr_plan.json and vr_finalise
 - [ ] VIC verbal_reasoning: exclude the off-target §6 questions (blocked — see item 1)
 - [x] NSW reading_comprehension vocabulary cloze — 120 questions, 15 passages (2026-08-04)
 - [x] Selectly: `mathematics` in schools.ts union — already done, mapped to nsw-shspt
