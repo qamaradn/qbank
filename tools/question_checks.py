@@ -480,10 +480,25 @@ LEAKED_WORKING = re.compile(
     r"(^|[.!?;:—–]\s*|\bo[hf],?\s+)wait\b"
     r"|let me (re-?check|re-?read|reconsider|recompute|re-?do|verify that|think)"
     r"|\bwhy did i\b|\bi initially\b|\bmy (mistake|apologies)\b"
-    r"|\bhold on\b|\bscratch that\b|\bon second thought\b"
+    r"|\bhold on\b(?!\s+to\b)|\bscratch that\b|\bon second thought\b"
     r"|\blet'?s re-?(check|read|do|compute)\b"
-    r"|\bactually,\s*(i|let me|the answer)\b|\bcorrection:",
+    r"|\bactually,\s*(i|let me|the answer)\b|\bcorrection:"
+    # A bare "Actually 1090/6 = 181.6" carries the same failure and matched none of the
+    # above, which is how 13 questions survived the August sweep. Same for the recalculate
+    # and re-examine spellings, and for "hmm" -- a model does not say hmm to a student.
+    r"|\bactually\b\s*[0-9(]|\blet me (re-?calculate|re-?examine|try)\b"
+    r"|\bre-?examine:|\bhmm\b|\bclosest (?:answer|option) is\b",
     re.I | re.M)
+
+# The worst class, and the one the August sweep had no word for: the model could not make
+# the question it had just written work, so it rewrote the question INSIDE the explanation
+# while the stem and options on disk stayed broken. Every match found so far was
+# unanswerable as stored, so this is a rejection signal, not a prose-cleanup signal.
+REWRITES_THE_QUESTION = re.compile(
+    r"\bre-?setting (?:the )?options\b|\bi'?ll (?:just )?(?:set|redesign|use)\b"
+    r"|\bredesign(?:ing)? (?:the )?question\b|\bchange to:|\blet me redesign\b"
+    r"|\bso use (?:total|the) \b|\bi need the .{0,40} to sum to\b",
+    re.I)
 
 # Phrases where the model is arguing with itself about WHICH OPTION is correct. An
 # explanation carrying one of these casts doubt on the stored key, not just the prose.
@@ -501,6 +516,13 @@ def leaked_working(text):
 def disputes_its_own_key(text):
     """True if the explanation argues with itself about which option is right."""
     return bool(DISPUTED_KEY.search(str(text or "")))
+
+
+def rewrites_the_question(text):
+    """Return the offending phrase if the explanation edits the question instead of
+    answering it. Treat a hit as "this question has no correct answer", not as a typo."""
+    m = REWRITES_THE_QUESTION.search(str(text or ""))
+    return m.group(0).strip() if m else None
 
 
 # ---------------------------------------------------------------- per-question basics
