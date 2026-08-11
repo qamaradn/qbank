@@ -46,6 +46,57 @@ TRACKING_FILE = REPO_ROOT / "run_data" / "db" / "pushed_to_selectly.json"
 
 SCHOOL_IDS = ["vic-seal", "nsw-shspt"]
 
+# Which exam(s) a question belongs to. Previously every question was sent to BOTH, which
+# is wrong in both directions: vic-seal has no `mathematics` section at all, and NSW
+# students were being served VIC verbal_reasoning.
+#
+# Derived from Selectly's own schools.ts. vic-seal sections: verbal_reasoning,
+# quantitative_reasoning, reading_comprehension, writing. nsw-shspt sections:
+# reading_comprehension, mathematics, logical_reasoning, writing.
+CATEGORY_SCHOOLS: dict[str, list[str]] = {
+    "verbal_reasoning": ["vic-seal"],
+    "quantitative_reasoning": ["vic-seal"],
+    "mathematics": ["nsw-shspt"],
+    "logical_reasoning": ["nsw-shspt"],
+    "writing": ["vic-seal", "nsw-shspt"],
+    # reading_comprehension is the only category both exams draw on, so it routes on the
+    # source book instead -- see school_ids_for().
+    "science_reasoning": [],
+}
+
+# Reading books are state-specific except the ACT-sourced ones, whose passages were
+# verified usable for both exams (see CLAUDE.md, the 2026-08-10 reuse finding).
+READING_BOOK_SCHOOLS: list[tuple[str, list[str]]] = [
+    ("rc_nsw_", ["nsw-shspt"]),
+    ("rc_vic_", ["vic-seal"]),
+    ("act_test", ["vic-seal", "nsw-shspt"]),
+]
+
+# Verbal questions of types TASK §6 says never to generate. Withdrawing these from the
+# 5,321 already pushed is impossible without qbank_id; on a clean reload it costs nothing
+# but not sending them. Regenerate with tools/vr_banned_types.py --manifest.
+BANNED_MANIFEST = REPO_ROOT / "run_data" / "output" / "vr_banned_types.json"
+
+
+def banned_ids() -> set[str]:
+    """Ids excluded from every push. Absent manifest means nothing is excluded, which is
+    reported loudly rather than assumed safe."""
+    if not BANNED_MANIFEST.exists():
+        return set()
+    data = json.loads(BANNED_MANIFEST.read_text())
+    return {b["id"] for b in data.get("banned", [])}
+
+
+def school_ids_for(row: dict) -> list[str]:
+    subject = row["subject"]
+    if subject == "reading_comprehension":
+        book = row.get("source_book") or ""
+        for prefix, schools in READING_BOOK_SCHOOLS:
+            if book.startswith(prefix):
+                return schools
+        return ["vic-seal", "nsw-shspt"]
+    return CATEGORY_SCHOOLS.get(subject, [])
+
 VALID_SUBJECTS = [
     "mathematics",
     "quantitative_reasoning",
@@ -138,7 +189,7 @@ def row_to_question(row: dict) -> dict:
         "questionType": "mcq",
         "category": row["subject"],
         "difficulty": row["difficulty"],
-        "schoolIds": SCHOOL_IDS,
+        "schoolIds": school_ids_for(row),
         "stem": build_stem(row),
         "options": {
             "A": row.get("option_a") or "",
@@ -153,6 +204,13 @@ def row_to_question(row: dict) -> dict:
     pid = passage_id(row)
     if pid is not None:
         q["passageId"] = pid
+    # Fixed-form delivery. Selectly's import schema does not accept these yet (zod strips
+    # unknown keys silently, so sending them early is harmless); once it does, a reload
+    # carries form membership instead of needing a second pass over every row.
+    if row.get("form_id"):
+        q["formId"] = row["form_id"]
+        q["formPosition"] = row["form_position"]
+        q["formKind"] = row["form_kind"]
     return q
 
 
@@ -209,6 +267,21 @@ def run(args: argparse.Namespace) -> None:
 
     already_pushed = load_tracking()
     all_rows = fetch_approved(args.subject)
+
+    excluded = banned_ids()
+    if not excluded:
+        logger.warning(
+            "No §6 banned-type manifest found — nothing will be excluded. "
+            "Run: python -m tools.vr_banned_types --manifest"
+        )
+    banned_here = [r for r in all_rows if r["id"] in excluded]
+    all_rows = [r for r in all_rows if r["id"] not in excluded]
+
+    # A question with no exam to belong to would import and then never be served. Better
+    # to say so than to ship it silently.
+    homeless = [r for r in all_rows if not school_ids_for(r)]
+    all_rows = [r for r in all_rows if school_ids_for(r)]
+
     to_push = [r for r in all_rows if r["id"] not in already_pushed]
 
     # Summary
@@ -216,7 +289,19 @@ def run(args: argparse.Namespace) -> None:
     for r in to_push:
         by_subject[r["subject"]] = by_subject.get(r["subject"], 0) + 1
 
-    logger.info(f"Approved in DB : {len(all_rows)}")
+    logger.info(f"Approved, sendable: {len(all_rows)}")
+    if banned_here:
+        logger.info(f"Excluded (§6 banned types): {len(banned_here)}")
+    if homeless:
+        by_subj: dict[str, int] = {}
+        for r in homeless:
+            by_subj[r["subject"]] = by_subj.get(r["subject"], 0) + 1
+        logger.info(
+            f"Excluded (no exam section maps to them): {len(homeless)} — "
+            + ", ".join(f"{k} {v}" for k, v in sorted(by_subj.items()))
+        )
+    with_forms = sum(1 for r in to_push if r.get("form_id"))
+    logger.info(f"Carrying a form assignment: {with_forms} of {len(to_push)}")
     logger.info(f"Already pushed : {len(already_pushed)}")
     logger.info(f"To push        : {len(to_push)}")
     for subj, count in sorted(by_subject.items()):
