@@ -145,7 +145,11 @@ def validate(qs, nn, plan):
         # legitimate in shades_of_meaning — it matches the target's meaning at the wrong
         # intensity, which is exactly the trap that category is built on.
         rel = q.get("relations") or {}
-        banned = {"antonym": "opposite", "vocabulary_synonym": "synonym"}.get(cat)
+        # sentence_completion carries the KEY as its target_word, so a distractor
+        # declared a synonym of the target is a synonym of the answer -- a second word
+        # that fills the blank just as well.
+        banned = {"antonym": "opposite", "vocabulary_synonym": "synonym",
+                  "sentence_completion": "synonym"}.get(cat)
         for word, r in rel.items():
             if banned and r == banned:
                 errs.append(f"{tag}: distractor {word!r} is declared {banned!r}, which in "
@@ -198,14 +202,24 @@ def target_word_errors(q, cat, seen_targets):
         # Whole word only. A 'form' distractor is SUPPOSED to share letters with the
         # target — deter/determine, grim/grimy are the trap working as intended. Only
         # repeating the target as its own word gives the answer away.
-        if cat != "word_group" and re.search(rf"\b{re.escape(low)}\b", opt.lower()):
+        # sentence_completion joins word_group in the exemption for the opposite reason:
+        # there the target word IS the key, so it must appear among the options and must
+        # NOT appear in the stem, where a blank stands in its place.
+        if cat not in ("word_group", "sentence_completion") \
+                and re.search(rf"\b{re.escape(low)}\b", opt.lower()):
             errs.append(f"option {opt!r} repeats the target word {word!r}")
         bad = unknown_words(opt, extra_ok=AU_EXTRA | {word})
         if bad:
             errs.append(f"option {opt!r} is not made of real words: {bad}")
 
     stem = str(q.get("stem") or "")
-    if cat != "word_group":
+    if cat == "sentence_completion":
+        if "______" not in stem:
+            errs.append("a sentence_completion stem must contain the blank '______'")
+        if low in stem.lower():
+            errs.append(f"target word {word!r} appears in the stem — it is the answer, "
+                        f"so the stem must show a blank instead")
+    elif cat != "word_group":
         if low not in stem.lower():
             errs.append(f"target word {word!r} does not appear in the stem")
         # A bare "Which word means X?" frame collides with every other such frame above
