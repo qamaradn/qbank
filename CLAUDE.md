@@ -842,6 +842,9 @@ CREATE INDEX IF NOT EXISTS idx_wp_review_status ON writing_prompts(review_status
 
 **Last worked on:** 2026-08-10
 **Read before generating anything:**
+- `pdfs/selectly_implementation_HANDOVER.md` — what the Selectly APP must implement:
+  qbank_id, fixed forms, exact-pace timing, the DB columns, and the fact that 3,133
+  pushed rows have been repaired in qbank and cannot be updated downstream.
 - `pdfs/selective_exam_delivery_SPEC.md` — fixed drill and mock forms, exact-exam-pace
   timing, the release calendar, and the data model (§6).
 - `pdfs/nsw_content_taxonomy_TASK.md` — every NSW category and subcategory with a target.
