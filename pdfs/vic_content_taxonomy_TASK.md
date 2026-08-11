@@ -137,6 +137,33 @@ Corrected gap arithmetic: had the answer been *no*, the shortfall would have bee
 not the ~750 stated in an earlier draft — that figure was against the pre-revision target
 of 1,486, before the question count moved from 75 to 62.
 
+### RESOLVED AGAIN 2026-08-12 — the real figure is 98, not 188
+
+The spot-check below was done, and then some: **all 231 candidates were read, and 98 are
+beyond Year 8 while 133 are not.** The keyword scan was matching the vocabulary of a topic
+rather than the technique the question needs. `tools/qr_beyond_year8.py` holds the
+candidate patterns and one human verdict per question; `--unadjudicated` keeps a new book
+finishable. The 98 are excluded from the push, not rejected — they are correct questions
+aimed two years high.
+
+Four ways the scan was wrong, each of which reverses a chunk:
+
+- **`topic` is the generating model's label and is frequently wrong.** A rectangular-prism
+  volume question is filed under "Permutations and Combinations".
+- **Trigonometry is in scope** — §3.1 puts "basic trigonometry" in Measurement and
+  Geometry. 47 of 63 trig candidates are sin/cos/tan on a right triangle. Only cot/sec,
+  identities, radians, quadrants and the sine area rule go.
+- **Counting is in scope.** All 14 counting candidates stay — the multiplication principle
+  or listing answers every one of them.
+- **A quadratic in the working is not a quadratic in the question.** Given four options and
+  a clean substitution (`w(w+6) = 135`), a Year 8 tests options. Excluded only where
+  solving is unavoidable: quadratic formula, non-integer root, `-b/2a`, completing the
+  square, discriminant, Vieta.
+
+A fifth finding not anticipated here: **four items need a calculator** in a non-calculator
+exam, asking for `tan 35°` with no value supplied. Items that supply the ratio or leave the
+answer as an expression are fine and are kept.
+
 **Two caveats.** The 9.3% comes from keyword matching, so it will have missed some and
 over-flagged others; spot-check 20 of the 188 before deleting any. And "a Year 8 could do
 it" is not "ACER would ask it" — ACER's quantitative items are puzzle-flavoured while many
@@ -259,6 +286,33 @@ each is short — a paragraph-to-page response, not the 300–400 words the NSW 
 
 **Confidence on task types: Low.** Worth a first-hand check before authoring 44 prompts.
 
+### RESOLVED 2026-08-12 — the format holds, and 44 prompts are built
+
+Checked against ACER's own preparation page: **"The writing test consists of two tasks"**,
+40 minutes, inside a 2h35m paper. That is the administrator, not a coaching provider, so
+the count of 54 stands and this section's confidence goes from Low to **High**.
+
+**One thing the check did not settle.** One prep site (educourse) describes the paper as
+printing two prompts and letting the candidate choose one — which would mean ~35 minutes
+and 400–550 words per response rather than 20 and ~250. It is the minority reading against
+ACER's wording plus three other secondary sources, so it is recorded and not followed.
+Either way **54 prompts are needed**, because the paper prints two regardless; only the
+per-prompt time and length differ, and those are one `UPDATE` away.
+**Confidence on "both tasks are written": Medium-High.**
+
+**A warning about this document's own sources.** EduSpark, cited in §1 for the "~60–65
+questions" maths figure, contradicts itself: it describes a written component in the body
+of the page and then answers *"No, the selective entry exam is entirely multiple choice"*
+in its own FAQ. The 62-question planning figure leans on that site and should be treated
+as softer than "Confidence: Medium" suggests.
+
+**Built 2026-08-12: 54/54.** 27 creative (narrative) + 27 persuasive, all pending. The ten
+legacy prompts were recalibrated from 30 min / Year 9–10 / 350–500 words to 20 min /
+Year 7–8 / 150–260, and three whose instructions asked for three separate deliverables
+were re-cut to two — at 20 minutes that is a trap, because the candidate who obeys runs
+out of time and the one who does not is marked down. Harness: `WR_BOOK=wr_vic_acer` selects
+the VIC calibration profile in `tools/wr_finalise.py`, the way `MA_BOOK` does for maths.
+
 | Work | Scope |
 |---|---|
 | **Recalibrate** | Existing 10 prompts were built to a 30-minute, single-task, 300–400 word assumption. Check they still fit a 20-minute task. |
@@ -273,8 +327,8 @@ Nothing here is authoring. The first three items decide how big the authoring jo
 | # | Task | Effort | What it decides |
 |---|---|---|---|
 | 1 | ~~Read 30 ACT quantitative questions~~ | **DONE — see §3.3** | 90.7% usable; component is oversupplied |
-| 2 | **Read 20 ACT reading questions.** Inference-led or retrieval-led? | 1 hour | Whether the 719 reuse holds |
-| 3 | **Confirm the two VIC writing task types** from a first-hand account | — | The shape of 44 prompts |
+| 2 | ~~Read 20 ACT reading questions~~ | **DONE 2026-08-10** | 67.5% retrieval; authoring rose to ~300–360, then built |
+| 3 | ~~Confirm the two VIC writing task types~~ | **DONE 2026-08-12 — see §6** | Two tasks confirmed from ACER; 54 prompts built |
 | 4 | ~~Audit the answer-key skew across every subject~~ | **DONE — see §7.1** | It is bank-wide. Three subjects are exploitable |
 | 5 | Agree the shares in §3.1, §4.1, §5.1 | — | The taxonomy itself |
 
@@ -282,15 +336,19 @@ Then, and only then:
 
 | # | Task | Size |
 |---|---|---:|
-| 6 | Repair reading — shuffle keys, pad distractors, edit 13 explanations | 719 questions touched |
-| 7 | Repair verbal — withdraw 149, shuffle ~600 | needs `qbank_id` first |
-| 8 | Author verbal top-up, vocabulary-weighted | ~340 |
-| 9 | Author writing prompts | 44 |
-| 10 | Author maths Statistics & Probability top-up | ~100 |
+| 6 | ~~Repair reading~~ | **DONE 2026-08-10/11** — keys shuffled, length tell closed |
+| 7 | Repair verbal — withdraw 156, shuffle ~980 | shuffle DONE; withdrawal rides the reload |
+| 8 | ~~Author verbal top-up~~ | **DONE 2026-08-11 — 341 items** |
+| 9 | ~~Author writing prompts~~ | **DONE — 44 built, 54/54** |
+| 10 | ~~Author maths Statistics & Probability top-up~~ | **DONE 2026-08-11 — 100/100** |
 | 11 | ~~Author quantitative~~ | **not needed** |
-| 12 | Filter the 188 beyond-Year-8 quantitative items out of the VIC pool | 188 excluded |
+| 12 | ~~Filter the beyond-Year-8 quantitative items~~ | **DONE 2026-08-12 — 98, not 188** |
 
 **Total new authoring: ~508 questions and prompts.** Task 1 removed the worst case.
+
+**As at 2026-08-12 all of it is built.** Reading 395, verbal 341, maths Statistics 100,
+writing 44 — 880 items, every one `pending`. Nothing in this document is now blocked on
+authoring. What remains is human review and the Selectly reload.
 
 ### 7.1 The answer-key audit — RESULT
 

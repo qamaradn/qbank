@@ -832,6 +832,20 @@ CREATE INDEX IF NOT EXISTS idx_wp_review_status ON writing_prompts(review_status
       2026-08-11). Six categories all at target, keys 25/25/25/25, 34 figures, all
       pending. Strand share across the VIC maths pool rises 10.5% -> 24.5% against a
       15-25% target. MA_BOOK env var switches ma_common and ma_finalise to a non-NSW book
+- [x] QR beyond-Year-8 filter RESOLVED 2026-08-12 — 98, not the 188 §3.3 estimated. All
+      231 keyword candidates read; 133 are in scope. tools/qr_beyond_year8.py holds one
+      human verdict per question and push_to_selectly honours the manifest (4,194 -> 4,120
+      sendable). Trig and counting are in scope per §3.1; only unavoidable quadratic
+      solving, logs, calculus, conics and normal distribution go
+- [x] 17 quantitative questions with corrupt explanations repaired 2026-08-12 —
+      tools/repair_broken_working.py: 10 rejected (no correct answer), 5 re-keyed, 2
+      explanations cleaned. Found by READING, not by a sweep; the August pattern missed
+      them. question_checks gained `rewrites_the_question` — the model editing the
+      question inside the explanation, which always means the stored item is unanswerable
+- [x] VIC writing COMPLETE 2026-08-12 — 54/54. Two-task format confirmed from ACER's own
+      page (§6 was "Confidence: Low"). 27 creative + 27 persuasive, all pending. The 10
+      legacy prompts recalibrated 30min/Y9-10/350-500w -> 20min/Y7-8/150-260w, 3 re-cut
+      from three deliverables to two. WR_BOOK=wr_vic_acer selects the VIC profile
 - [ ] QR pages rerun with GEMINI_MODEL=gemini-2.5-flash (full model, no thinking)
 - [ ] writing_prompts table + generator implemented (see WRITING PROMPTS section above)
 - [ ] First batch synced to Supabase
@@ -840,7 +854,20 @@ CREATE INDEX IF NOT EXISTS idx_wp_review_status ON writing_prompts(review_status
 
 ## CURRENT STATUS
 
-**Last worked on:** 2026-08-12
+**Last worked on:** 2026-08-12 (second session)
+
+**VIC AUTHORING IS COMPLETE.** Reading 395, verbal 341, maths Statistics 100, writing 44
+— 880 items across four components, every one `pending`. `vic_content_taxonomy_TASK.md`
+§7 has nothing left in its authoring column. What remains for VIC is human review and the
+Selectly reload, neither of which is authoring.
+
+**DB totals:** 9,315 questions — QR 2,240, RC 1,763, VR 1,552, MA 1,482, SR 1,322,
+LR 956. 5,306 approved, 3,896 pending, 113 rejected. Writing prompts 106 — NSW 42,
+VIC 54, JMSS 10.
+
+**The review queue is the gate, not authoring.** 3,896 pending. Drill serves only the
+approved bank (SPEC §5.1), so none of the 880 VIC items or the 954 Thinking Skills items
+reaches a student until someone clicks through them.
 
 **CLEAN RELOAD DECIDED 2026-08-12.** No students are onboarded — only a reviewer
 (fouijnu@) and admin (qamar.adn@) account, and every question is being re-reviewed after
@@ -856,10 +883,18 @@ banned types are excluded, form fields ride along. Of 5,306 approved, **4,194 ar
 sendable**: 156 §6 verbal and 956 science_reasoning (no exam section maps to it) are held
 back. Only 531 carry a form, so deal the rest before reloading.
 
-**Selectly blockers remaining:** merge `feature/qbank-id-addressability` (commit
-`c52ffa9`, local only), apply `supabase/migrations/0001_add_questions_qbank_id.sql`,
-and add `formId`/`formPosition`/`formKind` to the `questions` table AND the import zod
-schema — they are being sent now and silently stripped.
+**Selectly blockers remaining — ALL FOUR ARE SELECTLY-SIDE AND NEED THE OWNER.** Nothing
+on the qbank side blocks them. They change production, so they were not done unasked:
+merge `feature/qbank-id-addressability` (commit `c52ffa9`, local only, working tree clean),
+apply `supabase/migrations/0001_add_questions_qbank_id.sql`, add
+`formId`/`formPosition`/`formKind` to the `questions` table AND the import zod schema
+(they are being sent now and silently stripped), then wipe and reload per §1.1.
+
+Two things to deal with before the reload, both qbank-side and both quick:
+- Only 531 of the 4,120 sendable questions carry a form. Deal the rest
+  (`tools/assign_forms.py`) or the reload ships form-less rows and needs doing twice.
+- `--dry-run` the pusher after the schema lands; the exclusion count moved to
+  156 §6 verbal + 74 beyond-Year-8 + 956 science_reasoning.
 **Read before generating anything:**
 - `pdfs/selectly_implementation_HANDOVER.md` — what the Selectly APP must implement:
   qbank_id, fixed forms, exact-pace timing, the DB columns, and the fact that 3,133
