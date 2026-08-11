@@ -796,9 +796,11 @@ CREATE INDEX IF NOT EXISTS idx_wp_review_status ON writing_prompts(review_status
       67.5%; the 718 are kept but the authoring gap grows from ~24 to ~300-360
 - [x] Answer-key skew repaired across 2,913 VIC-scope questions (2026-08-10) —
       tools/repair_key_skew.py, 2,734 reordered, 45 blocked as defective
-- [ ] Reading length tell: pad short distractors so the key stops being the longest
-      (still 48.7% after the shuffle — reordering cannot fix it)
-- [ ] Triage the 45 questions repair_key_skew blocked as defective
+- [x] Reading length tell REPAIRED (2026-08-11) — tools/repair_length_tell.py, 153
+      hand-written distractor extensions; "pick the longest" 48.7% -> 29.3%
+- [x] Triaged the 45 questions repair_key_skew blocked (2026-08-11) —
+      tools/triage_blocked.py: 39 rejected (7 were live), 4 verified and cleaned,
+      2 were false positives. Record in run_data/output/blocked_triage.json
 - [x] `pdfs/vic_reading_TASK.md` written (2026-08-10) — text-type split agreed
       (informational 50 / narrative 25 / persuasive 15 / poetry 10), 394 items to author
 - [x] VIC reading informational top-up COMPLETE — 84/84 inference items on 28 existing
