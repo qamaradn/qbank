@@ -30,6 +30,7 @@ what the builder produced.
 import argparse
 import collections
 import json
+import os
 import pathlib
 import random
 import re
@@ -53,12 +54,12 @@ from tools.question_checks import (  # noqa: E402
 )
 
 GEN = ROOT / "run_data/output/mathematics/generated"
-PLAN = GEN / "ma_PLAN.json"
+BOOK = os.environ.get("MA_BOOK", "ma_nsw_selective")
+PLAN = GEN / (f"{BOOK}_PLAN.json" if BOOK != "ma_nsw_selective" else "ma_PLAN.json")
 MANIFEST = GEN / "ma_MANIFEST.json"
 PROGRESS = GEN / "MA_PROGRESS.md"
 LOADED = GEN / "ma_LOADED.json"
 DB = ROOT / "run_data/db/qbank.db"
-BOOK = "ma_nsw_selective"
 
 REQUIRED = ["id", "subject", "stem", *KEYS, "correct_answer", "explanation", "topic",
             "difficulty", "confidence", "source_book", "source_page",

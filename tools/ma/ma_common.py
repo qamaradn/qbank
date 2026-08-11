@@ -18,6 +18,7 @@ list of angles used to compute the answer, so a diagram cannot disagree with its
 """
 import datetime
 import json
+import os
 import math
 import pathlib
 import sys
@@ -29,12 +30,17 @@ sys.path.insert(0, str(ROOT))
 from tools.figure_lib import svg, txt  # noqa: E402
 
 GEN = ROOT / "run_data/output/mathematics/generated"
-BOOK = "ma_nsw_selective"
+
+# MA_BOOK selects which maths book is being built. It defaults to the NSW set so every
+# existing builder keeps working untouched; the VIC statistics top-up sets it to
+# ma_vic_stats, which carries its own plan file beside the NSW one.
+BOOK = os.environ.get("MA_BOOK", "ma_nsw_selective")
+PLAN_PATH = GEN / f"{BOOK}_PLAN.json" if BOOK != "ma_nsw_selective" else GEN / "ma_PLAN.json"
 AREA_OF = {}          # category key -> §4.1 area, filled from the plan
 
 
 def _load_plan():
-    plan = json.loads((GEN / "ma_PLAN.json").read_text(encoding="utf-8"))
+    plan = json.loads(PLAN_PATH.read_text(encoding="utf-8"))
     AREA_OF.update({c["key"]: c["area"] for c in plan["categories"]})
     return {c["key"]: c["title"] for c in plan["categories"]}
 
