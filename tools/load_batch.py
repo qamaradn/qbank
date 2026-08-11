@@ -25,6 +25,29 @@ sys.path.insert(0, str(ROOT))
 from pipeline.phase4_load import load_book  # noqa: E402
 
 
+def refuse_unbalanced(path):
+    """Refuse a batch whose answer keys are degenerate.
+
+    Builders emit every row with correct_answer 'A' and rely on the subject finaliser to
+    deal the letters out evenly. If the finaliser is skipped -- or fails validation and
+    the file is loaded anyway -- the batch arrives with one letter throughout, and
+    answering that letter scores 100% on it. This happened to vr_vic_acer_p19: thirty
+    rows loaded as all-A because a shell `&&` checked the exit status of `head`, not of
+    the finaliser.
+    """
+    import collections
+    import json as _json
+    path = Path(path)
+    qs = _json.loads(path.read_text(encoding="utf-8"))
+    keys = collections.Counter(q.get("correct_answer") for q in qs)
+    if len(qs) >= 4 and len(keys) < 2:
+        raise SystemExit(
+            f"REFUSING {path.name}: all {len(qs)} rows have "
+            f"correct_answer {next(iter(keys))!r}. The finaliser has not rebalanced this "
+            f"batch -- run it and confirm it prints OK before loading.")
+    return keys
+
+
 def main() -> None:
     ap = argparse.ArgumentParser(description="Load one finalised batch into the DB")
     ap.add_argument("batch", help="path to the finalised batch JSON")
@@ -38,6 +61,7 @@ def main() -> None:
     qs = json.loads(src.read_text(encoding="utf-8"))
     if not qs:
         sys.exit(f"{src} is empty")
+    refuse_unbalanced(src)
 
     book = args.book or qs[0]["source_book"]
     subject = qs[0]["subject"]
