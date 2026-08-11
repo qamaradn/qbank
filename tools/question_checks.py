@@ -182,7 +182,8 @@ def answer_shape_monotony(questions, group_of=by_topic, cap=0.6, min_group=10):
 # never reordered. Only references to the OPTIONS are unsafe, since those get shuffled
 # at load time and the explanation silently goes false.
 POSITIONAL = re.compile(
-    r"\b(the (first|last) (two|three|four)(?! (statements?|sentences?|premises?))|"
+    r"\b(the (first|last) (two|three|four)"
+    r"(?! (statements?|sentences?|premises?|stanzas?|lines?|paragraphs?|paras?))|"
     r"the other three|the former|the latter|option [A-D]\b)", re.I)
 
 

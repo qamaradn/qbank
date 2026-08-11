@@ -804,7 +804,9 @@ CREATE INDEX IF NOT EXISTS idx_wp_review_status ON writing_prompts(review_status
 - [x] VIC reading informational top-up COMPLETE — 84/84 inference items on 28 existing
       ACT passages (rc_vic_inference p1-p5, 2026-08-10), keys 21/21/21/21, confidence
       authored per item 0.85-0.95 rather than a flat constant
-- [ ] VIC reading: poetry 74 (12 new passages), narrative 156 (28), persuasive 81 (15)
+- [x] VIC reading poetry COMPLETE — 74/74 over 12 new poems (rc_vic_poetry p1-p3,
+      2026-08-10), keys 19/18/19/18, confidence 0.87-0.93
+- [ ] VIC reading: narrative 156 (28 new passages), persuasive 81 (15 new passages)
 - [ ] QR pages rerun with GEMINI_MODEL=gemini-2.5-flash (full model, no thinking)
 - [ ] writing_prompts table + generator implemented (see WRITING PROMPTS section above)
 - [ ] First batch synced to Supabase
