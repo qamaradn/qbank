@@ -245,6 +245,56 @@ Writing is not scored out of a mark total the way MCQ is, so `form_attempts.scor
 `max_score` do not apply to a writing form. It needs its own result shape, or those
 columns need to be nullable.
 
+### 4.1b `vic-seal` in schools.ts describes an exam that no longer exists
+
+`src/lib/config/schools.ts` still carries the **pre-2026 five-component format**: four
+sections totalling 120 minutes — Verbal 30q/30min, Numerical 35q/35min, Reading 30q/30min,
+Written Expression 1 task/25min.
+
+ACER restructured for 2026. The paper is **three components, 2h35m**:
+
+| Component | Time | Questions | Per question |
+|---|---:|---:|---:|
+| Mathematics and Quantitative Reasoning | 60 min | ~62 | ~58 s |
+| **Reading and Verbal Reasoning (ONE section)** | 55 min | 75 | 44 s |
+| Writing — two tasks | 40 min | 2 | — |
+
+Two consequences the app cannot avoid:
+
+1. **Reading and Verbal are one section, so a VIC drill form mixes them.** The 66
+   `vic-drill-rv-*` forms each hold 15–18 reading questions (whole passages, never split)
+   and 20–22 verbal, in one 27-minute timed run. A selector that fetches by a single
+   `category` cannot serve these — it has to fetch by `form_id`.
+2. **`written-expression` as configured (1 task, 25 min) cannot hold a VIC writing form**,
+   which is 2 prompts in 40 minutes (§4.1a).
+
+VIC drill forms are dealt at half the real paper at the real paper's pace, the same rule
+NSW uses:
+
+| Form prefix | Forms | Questions | Per form | Timer |
+|---|---:|---:|---:|---:|
+| `vic-drill-mq-*` | 87 | 2,691 | 30–31 | 29–30 min |
+| `vic-drill-rv-*` | 66 | 2,499 | 37–38 | 27–28 min |
+| `vic-drill-wr-*` | 27 | 54 prompts | 2 | 40 min |
+
+### 4.1c `mathematics` must route on source book, not category
+
+Fixed in `push_to_selectly.py` on 2026-08-12. `mathematics` was mapped wholesale to
+`nsw-shspt`, which sent **642 Year 9 VIC questions** (`year9_maths` 542, `ma_vic_stats`
+100) into a paper sat in **Year 6**, and left vic-seal's own maths component with nothing.
+It now routes per book, exactly as reading does:
+
+    year7_nsw_maths, ma_nsw_selective  -> nsw-shspt
+    year9_maths, ma_vic_stats          -> vic-seal
+
+**vic-seal therefore needs a section that accepts these 642.** Either a `mathematics`
+section, or fold them into the merged Maths + Quantitative component above — the latter
+matches the real paper, where maths and quantitative are one 60-minute section.
+
+An unknown maths book routes to **nowhere** rather than to both exams. Reading
+over-serves an unknown book so somebody notices; maths must not, because the two banks
+are two school years apart and a wrong guess is worse than no guess.
+
 ### 4.2 Selectly — `form_attempts` (new table)
 
 One row per student per form per round.

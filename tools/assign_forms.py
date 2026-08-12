@@ -53,15 +53,54 @@ import sqlite3
 
 VERSION = 1
 DB = os.environ.get("DB_PATH", "run_data/db/qbank.db")
-MANIFEST = pathlib.Path("run_data/output/forms/nsw_forms_manifest.json")
-
-# component -> (slug, source_book filter, questions per form, seconds per answer slot)
-COMPONENTS = {
-    "thinking_skills": ("ts", "source_book = 'lr_thinking_skills'", 20, 60),
-    "mathematical_reasoning": ("math",
-                               "source_book IN ('ma_nsw_selective','year7_nsw_maths')", 20, 69),
-    "reading": ("read", "source_book LIKE 'rc_nsw_%'", 24, 71),
+MANIFESTS = {
+    "nsw": pathlib.Path("run_data/output/forms/nsw_forms_manifest.json"),
+    "vic": pathlib.Path("run_data/output/forms/vic_forms_manifest.json"),
 }
+
+# component -> (exam, slug, source filter, questions per form, seconds per answer slot)
+#
+# Per-form size is HALF the real paper, at the real paper's seconds per question. Halving
+# an MCQ sitting preserves the thing that has to become automatic -- the pace -- so a
+# student who finishes a drill on time will finish the paper on time by doubling. (Writing
+# is the exception and is dealt by tools/assign_writing_forms.py, because budgeting across
+# its two tasks does not survive halving.)
+#
+# VIC sizes come from ACER's 2026 restructure: Maths+Quantitative ~62 questions in 60 min
+# (58 s each) and Reading+Verbal 75 in 55 min (44 s each). NOTE that Reading and Verbal are
+# ONE component in that paper, so a VIC form MIXES them -- see deal_reading_verbal.
+COMPONENTS = {
+    "thinking_skills": ("nsw", "ts", "source_book = 'lr_thinking_skills'", 20, 60),
+    "mathematical_reasoning": ("nsw", "math",
+                               "source_book IN ('ma_nsw_selective','year7_nsw_maths')", 20, 69),
+    "reading": ("nsw", "read", "source_book LIKE 'rc_nsw_%'", 24, 71),
+
+    "vic_maths_quantitative": (
+        "vic", "mq",
+        "(subject = 'quantitative_reasoning' OR source_book IN ('year9_maths','ma_vic_stats'))",
+        31, 58),
+    "vic_reading_verbal": (
+        "vic", "rv",
+        "(subject = 'verbal_reasoning' OR (subject = 'reading_comprehension' AND "
+        "(source_book LIKE 'act_test%' OR source_book LIKE 'rc_vic_%')))",
+        38, 44),
+}
+
+# Ids withheld from serving: §6 banned verbal types and beyond-Year-8 quantitative. A
+# question that will never be pushed must not occupy a slot in a form -- it would leave a
+# hole the student sits through.
+WITHHELD_MANIFESTS = [
+    (pathlib.Path("run_data/output/vr_banned_types.json"), "banned"),
+    (pathlib.Path("run_data/output/qr_beyond_year8.json"), "excluded"),
+]
+
+
+def withheld_ids():
+    out = set()
+    for path, key in WITHHELD_MANIFESTS:
+        if path.exists():
+            out |= {r["id"] for r in json.loads(path.read_text()).get(key, [])}
+    return out
 
 FAMILY = {
     "5.2 critical thinking": {"who_reasons_correctly", "identify_assumption",
@@ -179,6 +218,68 @@ def deal_reading(rows, slot_target, rng):
     return forms
 
 
+def deal_reading_verbal(rows, per_form, rng):
+    """VIC's Reading and Verbal are ONE 55-minute component, so a form holds both.
+
+    Passages have to stay whole -- a student reads a passage once and answers everything
+    on it -- while verbal items are standalone and can go anywhere. So passages are packed
+    first, to whatever share of each form the pool actually implies, and the verbal items
+    then fill the remaining slots with the same spreading deal_mcq uses.
+
+    The reading share is taken from the pool rather than fixed at half. Forcing 50/50 would
+    strand whichever side is smaller and leave stub forms at the end, which is the same
+    mistake deal_reading's comment records.
+    """
+    reading = [r for r in rows if r["passage"]]
+    verbal = [r for r in rows if not r["passage"]]
+    n = max(1, round(len(rows) / per_form))
+    read_target = len(reading) / n
+
+    by_passage = collections.defaultdict(list)
+    for r in reading:
+        by_passage[(r["book"], r["passage"])].append(r)
+    groups = collections.defaultdict(list)
+    for (book, _), qs in by_passage.items():
+        groups[book].append(qs)
+    for k in groups:
+        rng.shuffle(groups[k])
+
+    forms = [[] for _ in range(n)]
+    slots = [0] * n
+    seen = [collections.Counter() for _ in range(n)]
+    for qs in sorted(interleave(groups), key=lambda p: -len(p)):
+        room = [i for i in range(n) if slots[i] + len(qs) <= read_target + 3]
+        pool = room or list(range(n))
+        best = min(pool, key=lambda i: (slots[i], seen[i][qs[0]["book"]], i))
+        forms[best].extend(qs)
+        slots[best] += len(qs)
+        seen[best][qs[0]["book"]] += 1
+
+    # Verbal fills what is left, so every form lands on per_form regardless of how the
+    # passages happened to pack.
+    caps = [max(0, per_form - len(f)) for f in forms]
+    short = len(verbal) - sum(caps)
+    for i in range(max(0, short)):
+        caps[i % n] += 1
+
+    vgroups = collections.defaultdict(list)
+    for r in verbal:
+        vgroups[stratum(r)].append(r)
+    for k in vgroups:
+        rng.shuffle(vgroups[k])
+    vseen = [collections.Counter() for _ in range(n)]
+    for r in interleave(vgroups):
+        st, key, diff = stratum(r), r["ans"], r["diff"]
+        cand = [i for i in range(n) if len(forms[i]) - slots[i] < caps[i]]
+        if not cand:
+            cand = list(range(n))
+        best = min(cand, key=lambda i: (vseen[i][("s", st)] * 100 + vseen[i][("k", key)] * 10
+                                        + vseen[i][("d", diff)] + len(forms[i]) * 0.01))
+        forms[best].append(r)
+        vseen[best].update([("s", st), ("k", key), ("d", diff)])
+    return forms
+
+
 def order_within(form, reading):
     """Fix the order §5.1 rule 1 requires.
 
@@ -188,10 +289,19 @@ def order_within(form, reading):
     """
     if reading:
         out, groups = [], collections.OrderedDict()
+        loose = []
         for r in form:
-            groups.setdefault((r["book"], r["passage"]), []).append(r)
+            if r["passage"]:
+                groups.setdefault((r["book"], r["passage"]), []).append(r)
+            else:
+                loose.append(r)          # VIC's merged form carries verbal items too
         for qs in groups.values():
             out.extend(qs)
+        if loose:
+            lg = collections.defaultdict(list)
+            for r in loose:
+                lg[stratum(r)].append(r)
+            out.extend(interleave(lg))
         return out
     groups = collections.defaultdict(list)
     for r in form:
@@ -270,19 +380,23 @@ def main():
     if a.report or a.repair:
         return health(conn, a)
     wanted = a.component or list(COMPONENTS)
+    withheld = withheld_ids()
+    if not withheld:
+        print("WARNING: no withheld manifest found — §6 banned and beyond-Year-8 "
+              "questions may be dealt into forms they can never be served in.")
     manifest = {"version": VERSION, "seed": a.seed, "statuses": statuses,
                 "generated_at": datetime.datetime.now(datetime.timezone.utc)
                 .isoformat(timespec="seconds"), "components": {}}
     writes = []
 
     for comp in wanted:
-        slug, where, per_form, per_slot = COMPONENTS[comp]
+        exam, slug, where, per_form, per_slot = COMPONENTS[comp]
         q = (f"SELECT id, source_book AS book, source_page AS page, topic, "
              f"source_page_description AS spd, correct_answer AS ans, "
              f"difficulty AS diff, passage, form_id FROM questions "
              f"WHERE {where} AND review_status IN "
              f"({','.join('?' * len(statuses))}) ORDER BY id")
-        rows = conn.execute(q, statuses).fetchall()
+        rows = [r for r in conn.execute(q, statuses).fetchall() if r["id"] not in withheld]
         already = [r for r in rows if r["form_id"]]
         if already and not a.force:
             raise SystemExit(
@@ -295,13 +409,15 @@ def main():
 
         rng = random.Random(a.seed + int(hashlib.sha1(comp.encode()).hexdigest()[:6], 16))
         forms = (deal_reading(rows, per_form, rng) if comp == "reading"
+                 else deal_reading_verbal(rows, per_form, rng)
+                 if comp == "vic_reading_verbal"
                  else deal_mcq(rows, per_form, rng))
         forms = [f for f in forms if f]
 
         entries = []
         for n, form in enumerate(forms, 1):
-            form = order_within(form, comp == "reading")
-            fid = f"nsw-drill-{slug}-{n:03d}"
+            form = order_within(form, comp in ("reading", "vic_reading_verbal"))
+            fid = f"{exam}-drill-{slug}-{n:03d}"
             for pos, r in enumerate(form, 1):
                 writes.append((fid, pos, "drill", r["id"]))
             strata = collections.Counter(stratum(r) for r in form)
@@ -316,7 +432,7 @@ def main():
                 "question_ids": [r["id"] for r in form],
             })
         manifest["components"][comp] = {
-            "slug": slug, "questions": len(rows), "forms": len(entries),
+            "exam": exam, "slug": slug, "questions": len(rows), "forms": len(entries),
             "seconds_per_slot": per_slot, "sets": entries}
         print(f"{comp:24} {len(rows):>5} questions -> {len(entries):>3} forms "
               f"({min(e['slots'] for e in entries)}-{max(e['slots'] for e in entries)} slots, "
@@ -329,9 +445,16 @@ def main():
     conn.executemany("UPDATE questions SET form_id=?, form_position=?, form_kind=? "
                      "WHERE id=?", writes)
     conn.commit()
-    MANIFEST.parent.mkdir(parents=True, exist_ok=True)
-    MANIFEST.write_text(json.dumps(manifest, indent=1))
-    print(f"\nassigned {len(writes)} questions; manifest -> {MANIFEST}")
+    for exam, path in MANIFESTS.items():
+        comps = {k: v for k, v in manifest["components"].items() if v["exam"] == exam}
+        if not comps:
+            continue
+        path.parent.mkdir(parents=True, exist_ok=True)
+        prior = json.loads(path.read_text()) if path.exists() else {}
+        merged = {**manifest, "components": {**prior.get("components", {}), **comps}}
+        path.write_text(json.dumps(merged, indent=1))
+        print(f"  manifest -> {path}")
+    print(f"\nassigned {len(writes)} questions")
 
 
 if __name__ == "__main__":

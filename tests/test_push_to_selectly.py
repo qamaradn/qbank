@@ -19,12 +19,33 @@ def _row(subject, book="b", **kw):
     [
         ("verbal_reasoning", ["vic-seal"]),
         ("quantitative_reasoning", ["vic-seal"]),
-        ("mathematics", ["nsw-shspt"]),
         ("logical_reasoning", ["nsw-shspt"]),
     ],
 )
 def test_category_routes_to_one_exam(subject, expected):
     assert school_ids_for(_row(subject)) == expected
+
+
+@pytest.mark.parametrize(
+    "book,expected",
+    [
+        ("year7_nsw_maths", ["nsw-shspt"]),
+        ("ma_nsw_selective", ["nsw-shspt"]),
+        ("year9_maths", ["vic-seal"]),
+        ("ma_vic_stats", ["vic-seal"]),
+    ],
+)
+def test_maths_routes_on_source_book(book, expected):
+    """`mathematics` is not one exam's category. It was routed wholesale to nsw-shspt,
+    which sent 642 Year 9 VIC questions into a paper sat in Year 6 and left vic-seal's
+    own maths component empty."""
+    assert school_ids_for(_row("mathematics", book)) == expected
+
+
+def test_unknown_maths_book_goes_nowhere_rather_than_to_the_wrong_exam():
+    """Reading over-serves an unknown book so it gets noticed. Maths must not: the two
+    banks are two school years apart, so a wrong guess is worse than no guess."""
+    assert school_ids_for(_row("mathematics", "ma_qld_new")) == []
 
 
 def test_science_reasoning_goes_nowhere():

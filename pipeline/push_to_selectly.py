@@ -56,7 +56,11 @@ SCHOOL_IDS = ["vic-seal", "nsw-shspt"]
 CATEGORY_SCHOOLS: dict[str, list[str]] = {
     "verbal_reasoning": ["vic-seal"],
     "quantitative_reasoning": ["vic-seal"],
-    "mathematics": ["nsw-shspt"],
+    # mathematics is NOT one exam's category -- it routes on the source book, the same
+    # way reading does. year9_maths and ma_vic_stats are the VIC "Mathematics and
+    # Quantitative Reasoning" component and were being sent to NSW, which is a Year 6-7
+    # paper: 642 Year 9 questions aimed at the wrong students, and vic-seal never saw
+    # its own maths. See MATHS_BOOK_SCHOOLS and school_ids_for().
     "logical_reasoning": ["nsw-shspt"],
     "writing": ["vic-seal", "nsw-shspt"],
     # reading_comprehension is the only category both exams draw on, so it routes on the
@@ -70,6 +74,15 @@ READING_BOOK_SCHOOLS: list[tuple[str, list[str]]] = [
     ("rc_nsw_", ["nsw-shspt"]),
     ("rc_vic_", ["vic-seal"]),
     ("act_test", ["vic-seal", "nsw-shspt"]),
+]
+
+# Maths books are state-specific and the two-year pitch gap is deliberate (delivery spec
+# §4.1), so no maths book serves both exams.
+MATHS_BOOK_SCHOOLS: list[tuple[str, list[str]]] = [
+    ("year7_nsw_maths", ["nsw-shspt"]),
+    ("ma_nsw_selective", ["nsw-shspt"]),
+    ("year9_maths", ["vic-seal"]),
+    ("ma_vic_stats", ["vic-seal"]),
 ]
 
 # Verbal questions of types TASK §6 says never to generate. Withdrawing these from the
@@ -103,14 +116,23 @@ def beyond_year8_ids() -> set[str]:
     return {b["id"] for b in data.get("excluded", [])}
 
 
+BOOK_ROUTED = {
+    "reading_comprehension": (READING_BOOK_SCHOOLS, ["vic-seal", "nsw-shspt"]),
+    "mathematics": (MATHS_BOOK_SCHOOLS, []),
+}
+
+
 def school_ids_for(row: dict) -> list[str]:
+    """Which exams a question belongs to. Two subjects route on their source book rather
+    than their category, because both exams test them at different year levels."""
     subject = row["subject"]
-    if subject == "reading_comprehension":
+    if subject in BOOK_ROUTED:
+        table, default = BOOK_ROUTED[subject]
         book = row.get("source_book") or ""
-        for prefix, schools in READING_BOOK_SCHOOLS:
+        for prefix, schools in table:
             if book.startswith(prefix):
                 return schools
-        return ["vic-seal", "nsw-shspt"]
+        return default
     return CATEGORY_SCHOOLS.get(subject, [])
 
 VALID_SUBJECTS = [

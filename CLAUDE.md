@@ -894,11 +894,29 @@ apply `supabase/migrations/0001_add_questions_qbank_id.sql`, add
 `formId`/`formPosition`/`formKind` to the `questions` table AND the import zod schema
 (they are being sent now and silently stripped), then wipe and reload per §1.1.
 
-Two things to deal with before the reload, both qbank-side and both quick:
-- Only 531 of the 4,120 sendable questions carry a form. Deal the rest
-  (`tools/assign_forms.py`) or the reload ships form-less rows and needs doing twice.
-- `--dry-run` the pusher after the schema lands; the exclusion count moved to
-  156 §6 verbal + 74 beyond-Year-8 + 956 science_reasoning.
+**FORMS ARE COMPLETE FOR BOTH EXAMS (2026-08-12).** Every servable question carries one.
+
+| Form prefix | Forms | Items | Per form | Timer |
+|---|---:|---:|---:|---:|
+| `nsw-drill-re/ma/ts-*` | 117 | 2,441 | 19-26 | 20-31 min |
+| `vic-drill-mq-*` | 87 | 2,691 | 30-31 | 29-30 min |
+| `vic-drill-rv-*` | 66 | 2,499 | 37-38 | 27-28 min |
+| `vic-drill-wr-*` | 27 | 54 prompts | 2 | 40 min |
+
+VIC forms are half the real paper at the real paper's pace, as NSW's are. **VIC Reading
+and Verbal are ONE section in the 2026 paper, so `vic-drill-rv-*` forms MIX them** —
+15-18 reading (whole passages, never split) plus 20-22 verbal. A category-based selector
+cannot serve those; Selectly must fetch by `form_id`.
+
+**Routing bug fixed 2026-08-12:** `mathematics` was mapped wholesale to `nsw-shspt`,
+sending 642 Year 9 VIC questions (`year9_maths`, `ma_vic_stats`) into a Year 6 paper and
+leaving vic-seal's maths empty. It now routes per source book like reading does; an
+unknown maths book goes nowhere rather than to the wrong exam.
+
+**Selectly's `vic-seal` config is still the pre-2026 format** — 4 sections, 120 min,
+written expression 1 task/25 min. The real paper is 3 components, 155 min, writing 2
+tasks/40 min. Forms are dealt against the real paper, so schools.ts needs rewriting
+before any VIC form can be served. Detail: HANDOVER §4.1b and §4.1c.
 **Read before generating anything:**
 - `pdfs/selectly_implementation_HANDOVER.md` — what the Selectly APP must implement:
   qbank_id, fixed forms, exact-pace timing, the DB columns, and the fact that 3,133
