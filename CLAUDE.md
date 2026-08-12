@@ -908,6 +908,22 @@ and Verbal are ONE section in the 2026 paper, so `vic-drill-rv-*` forms MIX them
 15-18 reading (whole passages, never split) plus 20-22 verbal. A category-based selector
 cannot serve those; Selectly must fetch by `form_id`.
 
+**Within-passage key clumping — ACCEPTED AS-IS 2026-08-12 (owner).** In `vic-drill-rv-*`
+forms the worst answer letter averages 29.7% per form against a 33.6% random baseline, so
+the deal is working — but reading questions enter a form as a WHOLE PASSAGE, placed by
+slot count and source book with no key or topic term, and within a single passage the
+worst letter averages 44% across all 190 passages. The bank-wide key repair balanced
+letters across the subject, not inside each passage's 5-8 questions. Worst single form is
+39.5%. Fix if it ever matters: rebalance keys within each passage group (a repair on the
+questions, touching 190 passages), or add a key term to passage placement. Not urgent.
+
+**GROWING THE BANK LATER — read this before adding questions.** `assign_forms.py` refuses
+to re-deal a question that already carries a `form_id`, and `--force` overrides it. That
+override is **pre-launch only**: once a student has sat a form, changing its membership
+re-bases every score recorded against it. After launch, new questions go into NEW forms
+(continue the numbering) rather than being dealt into existing ones, and a bad question is
+retired with Selectly's `questions.active`, leaving form membership untouched.
+
 **Routing bug fixed 2026-08-12:** `mathematics` was mapped wholesale to `nsw-shspt`,
 sending 642 Year 9 VIC questions (`year9_maths`, `ma_vic_stats`) into a Year 6 paper and
 leaving vic-seal's maths empty. It now routes per source book like reading does; an
