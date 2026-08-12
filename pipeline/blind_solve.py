@@ -50,16 +50,24 @@ def _load(p, default):
     return json.loads(p.read_text(encoding="utf-8")) if p.exists() else default
 
 
-def export(conn, subject, status, limit, seed, book=None):
+def export(conn, subject, status, limit, seed, book=None, form=None):
     """Write a batch of unsolved questions, options shuffled, key withheld."""
     WORK.mkdir(parents=True, exist_ok=True)
     done = {v["id"] for v in _load(VERDICTS, [])}
     conn.row_factory = sqlite3.Row
-    sql = "SELECT * FROM questions WHERE subject=?"
-    params = [subject]
+    sql = "SELECT * FROM questions WHERE 1=1"
+    params = []
+    if subject:
+        sql += " AND subject=?"
+        params.append(subject)
     if status:
         sql += " AND review_status=?"
         params.append(status)
+    if form:
+        # The launch set is the first N forms of each component, not a slice of a subject.
+        # Reviewing by form is what turns review effort into a servable drill.
+        sql += " AND form_id LIKE ?"
+        params.append(form)
     if book:
         # A subject is not an exam. reading_comprehension holds NSW, VIC and ACT books,
         # and mathematics holds two banks two school years apart, so auditing "NSW" means
@@ -178,7 +186,10 @@ def main():
     ap = argparse.ArgumentParser(description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--db", default=DB)
-    ap.add_argument("--subject", default="verbal_reasoning")
+    ap.add_argument("--subject", default=None)
+    ap.add_argument("--form", default=None,
+                    help="form_id LIKE pattern, e.g. 'vic-drill-mq-00%' — review by form, "
+                         "because a half-reviewed form serves nobody")
     ap.add_argument("--book", default=None,
                     help="source_book LIKE pattern, e.g. 'rc_nsw_%%' — a subject spans "
                          "several exams, so auditing one exam needs this")
@@ -193,7 +204,7 @@ def main():
 
     conn = sqlite3.connect(a.db)
     if a.export:
-        export(conn, a.subject, a.status, a.limit, a.seed, a.book)
+        export(conn, a.subject, a.status, a.limit, a.seed, a.book, a.form)
     if a.score:
         score(conn)
     if a.report:
