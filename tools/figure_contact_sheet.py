@@ -60,7 +60,15 @@ DEFAULT_DB = os.environ.get("DB_PATH", "run_data/db/qbank.db")
 
 def render_svg(svg: str) -> Image.Image:
     """Rasterise one figure the way a reviewer will actually see it."""
-    svg = re.sub(r"<svg\b", f'<svg style="color:{CARD_FG}"', svg, count=1)
+    # Injecting a fresh style= onto an <svg> that already has one produces two style
+    # attributes, which is not well-formed XML: cairosvg then refuses the whole figure.
+    # 133 figures carry style="background:white" and were therefore silently unrenderable
+    # by this tool -- 16% of the bank's figures had never been looked at.
+    if re.search(r'<svg[^>]*\bstyle\s*=', svg):
+        svg = re.sub(r'(<svg[^>]*\bstyle\s*=\s*)([\'"])',
+                     lambda m: f'{m.group(1)}{m.group(2)}color:{CARD_FG};', svg, count=1)
+    else:
+        svg = re.sub(r"<svg\b", f'<svg style="color:{CARD_FG}"', svg, count=1)
     png = cairosvg.svg2png(bytestring=svg.encode(), background_color=CARD_BG, scale=SCALE)
     return Image.open(io.BytesIO(png)).convert("RGB")
 
