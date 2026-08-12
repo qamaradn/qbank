@@ -50,7 +50,7 @@ def _load(p, default):
     return json.loads(p.read_text(encoding="utf-8")) if p.exists() else default
 
 
-def export(conn, subject, status, limit, seed):
+def export(conn, subject, status, limit, seed, book=None):
     """Write a batch of unsolved questions, options shuffled, key withheld."""
     WORK.mkdir(parents=True, exist_ok=True)
     done = {v["id"] for v in _load(VERDICTS, [])}
@@ -60,6 +60,12 @@ def export(conn, subject, status, limit, seed):
     if status:
         sql += " AND review_status=?"
         params.append(status)
+    if book:
+        # A subject is not an exam. reading_comprehension holds NSW, VIC and ACT books,
+        # and mathematics holds two banks two school years apart, so auditing "NSW" means
+        # filtering on the source book.
+        sql += " AND source_book LIKE ?"
+        params.append(book)
     sql += " ORDER BY id"
     rows = [r for r in conn.execute(sql, params) if r["id"] not in done]
 
@@ -71,6 +77,14 @@ def export(conn, subject, status, limit, seed):
         # perm maps the SHOWN letter -> the letter it really is in the database
         perm = {shown: real for shown, real in zip(LETTERS, order)}
         item = {"id": r["id"], "topic": r["topic"], "stem": r["stem"], "perm": perm}
+        # Without the passage a reading question cannot be solved at all, and the solver
+        # would be guessing -- which scores as agreement one time in four and quietly
+        # inflates the pass rate. The passage carries no key, so including it keeps the
+        # export blind.
+        if r["passage"]:
+            item["passage"] = r["passage"]
+        if r["figure_svg"]:
+            item["figure_svg"] = r["figure_svg"]
         for shown in LETTERS:
             item["option_" + shown.lower()] = r["option_" + perm[shown].lower()]
         out.append(item)
@@ -165,6 +179,9 @@ def main():
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--db", default=DB)
     ap.add_argument("--subject", default="verbal_reasoning")
+    ap.add_argument("--book", default=None,
+                    help="source_book LIKE pattern, e.g. 'rc_nsw_%%' — a subject spans "
+                         "several exams, so auditing one exam needs this")
     ap.add_argument("--status", default=None, help="approved | pending | rejected")
     ap.add_argument("--limit", type=int, default=25)
     ap.add_argument("--seed", type=int, default=None,
@@ -176,7 +193,7 @@ def main():
 
     conn = sqlite3.connect(a.db)
     if a.export:
-        export(conn, a.subject, a.status, a.limit, a.seed)
+        export(conn, a.subject, a.status, a.limit, a.seed, a.book)
     if a.score:
         score(conn)
     if a.report:
