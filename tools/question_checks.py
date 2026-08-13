@@ -390,6 +390,15 @@ def explanation_addresses_a_distractor(q, min_run=3):
     key_letter = str(q.get("correct_answer", "")).strip().lower()
     distractors = [str(q.get(k, "")) for k in KEYS if k != "option_" + key_letter]
 
+    # `_words` keeps only alphabetic tokens, so a purely numeric or symbolic option --
+    # "4/5", "$24", "38 cm" -- reduces to nothing and can never be "quoted back". Before
+    # this guard the check fired on essentially every numeric question in the bank: 579
+    # hits per 1000 on VIC and 473 on NSW, which is not a difference between banks, it is
+    # the check reporting that arithmetic questions have numbers for options. Where no
+    # distractor carries a word, the check does not apply.
+    if not any(_words(d) for d in distractors):
+        return None
+
     for d in distractors:
         dw = _words(d)
         if not dw:
