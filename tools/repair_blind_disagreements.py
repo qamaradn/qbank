@@ -86,6 +86,24 @@ DECISIONS: list[tuple[str, str, str | None, str]] = [
      "needing a twenty-fifth box holding 4 tins. The stored explanation says exactly that "
      "-- '25 boxes total, with 4 tins in the last box' -- and the question is keyed to "
      "'25 boxes, 20 tins in the last box'."),
+    # --- vic-drill-rv-001, 2026-08-13
+    ("74aabde5-69a9-4f38-91c1-afcb49e09bae", "keep", None,
+     "THE SOLVER WAS WRONG, and this is the first time in the campaign. Asked for the "
+     "'underlying reason' behind the dingo's duality, I chose the concrete mechanism -- "
+     "ecologically beneficial, economically threatening -- where the key chooses the "
+     "level above it: a society struggling to balance conservation against economic "
+     "interests. Both are supported, but the stem asks for the reason BEHIND the two "
+     "sides, not a restatement of them, so the key is the better reading. Recorded so "
+     "the question is not re-adjudicated and so a pattern of solver error stays visible."),
+    # --- vic-drill-rv-003, 2026-08-13
+    ("b704028e-6928-4418-8b1c-bfbfd60628d1", "keep", None,
+     "SOLVER LOSS, second of the campaign and the second of this kind. A 'which detail "
+     "LEAST supports' question with four genuinely supportive details is soft by "
+     "construction. The key says the diet list supports resilience least, and its "
+     "reasoning holds: long-distance travel, an eight-week fast and thermal insulation "
+     "are each an ACTIVE response to hardship, while the diet is presented as a list of "
+     "foods rather than a claim about adaptability. I picked the fast, reading it as a "
+     "cost rather than an adaptation. Defensible, but not better than the key."),
 ]
 
 
