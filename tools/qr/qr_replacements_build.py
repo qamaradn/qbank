@@ -28,6 +28,8 @@ different scale, the other marked a right angle at the vertex the stem then aske
 """
 import datetime
 import json
+import os
+from fractions import Fraction
 import math
 import pathlib
 import sys
@@ -304,14 +306,6 @@ Q("Area of composite shapes",
   target_form="vic-drill-mq-012", fmt=lambda v: f"{v} m²")
 
 
-if __name__ == "__main__":
-    GEN.mkdir(parents=True, exist_ok=True)
-    path = GEN / f"{BOOK}_p{NN}.json"
-    path.write_text(json.dumps(ITEMS, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
-    print(f"wrote {len(ITEMS)} replacement questions -> {path}")
-    for it in ITEMS:
-        print(f"   {it['_target_form']}  {it['topic']:<30} {it['difficulty']}")
-
 # ---------------------------------------------------------------- wave 2: act_test10 p816
 # Five more holes, all from the same mis-briefed reading page. Same double-route contract,
 # which caught two of my own errors while writing this block: a weighted mean I had keyed
@@ -384,10 +378,41 @@ Q("Averages",
   fmt=lambda v: f"{v:g} members")
 
 
+# ---------------------------------------------------------------- wave 5: mq-016
+# Replaces a question rejected by blind-solve: it asked for (1/3)^2 + (1/4)^2 + (1/5)^2,
+# whose value is 769/3600, and was keyed to 533/900. The stored explanation reached
+# 769/3600 correctly and then pointed at an option that did not hold it, so there was
+# nothing to re-key. Same archetype and level: unit fractions squared over a common
+# denominator, with an answer that reduces cleanly.
+Q("Number and fractions",
+  "What is the value of (1/2)\u00b2 + (1/3)\u00b2 \u2212 (1/6)\u00b2?",
+  key=Fraction(1, 3),
+  # route 2: put everything over 36 first, then square numerators over 36 squared
+  verify=Fraction(18 ** 2 + 12 ** 2 - 6 ** 2, 36 ** 2),
+  wrong=[(Fraction(2, 3), "adds and subtracts the fractions without squaring them"),
+         (Fraction(4, 9), "squares the sum instead of summing the squares"),
+         (Fraction(7, 36), "forgets to square the 1/6 before subtracting it")],
+  expl="Square each fraction first: 1/4 + 1/9 \u2212 1/36. Over a common denominator of "
+       "36 that is 9/36 + 4/36 \u2212 1/36 = 12/36, which reduces to 1/3. Answering 2/3 "
+       "adds the fractions and forgets to square them; 4/9 squares the sum rather than "
+       "summing the squares, and those are not the same thing.",
+  target_form="vic-drill-mq-016",
+  fmt=lambda v: f"{v.numerator}/{v.denominator}")
+
+
 if __name__ == "__main__":
     GEN.mkdir(parents=True, exist_ok=True)
-    path = GEN / f"{BOOK}_p{NN}.json"
-    path.write_text(json.dumps(ITEMS, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
-    print(f"wrote {len(ITEMS)} replacement questions -> {path}")
-    for it in ITEMS:
+    # Every wave lives in this one file so the whole set stays readable, but each wave
+    # loads separately: REPL_FORMS picks the forms to write and REPL_PAGE the page they
+    # land on. Without it a reload would re-offer questions already in the bank, and
+    # phase 4 would drop them silently as near-duplicates of themselves.
+    want = {f.strip() for f in os.environ.get("REPL_FORMS", "").split(",") if f.strip()}
+    items = [i for i in ITEMS if not want or i["_target_form"] in want]
+    if want and not items:
+        raise SystemExit(f"REPL_FORMS matched nothing: {sorted(want)}")
+    nn = int(os.environ.get("REPL_PAGE", NN))
+    path = GEN / f"{BOOK}_p{nn}.json"
+    path.write_text(json.dumps(items, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+    print(f"wrote {len(items)} replacement questions -> {path}")
+    for it in items:
         print(f"   {it['_target_form']}  {it['topic']:<30} {it['difficulty']}")
