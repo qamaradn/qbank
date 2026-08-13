@@ -190,6 +190,28 @@ DECISIONS: list[tuple[str, str, str | None, str]] = [
      "8 from that line: C is (10,0). The stored explanation derives exactly that -- "
      "'1/2 x 6 x |x - 2| = 24' -- and the question is keyed to (8,0), which gives an area "
      "of 18."),
+    # --- vic-drill-mq-013, 2026-08-13
+    ("2f68e90c-af88-48dc-998b-9e44c05b7b41", "keep", None,
+     "FIGURE RELABELLED. P and Q are plotted 80 px above the x-axis and the y-axis was "
+     "labelled 1 and 2 on gridlines 40 px apart, which puts them at height 2 and makes the "
+     "perimeter about 13 -- not an option. The explanation and key need height 4, giving "
+     "the 3-4-5 triangle and a perimeter of 16. The y-axis gridlines now read 2 and 4, at "
+     "which point the plotted points, the explanation and the key agree. The grid is not "
+     "square after this (40 px per unit across, 20 px up) but it is labelled, and that is "
+     "the smaller fault."),
+    # --- vic-drill-mq-014, 2026-08-13
+    ("c004fdff-1240-4e4a-8eea-e9c45a7eaa45", "keep", None,
+     "OPTIONS REPAIRED: two of them had the same VALUE as two others. The four choices "
+     "were 6/4, 2/3, 3/2 and 4/6 -- but 4/6 IS 2/3 and 6/4 IS 3/2, so the question had two "
+     "correct answers and two identical wrong ones. The stored explanation even writes "
+     "'4/6 = 2/3', naming both. options_distinct compares option TEXT and cannot see this; "
+     "only working the values out does. Replaced with 2/3, 3/2, 4/7 and 5/6, each wrong in "
+     "a different way."),
+    ("c43ad003-9144-4f4f-a840-262cfdd70ba1", "keep", None,
+     "FIGURE REDRAWN. The explanation reads cricket as 65 students and swimming as 45, a "
+     "difference of 20, which is the key. The bars were drawn 130 px and 65 px tall on an "
+     "axis of 35 px per 20 students, which is 74 and 37 -- a difference of 37, and not an "
+     "option. Bars redrawn at the values the explanation states."),
 ]
 
 
