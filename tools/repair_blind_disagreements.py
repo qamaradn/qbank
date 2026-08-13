@@ -233,6 +233,17 @@ DECISIONS: list[tuple[str, str, str | None, str]] = [
      "at the left intersection; it is m and n that are parallel, both at slope -1.6. "
      "Replaced by a co-interior angle question whose transversal is drawn at the "
      "inclination the question states."),
+    # --- vic-drill-rv-016, 2026-08-13
+    ("39f9476a-26b7-4c39-9adb-d4656f3614d8", "keep", None,
+     "Two options rested on the SAME sentence. 'The latest satellite imagery had "
+     "indicated a promising new dig site near the Blinman mine, a location previously "
+     "unexplored due to its remoteness' supports both the keyed 'unexplored due to its "
+     "isolation' and the distractor 'satellite imagery had indicated its potential'. The "
+     "only thing separating them was the word 'University' in the distractor, which the "
+     "passage neither states nor denies -- so the question turned on an attribution "
+     "rather than on comprehension, and the solver picked the unkeyed one. The key now "
+     "carries both halves of the sentence, and the competing option is replaced by a "
+     "fuel-budget trap the passage contradicts, since the site is described as remote."),
 ]
 
 
