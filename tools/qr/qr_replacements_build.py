@@ -250,6 +250,40 @@ Q("Area and scale",
   target_form="vic-drill-mq-072", fmt=lambda v: f"{v} cm")
 
 
+# ---------------------------------------------------------------- wave 3: forms 6-10
+# Two more holes. mq-007 lost a "which statement is NOT true" item where all four
+# statements were true; mq-009 lost an underdetermined pentagon-angle question. Both
+# replacements deliberately avoid the format that broke the originals: a plain numeric
+# ask, so the double-route check can actually verify it, rather than a "which of these is
+# false" frame where the key is a sentence and nothing can be recomputed.
+Q("Number patterns",
+  "The first four terms of a sequence are 7, 11, 15 and 19, and the pattern continues in "
+  "the same way. What is the tenth term?",
+  key=43, verify=7 + 9 * 4,
+  wrong=[(47, "counts ten gaps after the first term instead of nine"),
+         (40, "adds the nine steps of 4 to 4 rather than to 7"),
+         (79, "multiplies the tenth position by 4 and adds 39")],
+  expl="Each term is 4 more than the one before, so the tenth term is nine steps past the "
+       "first: 7 + 9 x 4 = 43. Counting ten steps instead of nine gives 47, which is the "
+       "eleventh term.",
+  target_form="vic-drill-mq-007", confidence=0.93)
+
+Q("Angles in polygons",
+  "A regular hexagon and a regular octagon are placed flat on a table so that one side of "
+  "each lies against the other with no gap. What is the size of the angle left over at "
+  "that point, between the outer edges of the two shapes?",
+  key=105, verify=360 - (6 - 2) * 180 // 6 - (8 - 2) * 180 // 8,
+  wrong=[(120, "gives the hexagon's interior angle rather than what is left over"),
+         (135, "gives the octagon's interior angle"),
+         (255, "adds the two interior angles instead of subtracting them from 360")],
+  expl="A regular hexagon has interior angles of (6-2) x 180 / 6 = 120 degrees, and a "
+       "regular octagon (8-2) x 180 / 8 = 135 degrees. The angles around the meeting point "
+       "must total 360, so the gap is 360 - 120 - 135 = 105 degrees. Answering 120 stops "
+       "at the hexagon's own angle instead of the space beside it.",
+  target_form="vic-drill-mq-009", difficulty="hard", confidence=0.91,
+  fmt=lambda v: f"{v} degrees")
+
+
 if __name__ == "__main__":
     GEN.mkdir(parents=True, exist_ok=True)
     path = GEN / f"{BOOK}_p{NN}.json"

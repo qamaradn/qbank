@@ -104,6 +104,51 @@ DECISIONS: list[tuple[str, str, str | None, str]] = [
      "are each an ACTIVE response to hardship, while the diet is presented as a list of "
      "foods rather than a claim about adaptability. I picked the fast, reading it as a "
      "cost rather than an adaptation. Defensible, but not better than the key."),
+    # --- vic-drill-mq-006, 2026-08-13
+    ("35db858f-88f0-485c-9d70-777a8af6ef84", "keep", None,
+     "FIGURE REDRAWN. The bars carried value labels 58, 63, 65, 67, 72 (mean and median "
+     "both 65, difference 0), the explanation read them as 58, 62, 65, 67, 68 (difference "
+     "1), and the key said 0.4 -- three different answers. The axis was also non-uniform, "
+     "with 45 kg and 60 kg the same 45 px apart as 60 kg and 70 kg. Redrawn on a uniform "
+     "55-75 scale with values 58, 62, 65, 67, 71: mean 64.6, median 65, difference 0.4, "
+     "which is the key. The explanation now matches the figure."),
+    ("bf760031-5f05-4a5f-ad4b-5a5cfb7b9517", "keep", None,
+     "FIGURE REPAIRED. The rectangle is 6 by 4 units. The shaded left block spans 0-2 "
+     "across the full height, worth 8 units, and the explanation takes the bottom-right "
+     "block as 2 wide by 1 tall, worth 2, giving 10 of 24 = 5/12 = the key. The figure "
+     "drew that block 2 units tall, making the shaded area 12 of 24 = one half, which is "
+     "not among the options. Block height halved so the figure agrees with its own "
+     "explanation and key."),
+    # --- vic-drill-mq-007, 2026-08-13
+    ("91cc3420-7397-4eda-91b4-6a6e90cf7ac6", "reject", None,
+     "'Which of the following is NOT true' about 20, 14, 8, 2, ... where ALL FOUR "
+     "statements are true. Common difference -6, fifth term -4, seventh term -16, and the "
+     "sum of the first five is 20+14+8+2-4 = 40. The stored explanation computes that sum "
+     "as 40 itself and then keys the question to the statement that says it is 40. There "
+     "is no false statement to find."),
+    # --- vic-drill-mq-008, 2026-08-13
+    ("f27e0d63-1895-4624-bc80-e46cbf239db4", "keep", None,
+     "STEM ALIGNED TO THE FIGURE. The stem said the sides were (2x+3) and (x-1), giving "
+     "6x + 4 = 36 and x = 32/6 -- not a whole number and not an option. The FIGURE labels "
+     "them (2x+1) and (x+2), giving 6x + 6 = 36 and x = 5, which IS an option. The key "
+     "said 8, matching neither. The stored explanation reaches 32/6 and then says 'That "
+     "doesn't give a whole number. Rechecking:' -- the model noticed and shipped it "
+     "anyway. Stem rewritten to the figure's labels, key moved to 5, explanation redone."),
+    # --- vic-drill-mq-009, 2026-08-13
+    ("cfeaae43-f1be-4f96-82bc-7bc999a03410", "reject", None,
+     "Underdetermined. A pentagon has five interior angles summing to 540; the stem gives "
+     "TWO of them (the base angles, 65 each) and asks for a third, which leaves two "
+     "unknowns. The stored explanation reads 'the two equal base angles' as two PAIRS, "
+     "computes 4 x 65 = 260 and reaches 280 degrees -- not an option -- while the question "
+     "is keyed to 150. Measuring the drawn figure gives roughly 244 degrees, a reflex "
+     "angle, which is not an option either. Nothing here agrees with anything else."),
+    # --- vic-drill-mq-010, 2026-08-13
+    ("fd4d2c94-8ad0-42b1-ad8b-604443f8e5f4", "rekey", "B",
+     "Line l runs through P(0,4) and Q(2,0), so its gradient is -2 and a perpendicular "
+     "line has gradient +1/2, giving y = x/2 through the origin. The stored explanation "
+     "derives exactly that -- 'slope of l = -2. A perpendicular line has slope = 1/2' -- "
+     "and the question is keyed to y = -x/2, which is parallel-ish nonsense: the negative "
+     "reciprocal of -2 is +1/2, not -1/2."),
 ]
 
 
