@@ -698,3 +698,40 @@ def options_distinct_by_value(q):
     return (f"options {pairs} have the same VALUE though different text"
             + (" — and one of them is the key, so the question has two correct "
                "answers" if keyed else ""))
+
+
+_LINE_EQ = re.compile(r"y\s*=\s*(-)?\s*(\d+(?:\.\d+)?)?\s*x\s*([+-]\s*\d+)?")
+_POINT = re.compile(r"^\(\s*(-)?(\d+(?:\.\d+)?)\s*,\s*(-)?(\d+(?:\.\d+)?)\s*\)$")
+
+
+def one_point_on_the_line(q):
+    """"Which point lies on y = 2x - 3?" must have exactly one option that does.
+
+    vic-drill-mq-020 offered both (2, 1) and (1, -1), and both satisfy it. That is not
+    a duplicate VALUE -- the two options are different points -- so
+    options_distinct_by_value cannot see it; only substituting into the line can.
+    Blind-solve picked the option that was not keyed and was equally right.
+    """
+    stem = (q.get("stem") or "").replace("\u2212", "-")
+    if "lies on" not in stem or "line" not in stem:
+        return None
+    m = _LINE_EQ.search(stem)
+    if not m:
+        return None
+    grad = float(m.group(2) or 1) * (-1 if m.group(1) else 1)
+    inter = float((m.group(3) or "0").replace(" ", ""))
+    on = []
+    for L in "abcd":
+        p = _POINT.match((q.get("option_" + L) or "").strip().replace("\u2212", "-"))
+        if not p:
+            continue
+        x = float(p.group(2)) * (-1 if p.group(1) else 1)
+        y = float(p.group(4)) * (-1 if p.group(3) else 1)
+        if abs(grad * x + inter - y) < 1e-9:
+            on.append(L.upper())
+    if len(on) == 1:
+        return None
+    if not on:
+        return f"no option lies on y = {grad:g}x {inter:+g}"
+    return (f"options {'/'.join(on)} ALL lie on y = {grad:g}x {inter:+g}, so the question "
+            f"has more than one correct answer")

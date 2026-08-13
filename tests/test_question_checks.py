@@ -7,6 +7,7 @@ import pytest
 
 from tools.question_checks import (
     options_distinct_by_value,
+    one_point_on_the_line,
     COMPREHENSION_RELATIONS,
     STRUCTURAL_RELATIONS,
     answer_shape_monotony,
@@ -493,3 +494,20 @@ def test_options_distinct_by_value_passes_clean_options():
     q = dict(stem="What is the probability?", option_a="1/2", option_b="1/3",
              option_c="1/4", option_d="1/5", correct_answer="A")
     assert options_distinct_by_value(q) is None
+
+
+def test_one_point_on_the_line_catches_two_valid_points():
+    """(2, 1) and (1, -1) both satisfy y = 2x - 3, so keying one marks the other wrong.
+    They are different points, so options_distinct_by_value cannot see it."""
+    q = dict(stem="The graph shows the line y = 2x − 3. Which point lies on this line?",
+             option_a="(2, 1)", option_b="(0, 2)", option_c="(1, −1)",
+             option_d="(3, 4)", correct_answer="A")
+    msg = one_point_on_the_line(q)
+    assert msg and "A/C" in msg and "more than one correct answer" in msg
+
+
+def test_one_point_on_the_line_passes_a_sound_question():
+    q = dict(stem="The graph shows the line y = 2x − 3. Which point lies on this line?",
+             option_a="(2, 1)", option_b="(0, 2)", option_c="(1, −2)",
+             option_d="(3, 4)", correct_answer="A")
+    assert one_point_on_the_line(q) is None
