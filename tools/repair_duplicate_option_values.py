@@ -92,6 +92,33 @@ REPAIRS = [
      "\u221a144 is 12, the keyed answer. It becomes 144, which is QR squared -- the answer "
      "of a student who stops before taking the square root, and the one error the "
      "original option set could not test because it had spent the slot on the key."),
+    # A third sweep, after _numeric_value learned to read "N out of M". This is a whole
+    # family: probability questions written in words, where an unreduced form and its
+    # reduced form both appear. None of these stems asks for lowest terms, so both forms
+    # are equally correct answers. Root cause is in ma_common.Q, which rejected colliding
+    # option TEXT and so never saw "1 out of 4" beside "6 out of 24".
+    ("nsw-drill-math-040", "1 out of 3", "3 out of 12", "the green counters"),
+    ("nsw-drill-math-022", "3 out of 12", "8 out of 12", "the sections that are NOT red"),
+    ("nsw-drill-math-027", "2 out of 4", "3 out of 4", "at least one head, rather than two"),
+    ("vic-drill-mq-019", "6 out of 24", "15 out of 24", "everything the budget is NOT rent"),
+    ("vic-drill-mq-068", "3 out of 9", "9 out of 12", "the tokens that are not blue"),
+    ("vic-drill-mq-004", "1 out of 13", "12 out of 52", "the face cards"),
+    ("vic-drill-mq-065", "1 out of 5", "3 out of 9",
+     "miscounts STATISTICS as nine letters"),
+    ("vic-drill-mq-021", "1 out of 5", "3 out of 20",
+     "The key was 4 out of 20 and 1 out of 5 sat beside it -- the same probability, so "
+     "the question had two correct answers. It becomes 3 out of 20, which is what "
+     "counting 5, 10 and 15 but forgetting 20 gives."),
+    ("vic-drill-mq-027", "2 out of 4", "3 out of 4", "at least one head, rather than two"),
+    ("vic-drill-mq-034", "1 out of 4", "1 out of 8",
+     "The key was 4 out of 16 and 1 out of 4 sat beside it -- two correct answers again. "
+     "It becomes 1 out of 8, halving the chance of a match instead of squaring it."),
+    ("vic-drill-mq-061", "40 out of 60", "1 out of 3",
+     "THREE options were the same value here -- 2 out of 3, 40 out of 60 and 4 out of 6 "
+     "-- so the key fell out by elimination with no multiplication at all. This one "
+     "becomes 1 out of 3, the chance the light is NOT green on a single pass."),
+    ("vic-drill-mq-061", "4 out of 6", "1 out of 9",
+     "squares the not-green chance instead of the green one"),
     ("vic-drill-mq-033", "3/9", "5/12",
      "3/9 is 1/3, already offered as option D. It becomes 5/12, the chance of "
      "drawing a red marble."),

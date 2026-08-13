@@ -651,7 +651,7 @@ _LOWEST_TERMS = re.compile(
 def _numeric_value(text):
     """Parse an option that is a plain number or a bare fraction; None otherwise."""
     t = str(text).strip().replace("$", "").replace(",", "").replace("%", "")
-    m = re.fullmatch(r"(-?\d+)\s*/\s*(\d+)", t)
+    m = re.fullmatch(r"(-?\d+)\s*(?:/|out of)\s*(\d+)", t, re.I)
     if m:
         d = int(m.group(2))
         return None if d == 0 else Fraction(int(m.group(1)), d)

@@ -28,6 +28,7 @@ ROOT = pathlib.Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
 
 from tools.figure_lib import svg, txt  # noqa: E402
+from tools.question_checks import _numeric_value  # noqa: E402
 
 GEN = ROOT / "run_data/output/mathematics/generated"
 
@@ -114,6 +115,20 @@ class Batch:
         opts = [fmt(key)] + [fmt(v) for v, _ in wrong]
         if len(set(opts)) != 4:
             raise AssertionError(f"{cat}: options collide after formatting: {opts}")
+        # Distinct TEXT is not enough. "1 out of 4" and "6 out of 24" are different
+        # strings and the same probability, and when one of them is the key the question
+        # has two correct answers. Thirteen items shipped with this before the check
+        # existed, two of them keyed against their own duplicate. Compare the values.
+        seen = {}
+        for o in opts:
+            v = _numeric_value(o)
+            if v is not None:
+                seen.setdefault(v, []).append(o)
+        same = [g for g in seen.values() if len(g) > 1]
+        if same:
+            raise AssertionError(
+                f"{cat}: options differ in text but not in VALUE: {same}. Distinct "
+                f"wording is not distinct answers; give the duplicate a different value.")
         errors = {fmt(v): cls for v, cls in wrong}
 
         q = {
