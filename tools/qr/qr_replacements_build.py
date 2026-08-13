@@ -257,3 +257,83 @@ if __name__ == "__main__":
     print(f"wrote {len(ITEMS)} replacement questions -> {path}")
     for it in ITEMS:
         print(f"   {it['_target_form']}  {it['topic']:<30} {it['difficulty']}")
+
+# ---------------------------------------------------------------- wave 2: act_test10 p816
+# Five more holes, all from the same mis-briefed reading page. Same double-route contract,
+# which caught two of my own errors while writing this block: a weighted mean I had keyed
+# at 29 when it is 29.67, and a percentage that produced 202.5 trees.
+Q("Ratios and Proportions",
+  "A native seed mix is blended in the ratio 5 parts wallaby grass to 3 parts kangaroo "
+  "grass to 2 parts everlasting daisy, by mass. A Landcare group has 12 kg of kangaroo "
+  "grass and plenty of the other two. What is the greatest mass of mix they can blend?",
+  key=40, verify=12 / 3 * 10,
+  wrong=[(24, "multiplies the kangaroo grass by the number of parts rather than scaling the mix"),
+         (120, "treats the 12 kg as one part instead of three"),
+         (20, "scales to the wallaby grass share rather than the whole mix")],
+  expl="Kangaroo grass is 3 of the 10 parts, so 12 kg is three parts and one part is 4 kg. "
+       "The whole mix is 10 parts: 10 x 4 = 40 kg. Checking, the mix is 20 kg + 12 kg + "
+       "8 kg = 40 kg. Answering 120 kg treats the 12 kg as a single part.",
+  target_form="vic-drill-mq-003", fmt=lambda v: f"{v:g} kg")
+
+Q("Time and the calendar",
+  "A ferry leaves Sorrento every 40 minutes, with the first sailing of the day at 6:20 am. "
+  "At what time does the twelfth sailing leave?",
+  key=6 * 60 + 20 + 40 * 11, verify=13 * 60 + 40,
+  wrong=[(14 * 60 + 20, "counts twelve gaps after the first sailing instead of eleven"),
+         (13 * 60, "counts ten gaps"),
+         (12 * 60 + 20, "uses nine gaps")],
+  expl="The first sailing is at 6:20, so the twelfth is ELEVEN gaps later, not twelve: "
+       "11 x 40 = 440 minutes, or 7 hours 20 minutes. 6:20 am + 7 h 20 min = 1:40 pm. "
+       "Using twelve gaps gives 2:20 pm, which is the thirteenth sailing.",
+  target_form="vic-drill-mq-045",
+  fmt=lambda m: f"{(m // 60 - 12) if m // 60 > 12 else m // 60}:{m % 60:02d} "
+                f"{'pm' if m >= 720 else 'am'}")
+
+Q("Percentages",
+  "A council reports that 18% of its 4 400 street trees are eucalypts, and that a quarter "
+  "of those eucalypts are more than fifty years old. How many eucalypts are more than "
+  "fifty years old?",
+  key=198, verify=4400 * 18 // 100 // 4,
+  wrong=[(792, "gives every eucalypt rather than the older quarter"),
+         (1100, "takes a quarter of all the street trees"),
+         (99, "takes a quarter of the quarter")],
+  expl="18% of 4 400 is 792 eucalypts, and a quarter of 792 is 198. Answering 792 stops "
+       "one step early, at the number of eucalypts rather than the number of old ones.",
+  target_form="vic-drill-mq-055", fmt=lambda v: f"{v:g} trees")
+
+Q("Measurement and geometry",
+  "A rainwater tank is a cylinder 1.4 metres across and 2 metres tall. Taking pi as 3.14, "
+  "about how many litres does it hold when full? (1 cubic metre is 1 000 litres.)",
+  key=3077, verify=round(3.14 * (1.4 / 2) ** 2 * 2 * 1000),
+  wrong=[(12309, "uses the 1.4 m width as the radius instead of the diameter"),
+         (8792, "computes the curved surface area, 2(pi)rh, instead of the volume"),
+         (1026, "divides by three, as though the tank were a cone")],
+  expl="The radius is half the width: 0.7 m. Volume = 3.14 x 0.7 x 0.7 x 2 = 3.077 cubic "
+       "metres, so about 3 077 litres. Using 1.4 as the radius multiplies the answer by "
+       "four, giving roughly 12 309 litres.",
+  target_form="vic-drill-mq-074", fmt=lambda v: f"about {v:,} litres".replace(",", " "))
+
+Q("Averages",
+  "A swimming club met 8 times in each of the first three terms and 12 times in the "
+  "fourth. Its average attendance was 24, 30 and 27 members in those first three terms, "
+  "and 36 in the fourth. What was the mean attendance across every meeting of the year?",
+  key=30, verify=(24 * 8 + 30 * 8 + 27 * 8 + 36 * 12) / (8 * 3 + 12),
+  wrong=[(29.25, "averages the four term figures without weighting them by meetings"),
+         (27, "uses only the first three terms"),
+         (36, "gives the fourth term's average on its own")],
+  expl="Weight each term by how often the club met. First three terms: (24 + 30 + 27) x 8 "
+       "= 648 over 24 meetings. Fourth term: 36 x 12 = 432 over 12. Altogether 1 080 "
+       "members across 36 meetings, so the mean is 30. Averaging 24, 30, 27 and 36 "
+       "directly gives 29.25 and ignores that the fourth term had half again as many "
+       "meetings.",
+  target_form="vic-drill-mq-079", difficulty="hard", confidence=0.9,
+  fmt=lambda v: f"{v:g} members")
+
+
+if __name__ == "__main__":
+    GEN.mkdir(parents=True, exist_ok=True)
+    path = GEN / f"{BOOK}_p{NN}.json"
+    path.write_text(json.dumps(ITEMS, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+    print(f"wrote {len(ITEMS)} replacement questions -> {path}")
+    for it in ITEMS:
+        print(f"   {it['_target_form']}  {it['topic']:<30} {it['difficulty']}")
