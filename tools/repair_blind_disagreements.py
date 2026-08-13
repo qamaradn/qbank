@@ -119,6 +119,9 @@ def main() -> None:
     conn.row_factory = sqlite3.Row
     now = datetime.now(timezone.utc).isoformat()
     record = []
+    already_recorded = {r["id"] for r in
+                        (json.loads(MANIFEST.read_text())["repairs"]
+                         if MANIFEST.exists() else [])}
 
     for qid, verdict, new_key, why in DECISIONS:
         row = conn.execute("SELECT * FROM questions WHERE id = ?", (qid,)).fetchone()
@@ -130,6 +133,11 @@ def main() -> None:
             continue
         if verdict == "rekey" and row["correct_answer"] == new_key:
             print(f"skip  {qid} — already keyed {new_key}")
+            continue
+        # A "keep" changes nothing, so the state checks above can never suppress it and
+        # every re-run appended another copy to the manifest. Skip it once it is recorded.
+        if verdict == "keep" and qid in already_recorded:
+            print(f"skip  {qid} — keep already recorded")
             continue
         print(f"\n{verdict.upper():<7}{qid}  [{row['source_book']}]")
         print(f"   {' '.join(row['stem'].split())[:110]}")

@@ -894,6 +894,36 @@ apply `supabase/migrations/0001_add_questions_qbank_id.sql`, add
 `formId`/`formPosition`/`formKind` to the `questions` table AND the import zod schema
 (they are being sent now and silently stripped), then wipe and reload per §1.1.
 
+**VIC LAUNCH FORMS 1-5 ARE BLIND-VERIFIED (2026-08-13).** 273 questions solved with the
+key withheld and the options shuffled, across `vic-drill-mq-001..005` and
+`vic-drill-rv-001..005`. 11 defects acted on: 4 rejected, 4 re-keyed, 3 kept after review.
+
+| Forms | Solved | Defects | Rate |
+|---|---:|---:|---:|
+| `vic-drill-mq-001..005` | 168 | 11 | 6.5% |
+| `vic-drill-rv-001..005` | 105 | 1 | 1.0% |
+| NSW sample (hand-authored) | 87 | 0 | 0.0% |
+
+Reading and Verbal came back far cleaner than Maths and Quantitative on the same source
+books. The gap is what the questions ask, not who wrote them: a wrong key in a reading
+question is visible on the page, while a wrong key in a maths question hides behind
+arithmetic that reads fluently and behind a figure nobody rendered. Every mq defect but
+one was a figure disagreeing with its own explanation and key.
+
+**REJECTION LEAVES A HOLE, SO REPLACE RATHER THAN SHRINK.** 14 questions were authored
+back into the 8 forms that lost one (`tools/qr/qr_replacements_build.py`), keeping all 87
+mq forms at the dealer's original 81x31 + 6x30. Every replacement key is computed twice by
+different routes and the build fails if they disagree; that check caught two of my own
+errors. Note the replacements are NOT blind-verified — I wrote them, so solving them is
+circular. They have the double-route check, the full sweep and a rendered look, which is
+the bar NSW cleared, but genuine independence needs a different reader.
+
+**A MIS-BRIEFED PAGE, NOT SCATTERED ERRORS.** `act_test10` page 816 is a reading passage
+on the Lincoln-Douglas debates that the briefing declared quantitative_reasoning, so all
+10 questions generated from it are US civics analogies filed under the wrong subject. The
+briefing is corrected and all 10 withheld. Worth checking other briefings for the same
+off-by-one at a section boundary.
+
 **FORMS ARE COMPLETE FOR BOTH EXAMS (2026-08-12).** Every servable question carries one.
 
 | Form prefix | Forms | Items | Per form | Timer |
