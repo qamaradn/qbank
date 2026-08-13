@@ -80,6 +80,18 @@ REPAIRS = [
      "the width of the region ignoring its height."),
     ("nsw-drill-math-035", "3/6", "1/4",
      "the height of the region ignoring its width"),
+    # A second sweep, after _numeric_value learned to evaluate whole-root surds.
+    # "2\u221a25" and "\u221a144" read as working-not-yet-finished and are the same number as
+    # the key sitting beside them. Both are png_act_test2_230526, both geometry.
+    ("vic-drill-mq-017", "2\u221a(25)", "14",
+     "2\u221a25 is 10, the keyed answer, so the question had two correct options -- and the "
+     "duplicate looked like a different answer only because its root was left un-taken. "
+     "It becomes 14, which is what adding the horizontal and vertical distances gives "
+     "instead of applying Pythagoras."),
+    ("vic-drill-mq-041", "\u221a144", "144",
+     "\u221a144 is 12, the keyed answer. It becomes 144, which is QR squared -- the answer "
+     "of a student who stops before taking the square root, and the one error the "
+     "original option set could not test because it had spent the slot on the key."),
     ("vic-drill-mq-033", "3/9", "5/12",
      "3/9 is 1/3, already offered as option D. It becomes 5/12, the chance of "
      "drawing a red marble."),

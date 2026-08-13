@@ -27,6 +27,7 @@ per-category — a bank can be balanced overall while one category is entirely p
 Returning None from `group_of` excludes that question from the group checks.
 """
 import collections
+import math
 import re
 from fractions import Fraction
 
@@ -654,6 +655,18 @@ def _numeric_value(text):
     if m:
         d = int(m.group(2))
         return None if d == 0 else Fraction(int(m.group(1)), d)
+    # Surds, but only where the root comes out whole: "2\u221a25" is 10 and reads as a
+    # different answer from "10" while being the same number. A blind-solve disagreement
+    # in vic-drill-mq-017 was exactly that pair. Irrational roots are left alone -- they
+    # cannot collide with a rational option, and comparing them as floats would invite
+    # false positives.
+    m = re.fullmatch(r"(-?\d*)\s*(?:\u221a|sqrt)\s*\(?\s*(\d+)\s*\)?", t)
+    if m:
+        root = math.isqrt(int(m.group(2)))
+        if root * root != int(m.group(2)):
+            return None
+        c = m.group(1)
+        return Fraction((-1 if c == "-" else 1) * (int(c.lstrip("-") or 1)) * root)
     return Fraction(t) if re.fullmatch(r"-?\d+(?:\.\d+)?", t) else None
 
 
