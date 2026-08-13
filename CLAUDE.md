@@ -894,21 +894,30 @@ apply `supabase/migrations/0001_add_questions_qbank_id.sql`, add
 `formId`/`formPosition`/`formKind` to the `questions` table AND the import zod schema
 (they are being sent now and silently stripped), then wipe and reload per §1.1.
 
-**VIC LAUNCH FORMS 1-5 ARE BLIND-VERIFIED (2026-08-13).** 273 questions solved with the
-key withheld and the options shuffled, across `vic-drill-mq-001..005` and
-`vic-drill-rv-001..005`. 11 defects acted on: 4 rejected, 4 re-keyed, 3 kept after review.
+**VIC LAUNCH FORMS 1-10 ARE BLIND-VERIFIED (2026-08-13).** 616 questions solved with the
+key withheld and the options shuffled, across `vic-drill-mq-001..010` and
+`vic-drill-rv-001..010`. 18 defects acted on: 6 rejected, 5 re-keyed, 7 kept after review.
 
 | Forms | Solved | Defects | Rate |
 |---|---:|---:|---:|
-| `vic-drill-mq-001..005` | 168 | 11 | 6.5% |
-| `vic-drill-rv-001..005` | 105 | 1 | 1.0% |
+| `vic-drill-mq-001..010` | 309 | 19 | 6.1% |
+| `vic-drill-rv-001..010` | 307 | 2 | 0.7% |
 | NSW sample (hand-authored) | 87 | 0 | 0.0% |
 
-Reading and Verbal came back far cleaner than Maths and Quantitative on the same source
-books. The gap is what the questions ask, not who wrote them: a wrong key in a reading
-question is visible on the page, while a wrong key in a maths question hides behind
-arithmetic that reads fluently and behind a figure nobody rendered. Every mq defect but
-one was a figure disagreeing with its own explanation and key.
+Reading and Verbal came back nine times cleaner than Maths and Quantitative on the same
+source books, and the gap held across ten forms. It is what the questions ask, not who
+wrote them: a wrong key in a reading question is visible on the page, while a wrong key in
+a maths question hides behind arithmetic that reads fluently and behind a figure nobody
+rendered. **Almost every mq defect was a figure disagreeing with its own explanation and
+key** — bars read on the wrong scale, a shaded block drawn twice its stated height, a stem
+labelling a rectangle differently from the figure beside it, a right angle marked on the
+very vertex the stem asked about. None is detectable without reading the SVG coordinates.
+
+The five rv defects across 307 questions were of a different kind entirely: one
+second-correct-answer in a hand-authored sentence completion, and four soft judgement
+questions where the key was the better reading rather than the only one. Expect the
+ACT-sourced inference items to keep producing those; they are recorded as `keep` so they
+are not re-adjudicated.
 
 **REJECTION LEAVES A HOLE, SO REPLACE RATHER THAN SHRINK.** 14 questions were authored
 back into the 8 forms that lost one (`tools/qr/qr_replacements_build.py`), keeping all 87

@@ -149,6 +149,15 @@ DECISIONS: list[tuple[str, str, str | None, str]] = [
      "derives exactly that -- 'slope of l = -2. A perpendicular line has slope = 1/2' -- "
      "and the question is keyed to y = -x/2, which is parallel-ish nonsense: the negative "
      "reciprocal of -2 is +1/2, not -1/2."),
+    # --- vic-drill-rv-007, 2026-08-13
+    ("9a6d405a-7f0b-408d-bb5b-c808a90165b3", "keep", None,
+     "SOLVER LOSS. Asked how CSIRO's mandate evolved, I read the CONTENT of the examples "
+     "(wheat and wool early, Wi-Fi and plastics later) and answered 'agricultural focus to "
+     "technological innovation'. The key tracks the passage's own framing instead: it "
+     "opens with 'research essential for the development of Australian industries' and "
+     "closes on 'solving Australia's greatest challenges', which is specific industry "
+     "support broadening into general scientific challenges. The key follows the text; my "
+     "answer followed the examples."),
 ]
 
 
