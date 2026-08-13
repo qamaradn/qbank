@@ -44,6 +44,7 @@ from tools.question_checks import (  # noqa: E402
     doubled_token_errors,
     option_wording_errors,
     options_distinct,
+    options_distinct_by_value,
     positional_reference,
     relation_monotony,
     unknown_words,
@@ -129,6 +130,8 @@ def validate(qs, nn, plan):
         seen_ids.add(q.get("id"))
         if not options_distinct(q):
             errs.append(f"{tag}: options not distinct (case/whitespace-insensitive)")
+        if (m := options_distinct_by_value(q)):
+            errs.append(f"{tag}: {m}")
         for msg in doubled_token_errors(q) + option_wording_errors(q):
             errs.append(f"{tag}: {msg}")
         phrase = positional_reference(q.get("explanation"))

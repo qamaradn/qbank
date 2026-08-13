@@ -28,6 +28,7 @@ Returning None from `group_of` excludes that question from the group checks.
 """
 import collections
 import re
+from fractions import Fraction
 
 KEYS = ["option_a", "option_b", "option_c", "option_d"]
 
@@ -641,3 +642,46 @@ def key_restates_passage(question, threshold=0.35):
                 f"(limit {100 * threshold:.0f}%) — this is retrieval, not inference; "
                 f"either rewrite the key as a synthesis or label the item retrieval")
     return None
+
+_LOWEST_TERMS = re.compile(
+    r"lowest terms|simplest form|simplif|fully reduce|in its simplest", re.I)
+
+
+def _numeric_value(text):
+    """Parse an option that is a plain number or a bare fraction; None otherwise."""
+    t = str(text).strip().replace("$", "").replace(",", "").replace("%", "")
+    m = re.fullmatch(r"(-?\d+)\s*/\s*(\d+)", t)
+    if m:
+        d = int(m.group(2))
+        return None if d == 0 else Fraction(int(m.group(1)), d)
+    return Fraction(t) if re.fullmatch(r"-?\d+(?:\.\d+)?", t) else None
+
+
+def options_distinct_by_value(q):
+    """Two options that read differently but ARE the same number.
+
+    `options_distinct` compares option strings, so it cannot see 4/13 beside 16/52,
+    or 5/3 beside 10/6. When the duplicate involves the key the question has two
+    correct answers and marks one of them wrong; when it is between distractors a
+    solver eliminates both for free, since neither can be the key.
+
+    Stems asking for lowest terms or simplest form are exempt: there the unreduced
+    equivalent is the point of the question, and exactly one option satisfies the
+    instruction.
+    """
+    if _LOWEST_TERMS.search(q.get("stem", "") or ""):
+        return None
+    seen = {}
+    for L in "abcd":
+        v = _numeric_value(q.get("option_" + L))
+        if v is not None:
+            seen.setdefault(v, []).append(L.upper())
+    dup = [ls for ls in seen.values() if len(ls) > 1]
+    if not dup:
+        return None
+    key = (q.get("correct_answer") or "").upper()
+    keyed = any(key in ls for ls in dup)
+    pairs = "; ".join("/".join(ls) for ls in dup)
+    return (f"options {pairs} have the same VALUE though different text"
+            + (" — and one of them is the key, so the question has two correct "
+               "answers" if keyed else ""))

@@ -6,6 +6,7 @@ batches after per-question validation passed clean. See tools/question_checks.py
 import pytest
 
 from tools.question_checks import (
+    options_distinct_by_value,
     COMPREHENSION_RELATIONS,
     STRUCTURAL_RELATIONS,
     answer_shape_monotony,
@@ -458,3 +459,37 @@ def test_length_tell_floor_passes_a_group_sitting_near_chance():
              for _ in range(5)]
     batch += [q(correct="A", option_b="a much longer distractor than the key") for _ in range(15)]
     assert length_tell(batch, floor=0.12) == []
+
+
+def test_options_distinct_by_value_catches_two_correct_answers():
+    """4/13 and 16/52 are the same probability, so keying one marks the other wrong.
+
+    Found by blind-solve in vic-drill-mq-016: the stored explanation read
+    "P = 16/52 = 4/13", naming both options without noticing.
+    """
+    q = dict(stem="What is the probability?", option_a="4/13", option_b="17/52",
+             option_c="16/52", option_d="1/4", correct_answer="A")
+    msg = options_distinct_by_value(q)
+    assert msg and "A/C" in msg and "two correct answers" in msg
+
+
+def test_options_distinct_by_value_catches_matching_distractors():
+    """No wrong marking, but a solver discards both for free — neither can be the key."""
+    q = dict(stem="What is the probability?", option_a="2/5", option_b="2/3",
+             option_c="1/3", option_d="6/9", correct_answer="A")
+    msg = options_distinct_by_value(q)
+    assert msg and "B/D" in msg and "two correct answers" not in msg
+
+
+def test_options_distinct_by_value_exempts_lowest_terms():
+    """6/8 beside 3/4 is the POINT of a lowest-terms question, not a defect —
+    exactly one option satisfies the instruction."""
+    q = dict(stem="Write 42/56 in its lowest terms.", option_a="6/8", option_b="3/4",
+             option_c="3/8", option_d="4/3", correct_answer="B")
+    assert options_distinct_by_value(q) is None
+
+
+def test_options_distinct_by_value_passes_clean_options():
+    q = dict(stem="What is the probability?", option_a="1/2", option_b="1/3",
+             option_c="1/4", option_d="1/5", correct_answer="A")
+    assert options_distinct_by_value(q) is None

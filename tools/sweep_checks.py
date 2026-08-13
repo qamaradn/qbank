@@ -82,6 +82,8 @@ def per_question(q: dict) -> list[tuple[str, str]]:
 
     if not qc.options_distinct(q):
         hits.append(("options_distinct", "two options are identical"))
+    if (m := qc.options_distinct_by_value(q)):
+        hits.append(("options_distinct_by_value", m))
     for name, fn in (("doubled_token_errors", qc.doubled_token_errors),
                      ("option_wording_errors", qc.option_wording_errors)):
         for e in fn(q) or []:

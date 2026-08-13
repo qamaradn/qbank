@@ -212,6 +212,17 @@ DECISIONS: list[tuple[str, str, str | None, str]] = [
      "difference of 20, which is the key. The bars were drawn 130 px and 65 px tall on an "
      "axis of 35 px per 20 students, which is 74 and 37 -- a difference of 37, and not an "
      "option. Bars redrawn at the values the explanation states."),
+    # --- vic-drill-mq-016, 2026-08-13
+    ("5dd3f06e-5c0b-4bb7-99c8-861b984a754a", "reject", None,
+     "(1/3)^2 + (1/4)^2 + (1/5)^2 = 1/9 + 1/16 + 1/25 = 769/3600, and 769 is prime so it "
+     "does not reduce. The stored explanation computes exactly that and then the question "
+     "is keyed to 533/900, which is 2132/3600. No option is the right value."),
+    ("94139f1e-3048-4585-8679-da890cf9ed5e", "keep", None,
+     "SECOND duplicate-option-VALUE defect, same shape as the tan question in mq-014. The "
+     "options were 4/13, 17/52, 16/52 and 1/4 -- and 16/52 IS 4/13, so the question had "
+     "two correct answers. The explanation writes 'P = 16/52 = 4/13', naming both without "
+     "noticing. 16/52 replaced by 15/52 (subtracting the overlap twice). Note 1/4 is 13/52, "
+     "the spades alone, which is a genuine error and distinct."),
 ]
 
 
