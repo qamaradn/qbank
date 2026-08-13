@@ -56,6 +56,26 @@ DECISIONS: list[tuple[str, str, str | None, str]] = [
      "and lands at -2.67 degrees. The options are 8, -2, -3 and 6. No option is that value, "
      "and the stored explanation picks -2 while stating -2.7, which is nearer to -3. Same "
      "class as the other 'closest option' items rejected on 2026-08-12."),
+    # --- vic-drill-mq-002, 2026-08-13
+    ("77951e11-a393-4865-aeea-771786330a4a", "reject", None,
+     "The figure's gridlines sit at 0/100/200/300 with 40 px between them, so the five "
+     "bars are 200, 250, 300, 225 and 175 and the difference is 175. The stored "
+     "explanation reads them as 160/200/240/180/140 (a 50 px scale) and computes 140. The "
+     "key says 120. Figure, explanation and key give three different answers and none of "
+     "them is an option."),
+    ("8f4640fa-579b-4852-8847-65a1f6e9ad23", "reject", None,
+     "The figure is internally consistent — right angle marked at P, legs PQ = 12 and "
+     "PR = 5, hypotenuse QR = 13 — but the stem asks for sin of angle QPR, which IS that "
+     "right angle, so the answer would be 1. The keyed 12/13 is the sine of the angle at "
+     "R. The stored explanation describes a third arrangement again (right angle at Q, "
+     "PQ = 5, QR = 12). A student is shown the figure, so the question they see is "
+     "unanswerable."),
+    ("b5c3f5f4-9d64-4ccb-a0e6-3384e3c97b1a", "keep", None,
+     "FIGURE REPAIRED rather than the question rejected. A(1,2), B(5,6) and the marked "
+     "midpoint M(3,4) sit on evenly spaced gridlines that were LABELLED 0, 1, 3, 5 — a "
+     "mislabelled axis, so no reading of the figure gave the keyed (3,4). Relabelled to "
+     "0, 2, 4, 6, at which point the points, the marked midpoint, the explanation and the "
+     "key all agree. The key was right; the axis was wrong."),
 ]
 
 
