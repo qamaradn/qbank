@@ -894,15 +894,20 @@ apply `supabase/migrations/0001_add_questions_qbank_id.sql`, add
 `formId`/`formPosition`/`formKind` to the `questions` table AND the import zod schema
 (they are being sent now and silently stripped), then wipe and reload per §1.1.
 
-**VIC LAUNCH FORMS 1-10 ARE BLIND-VERIFIED (2026-08-13).** 616 questions solved with the
-key withheld and the options shuffled, across `vic-drill-mq-001..010` and
-`vic-drill-rv-001..010`. 18 defects acted on: 6 rejected, 5 re-keyed, 7 kept after review.
+**VIC LAUNCH FORMS 1-15 ARE BLIND-VERIFIED (2026-08-13).** 960 questions solved with the
+key withheld and the options shuffled, across `vic-drill-mq-001..015` and
+`vic-drill-rv-001..015`. 26 defects acted on: 7 rejected and replaced, 7 re-keyed, 12
+figures/stems/option-sets repaired or kept after review.
 
 | Forms | Solved | Defects | Rate |
 |---|---:|---:|---:|
-| `vic-drill-mq-001..010` | 309 | 19 | 6.1% |
-| `vic-drill-rv-001..010` | 307 | 2 | 0.7% |
+| `vic-drill-mq-001..015` | 464 | 27 | 5.8% |
+| `vic-drill-rv-001..015` | 496 | 2 | 0.4% |
 | NSW sample (hand-authored) | 87 | 0 | 0.0% |
+
+The `rv` half has now run 371 questions clean since its single repair, and the maths half
+holds steady near 6%. Fifteen forms is enough to call the gap structural rather than
+sampling noise.
 
 Reading and Verbal came back nine times cleaner than Maths and Quantitative on the same
 source books, and the gap held across ten forms. It is what the questions ask, not who
@@ -919,8 +924,14 @@ questions where the key was the better reading rather than the only one. Expect 
 ACT-sourced inference items to keep producing those; they are recorded as `keep` so they
 are not re-adjudicated.
 
-**REJECTION LEAVES A HOLE, SO REPLACE RATHER THAN SHRINK.** 14 questions were authored
-back into the 8 forms that lost one (`tools/qr/qr_replacements_build.py`), keeping all 87
+**A DEFECT CLASS NO CHECK CAN SEE: DUPLICATE OPTION *VALUES*.** A tan question offered
+6/4, 2/3, 3/2 and 4/6 — but 4/6 IS 2/3 and 6/4 IS 3/2, so it had two correct answers and
+two identical wrong ones. `options_distinct` compares option TEXT and passes it cleanly.
+Any question whose options are fractions or unsimplified ratios could carry the same
+fault, and a sweep that evaluates option values would be cheap.
+
+**REJECTION LEAVES A HOLE, SO REPLACE RATHER THAN SHRINK.** 17 questions were authored
+back into the forms that lost one (`tools/qr/qr_replacements_build.py`), keeping all 87
 mq forms at the dealer's original 81x31 + 6x30. Every replacement key is computed twice by
 different routes and the build fails if they disagree; that check caught two of my own
 errors. Note the replacements are NOT blind-verified — I wrote them, so solving them is
