@@ -76,6 +76,16 @@ DECISIONS: list[tuple[str, str, str | None, str]] = [
      "mislabelled axis, so no reading of the figure gave the keyed (3,4). Relabelled to "
      "0, 2, 4, 6, at which point the points, the marked midpoint, the explanation and the "
      "key all agree. The key was right; the axis was wrong."),
+    # --- vic-drill-mq-005, 2026-08-13
+    ("8139103c-b653-4196-ab7a-db8366af40f1", "rekey", "A",
+     "Line CD through (0,4) and (4,0) is y = -x + 4; line EF through (0,-2) and (2,2) is "
+     "y = 2x - 2. They meet where -x + 4 = 2x - 2, so x = 2 and y = 2: the point (2,2). "
+     "The stored explanation derives x = 2 and then the question is keyed to (3,1)."),
+    ("8beb02e5-b611-48c0-8a0c-a6b79b58df4d", "rekey", "B",
+     "580 = 24 x 24 + 4, so twenty-four boxes are full and four tins are left over, "
+     "needing a twenty-fifth box holding 4 tins. The stored explanation says exactly that "
+     "-- '25 boxes total, with 4 tins in the last box' -- and the question is keyed to "
+     "'25 boxes, 20 tins in the last box'."),
 ]
 
 
