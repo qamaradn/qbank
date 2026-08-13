@@ -894,20 +894,45 @@ apply `supabase/migrations/0001_add_questions_qbank_id.sql`, add
 `formId`/`formPosition`/`formKind` to the `questions` table AND the import zod schema
 (they are being sent now and silently stripped), then wipe and reload per §1.1.
 
-**VIC LAUNCH FORMS 1-15 ARE BLIND-VERIFIED (2026-08-13).** 960 questions solved with the
-key withheld and the options shuffled, across `vic-drill-mq-001..015` and
-`vic-drill-rv-001..015`. 26 defects acted on: 7 rejected and replaced, 7 re-keyed, 12
-figures/stems/option-sets repaired or kept after review.
+**VIC LAUNCH FORMS 1-20 ARE BLIND-VERIFIED (2026-08-13).** 1,305 questions solved with
+the key withheld and the options shuffled, across `vic-drill-mq-001..020` and
+`vic-drill-rv-001..020`. Every one of the 40 forms is at full size and none holds a
+rejected or withheld question — a question pulled is a question authored back the same
+day, at the same archetype and level.
 
 | Forms | Solved | Defects | Rate |
 |---|---:|---:|---:|
-| `vic-drill-mq-001..015` | 464 | 27 | 5.8% |
-| `vic-drill-rv-001..015` | 496 | 2 | 0.4% |
+| `vic-drill-mq-001..020` | 619 | 32 | 5.2% |
+| `vic-drill-rv-001..020` | 686 | 3 | 0.4% |
 | NSW sample (hand-authored) | 87 | 0 | 0.0% |
 
-The `rv` half has now run 371 questions clean since its single repair, and the maths half
-holds steady near 6%. Fifteen forms is enough to call the gap structural rather than
+The `rv` half has now run 561 questions clean since its single repair, and the maths half
+holds steady near 5%. Twenty forms is enough to call the gap structural rather than
 sampling noise.
+
+**Forms 16-20 turned up a defect class the earlier forms never surfaced: options that read
+differently and ARE the same answer.** `options_distinct_by_value` in `question_checks`
+parses each option as a number, a bare fraction, a whole-root surd or an "N out of M"
+probability and compares VALUES; `options_distinct` had only ever compared text, so it
+could not see `4/13` beside `16/52`, `2√25` beside `10`, or `1 out of 4` beside `6 out of
+24`. Swept over the served bank it found 29, of which 6 are exempt because they ask for
+lowest terms — there the unreduced equivalent is the skill being tested. Of the 23 real
+ones, 7 had two correct answers and one (`nsw-drill-math-035`) had all THREE distractors
+equal to 1/2, so the key fell out by elimination with no arithmetic at all. Root cause is
+closed: `ma_common.Q` compares option values now, not just their text.
+
+`one_point_on_the_line` covers the same fault where the options are not equal but are
+equally correct — "which point lies on y = 2x − 3?" offering both (2, 1) and (1, −1).
+
+**A second class: questions orphaned from the thing they refer to.** Reading and maths
+items were authored as SETS against one chart or scenario, question one introducing it and
+the rest opening "Using the same chart...". `assign_forms` deals each question
+independently, so the opener and its followers land in different papers. Six had no figure
+of their own and were unanswerable — a tin of tokens, a bag of counters, a spinner wheel,
+two number machines, a line of square tables whose opener does not exist anywhere in the
+bank. `tools/repair_orphaned_references.py` restates those and repoints 45 more that do
+carry their figure. **Anything authored as a set from now on must be self-contained per
+question, because the dealer will separate it.**
 
 Reading and Verbal came back nine times cleaner than Maths and Quantitative on the same
 source books, and the gap held across ten forms. It is what the questions ask, not who
