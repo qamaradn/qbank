@@ -97,6 +97,10 @@ BANNED_MANIFEST = REPO_ROOT / "run_data" / "output" / "vr_banned_types.json"
 # tools/qr_beyond_year8.py --manifest.
 BEYOND_Y8_MANIFEST = REPO_ROOT / "run_data" / "output" / "qr_beyond_year8.json"
 
+# Questions whose CONTENT belongs to another subject than their label -- US civics filed
+# under quantitative_reasoning. Correct questions with no component to sit in.
+OFF_SUBJECT_MANIFEST = REPO_ROOT / "run_data" / "output" / "qr_off_subject.json"
+
 
 def banned_ids() -> set[str]:
     """Ids excluded from every push. Absent manifest means nothing is excluded, which is
@@ -108,12 +112,13 @@ def banned_ids() -> set[str]:
 
 
 def beyond_year8_ids() -> set[str]:
-    """Quantitative ids ruled beyond Year 8 by hand. Same absent-manifest contract as
-    banned_ids()."""
-    if not BEYOND_Y8_MANIFEST.exists():
-        return set()
-    data = json.loads(BEYOND_Y8_MANIFEST.read_text())
-    return {b["id"] for b in data.get("excluded", [])}
+    """Quantitative ids ruled beyond Year 8 by hand, plus those whose content belongs to
+    another subject entirely. Same absent-manifest contract as banned_ids()."""
+    out: set[str] = set()
+    for path in (BEYOND_Y8_MANIFEST, OFF_SUBJECT_MANIFEST):
+        if path.exists():
+            out |= {b["id"] for b in json.loads(path.read_text()).get("excluded", [])}
+    return out
 
 
 BOOK_ROUTED = {

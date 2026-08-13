@@ -92,6 +92,7 @@ COMPONENTS = {
 WITHHELD_MANIFESTS = [
     (pathlib.Path("run_data/output/vr_banned_types.json"), "banned"),
     (pathlib.Path("run_data/output/qr_beyond_year8.json"), "excluded"),
+    (pathlib.Path("run_data/output/qr_off_subject.json"), "excluded"),
 ]
 
 
@@ -314,16 +315,24 @@ def health(conn, a):
     rows = conn.execute(
         "SELECT form_id, form_position, review_status, id FROM questions "
         "WHERE form_id IS NOT NULL ORDER BY form_id, form_position").fetchall()
-    per_slot = {"ts": 60, "math": 69, "read": 71}
+    # Derived from COMPONENTS rather than hardcoded: the literal dict here held only the
+    # three NSW slugs, so --report and --repair raised KeyError on every VIC form the
+    # moment VIC forms existed.
+    per_slot = {slug: secs for _, slug, _, _, secs in COMPONENTS.values()}
     forms = collections.OrderedDict()
     for r in rows:
         forms.setdefault(r["form_id"], []).append(r)
 
-    hurt = {f: [r for r in qs if r["review_status"] == "rejected"]
+    # A withheld question occupies a slot it can never be served in, exactly as a rejected
+    # one does, so --repair has to lift both. Rejected means WRONG; withheld means correct
+    # but with no component to sit in (banned type, beyond Year 8, off-subject).
+    held = withheld_ids()
+    hurt = {f: [r for r in qs
+                if r["review_status"] == "rejected" or r["id"] in held]
             for f, qs in forms.items()}
     hurt = {f: v for f, v in hurt.items() if v}
     print(f"{len(forms)} forms, {len(rows)} questions")
-    print(f"{len(hurt)} form(s) hold a rejected question "
+    print(f"{len(hurt)} form(s) hold a rejected or withheld question "
           f"({sum(len(v) for v in hurt.values())} in total)")
 
     for f, bad in sorted(hurt.items()):
@@ -345,12 +354,13 @@ def health(conn, a):
     for f, bad in hurt.items():
         conn.executemany("UPDATE questions SET form_id=NULL, form_position=NULL, "
                          "form_kind=NULL WHERE id=?", [(r["id"],) for r in bad])
-        keep = [r for r in forms[f] if r["review_status"] != "rejected"]
+        keep = [r for r in forms[f]
+                if r["review_status"] != "rejected" and r["id"] not in held]
         conn.executemany("UPDATE questions SET form_position=? WHERE id=?",
                          [(i, r["id"]) for i, r in enumerate(keep, 1)])
         n += len(bad)
     conn.commit()
-    print(f"\nlifted {n} rejected question(s) out and renumbered "
+    print(f"\nlifted {n} rejected/withheld question(s) out and renumbered "
           f"{len(hurt)} form(s). Re-run --report to confirm.")
 
 
