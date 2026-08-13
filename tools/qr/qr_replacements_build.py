@@ -284,6 +284,26 @@ Q("Angles in polygons",
   fmt=lambda v: f"{v} degrees")
 
 
+# ---------------------------------------------------------------- wave 4: mq-012
+# mq-012 lost a square-inside-a-square area question whose stem, explanation and key gave
+# three different answers. The replacement keeps the same territory -- a composite area
+# inside a square -- but states every measurement once, in the stem, so there is nothing
+# for a figure or an explanation to contradict.
+Q("Area of composite shapes",
+  "A square lawn measures 12 m on each side. A path 1 m wide is laid inside the lawn, "
+  "running all the way around its edge, so the grass that remains is a smaller square in "
+  "the middle. What is the area of the path?",
+  key=44, verify=12 * 12 - 10 * 10,
+  wrong=[(48, "multiplies the 12 m side by the 1 m width four times, double-counting the corners"),
+         (100, "gives the area of the remaining grass instead of the path"),
+         (23, "takes the path off one pair of sides only")],
+  expl="The path is 1 m wide on every side, so it takes 1 m off each end of both "
+       "dimensions: the grass left in the middle is 10 m by 10 m. The path is therefore "
+       "144 - 100 = 44 square metres. Answering 48 counts four strips of 12 x 1 and "
+       "double-counts the four corner squares.",
+  target_form="vic-drill-mq-012", fmt=lambda v: f"{v} m²")
+
+
 if __name__ == "__main__":
     GEN.mkdir(parents=True, exist_ok=True)
     path = GEN / f"{BOOK}_p{NN}.json"

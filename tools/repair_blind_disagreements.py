@@ -158,6 +158,38 @@ DECISIONS: list[tuple[str, str, str | None, str]] = [
      "closes on 'solving Australia's greatest challenges', which is specific industry "
      "support broadening into general scientific challenges. The key follows the text; my "
      "answer followed the examples."),
+    # --- vic-drill-mq-011, 2026-08-13
+    ("2203f240-1147-464e-bfdc-72f3f4b931fc", "rekey", "C",
+     "(4 minus 8) - 5 = -9, which is smaller than (4 divided by 8) - 5 = -4.5. The stored "
+     "explanation works all four out and states 'The smallest is -9, which is minus' -- "
+     "and the question is keyed to 'divided by'."),
+    ("9a6e0313-6f6d-4d8e-b195-24d164f1d657", "keep", None,
+     "FIGURE REPAIRED. The keyed answer of 1/3 needs Dylan to eat 4 of the 12 pieces, "
+     "which only works if ONE row is shaded: Jordan takes 4, leaving 8 unshaded, and "
+     "Dylan eats all but one row of them, so 4. The figure shaded TWO full rows, leaving "
+     "only one unshaded row, so 'all the unshaded except one row' left Dylan with nothing "
+     "at all and no option applied. The stored explanation says Dylan ate 'the middle "
+     "row', which is the row the figure had shaded. Middle row unshaded to match."),
+    # --- vic-drill-mq-012, 2026-08-13
+    ("87714921-cac5-48d0-8bb5-0801be49104f", "reject", None,
+     "Three different answers and no agreement anywhere. The STEM puts Y two centimetres "
+     "from D and Z two from A, which gives W(2,8), X(8,6), Y(2,0), Z(0,6) and an area of "
+     "32. The stored EXPLANATION places Y at (6,0) and Z at (0,2) -- measuring from the "
+     "other end of both sides -- which gives 40. The KEY says 52. None of the three is the "
+     "same and 32 is not even an option."),
+    ("928d3c31-29b5-4b1a-aaf8-d22af8958a3d", "rekey", "C",
+     "The figure is a Z-pentomino: two cells top-left, a vertical middle, two "
+     "bottom-right. Walking the fold from the middle column, four additions give six "
+     "distinct faces -- above and below the middle column (each making a 1-4-1 net), and "
+     "above the top-left cell and below the bottom-right cell. The other four adjacent "
+     "cells fail: two make a 2x2 block, and two put a repeated face on the cube. So the "
+     "answer is 4, not the keyed 2. The stored explanation calls the shape 'L-shaped', "
+     "which it is not -- it counted for a different pentomino."),
+    ("a016ffb4-44d8-4c44-b335-679526296975", "rekey", "B",
+     "AB is vertical of length 6 on x = 2, so an area of 24 needs a horizontal distance of "
+     "8 from that line: C is (10,0). The stored explanation derives exactly that -- "
+     "'1/2 x 6 x |x - 2| = 24' -- and the question is keyed to (8,0), which gives an area "
+     "of 18."),
 ]
 
 
