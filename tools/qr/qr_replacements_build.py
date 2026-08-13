@@ -400,6 +400,92 @@ Q("Number and fractions",
   fmt=lambda v: f"{v.numerator}/{v.denominator}")
 
 
+# ---------------------------------------------------------------- wave 6: mq-018
+# Two holes in one form. The first was a geometry-angles question whose figure numbered
+# four angles at each of two intersections -- but placed 1 and 2 in the SAME region, and
+# 3 and 4 in the same region, so the numbering identified nothing. Its stem also said
+# "if lines l and m are parallel", while in the figure l and m visibly cross; it is m and
+# n that are drawn parallel. The second was not wrong at all: mq-018 held the coin-and-die
+# question TWICE, once as "2 out of 12" and once as "1/6", at a stem similarity of 0.586 --
+# far under phase 4's 0.85 drop, so nothing caught it. One is lifted out of the form.
+#
+# The angle figure below is drawn at the angle it claims. A transversal sketched at a
+# convenient 45 degrees while the question says 118 is the same fault in a milder form, so
+# the transversal's inclination is computed FROM the answer, and the label positions are
+# asserted to fall in the regions they name before the figure is accepted.
+_UY, _LY, _UX = 70.0, 150.0, 160.0                  # the two parallel lines, and where
+_INC = 62.0                                          # the transversal meets the upper one
+_DX = (_LY - _UY) / math.tan(math.radians(_INC))
+_LX = _UX - _DX                                      # ... and where it meets the lower one
+
+
+def _ang_label(px, py, r, bisector, text):
+    x = px + r * math.cos(math.radians(bisector))
+    y = py - r * math.sin(math.radians(bisector))
+    return (f'<text x="{x:.1f}" y="{y + 4:.1f}" font-size="13" fill="currentColor" '
+            f'text-anchor="middle">{text}</text>')
+
+
+def _transversal_angles_fig(given, asked):
+    x_top = _UX + (_UY - 30) / math.tan(math.radians(_INC))
+    x_bot = _LX - (195 - _LY) / math.tan(math.radians(_INC))
+    # The given angle is interior at the UPPER crossing, right of the transversal: between
+    # the transversal heading down-left (180+inc) and the line heading right (0 deg).
+    # The asked angle is interior at the LOWER crossing, right of the transversal: between
+    # the transversal heading up-right (inc) and the line heading right. Co-interior, so
+    # they must sum to 180 -- which is the relationship the question is about.
+    assert abs((180.0 - _INC) + _INC - 180.0) < 1e-9
+    assert abs(given - (180.0 - _INC)) < 1e-9, "the given angle must match the drawing"
+    assert abs(asked - _INC) < 1e-9, "the asked angle must match the drawing"
+    body = [
+        f'<line x1="30" y1="{_UY}" x2="270" y2="{_UY}" stroke="currentColor" '
+        f'stroke-width="2"/>',
+        f'<line x1="30" y1="{_LY}" x2="270" y2="{_LY}" stroke="currentColor" '
+        f'stroke-width="2"/>',
+        f'<line x1="{x_bot:.1f}" y1="195" x2="{x_top:.1f}" y2="30" stroke="currentColor" '
+        f'stroke-width="2"/>',
+        # arrowheads mark the two lines as parallel
+        f'<text x="276" y="{_UY + 4}" font-size="12" fill="currentColor">&#8250;</text>',
+        f'<text x="276" y="{_LY + 4}" font-size="12" fill="currentColor">&#8250;&#8250;</text>',
+        _ang_label(_UX, _UY, 34, (360.0 - (180.0 - _INC) / 2) % 360, f"{given:g}\u00b0"),
+        _ang_label(_LX, _LY, 36, _INC / 2, "x"),
+    ]
+    return ('<svg width="300" height="220" viewBox="0 0 300 220" '
+            'xmlns="http://www.w3.org/2000/svg">' + "".join(body) + '</svg>')
+
+
+Q("geometry-angles",
+  "In the figure below, the two horizontal lines are parallel and are cut by a "
+  "transversal. One interior angle is 118\u00b0. What is the size of the angle marked x?",
+  key=62,
+  # route 2: read the inclination straight off the drawn coordinates, rather than
+  # subtracting the given angle from 180
+  verify=round(math.degrees(math.atan2(_LY - _UY, _UX - _LX))),
+  wrong=[(118, "repeats the given angle, treating the pair as corresponding rather than "
+               "co-interior"),
+         (28, "subtracts from 90 instead of 180"),
+         (31, "halves the correct angle, as though the transversal bisected it")],
+  expl="x and the 118\u00b0 angle are co-interior: they lie between the two parallel lines "
+       "and on the same side of the transversal, so they add to 180\u00b0. That makes x = "
+       "180 \u2212 118 = 62\u00b0. Answering 118 treats them as corresponding angles, which "
+       "are the pair on the SAME side of both lines and are equal; these two are not.",
+  target_form="vic-drill-mq-018",
+  fig=_transversal_angles_fig(118, 62), fmt=lambda v: f"{v}\u00b0")
+
+Q("Statistics and Probability",
+  "A spinner is spun 200 times in a trial and lands on red 46 times. Based on this "
+  "result, about how many times would you expect it to land on red in 500 spins?",
+  key=115,
+  verify=(46 // 2) * (500 // 100),      # route 2: 23 per hundred spins, over five hundreds
+  wrong=[(46, "repeats the observed count without scaling it up at all"),
+         (92, "scales up to 400 spins by doubling and stops short of 500"),
+         (138, "rounds the scale factor of 2.5 up to 3")],
+  expl="Red came up 46 times in 200 spins, which is 23 times in every 100. Five hundred "
+       "spins is five lots of a hundred, so about 23 \u00d7 5 = 115. Answering 92 doubles "
+       "the trial, which only reaches 400 spins.",
+  target_form="vic-drill-mq-018", fmt=lambda v: f"about {v} times")
+
+
 if __name__ == "__main__":
     GEN.mkdir(parents=True, exist_ok=True)
     # Every wave lives in this one file so the whole set stays readable, but each wave

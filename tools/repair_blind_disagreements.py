@@ -223,6 +223,16 @@ DECISIONS: list[tuple[str, str, str | None, str]] = [
      "two correct answers. The explanation writes 'P = 16/52 = 4/13', naming both without "
      "noticing. 16/52 replaced by 15/52 (subtracting the overlap twice). Note 1/4 is 13/52, "
      "the spades alone, which is a genuine error and distinct."),
+    # --- vic-drill-mq-018, 2026-08-13
+    ("53a2b891-816d-4ab5-a3df-7ccc9e4fcc8a", "reject", None,
+     "The figure numbers four angles at each of two intersections, but places 1 and 2 in "
+     "the SAME region and 3 and 4 in the same region -- checked by testing each label's "
+     "position against the lines it sits between -- so the numbering identifies nothing "
+     "and no statement about angle 1 versus angle 3 can be evaluated. The stem also "
+     "offers 'if lines l and m are parallel cut by n', while in the drawing l and m cross "
+     "at the left intersection; it is m and n that are parallel, both at slope -1.6. "
+     "Replaced by a co-interior angle question whose transversal is drawn at the "
+     "inclination the question states."),
 ]
 
 
