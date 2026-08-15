@@ -355,11 +355,15 @@ def deactivate(url: str, secret: str, ids: list[str], dry_run: bool) -> int:
     if dry_run:
         logger.info(f"[dry-run] would deactivate {len(ids)} question(s)")
         return 0
-    payload = json.dumps({"qbankIds": ids, "active": False}).encode("utf-8")
+    # Shape and auth verified against Selectly's route: a `fixes` array of entries each
+    # addressed by exactly one of id/qbankId, and an `x-import-secret` header -- NOT the
+    # bearer token /api/questions/import uses. The two endpoints differ.
+    payload = json.dumps(
+        {"fixes": [{"qbankId": qid, "active": False} for qid in ids]}).encode("utf-8")
     req = urllib.request.Request(
         f"{url.rstrip('/')}/api/admin/questions-fix", data=payload,
         headers={"Content-Type": "application/json",
-                 "Authorization": f"Bearer {secret}"}, method="POST")
+                 "x-import-secret": secret}, method="POST")
     try:
         with urllib.request.urlopen(req, timeout=60) as resp:
             body = json.loads(resp.read().decode("utf-8"))

@@ -35,9 +35,22 @@ document.
 
 **The code for §1 already exists on both sides and is not deployed.** Selectly commit
 `c52ffa9` on the unmerged local branch `feature/qbank-id-addressability` adds the column,
-the upsert, and `qbankId` addressing in `questions-fix`; qbank has
-`pipeline/backfill_qbank_ids.py`. So §1 is a **merge, deploy, migrate and verify** job,
-not a build job. Until it ships, everything below stays blocked.
+the upsert, and `qbankId` addressing in `questions-fix`. Re-read on 2026-08-15, it is
+better than this document previously credited: the import upserts on `qbankId`, keeps
+`questions.id` stable, and **deliberately excludes `active` from the update set**, so a
+re-push cannot resurrect a question you deactivated. So §1 is a **merge, deploy, migrate
+and verify** job, not a build job. Until it ships, everything below stays blocked.
+
+**A hazard that will bite on the reload.** qbank's tracking file
+(`run_data/db/pushed_to_selectly.json`) records **5,321 questions as already pushed**.
+If `questions` is wiped without clearing it, the reload sends almost nothing — the pusher
+believes Selectly already holds them. **The wipe must be paired with
+`push_to_selectly.py --reset-tracking`.** This is now the only remaining use of that flag:
+tracking is otherwise content-hashed and self-correcting (§8.2).
+
+**The review loop is now specified in §8.** Read it before building anything in §6 —
+it is what the first ten forms are for, and it adds one small requirement to the CSV
+export that nothing else in this document mentions.
 
 ---
 
@@ -393,20 +406,31 @@ never been looked at by a human.
 
 ## 6. SUGGESTED ORDER OF WORK
 
+**Revised 2026-08-15 to a ten-form pilot.** The original plan opened the whole approved
+bank to the reviewer at once. It now runs 273 questions through the entire loop first —
+wipe, reload, review, flag, export, fix in qbank, re-push — because if the CSV is missing
+a column or the upsert misbehaves, that is an afternoon lost rather than a fortnight of
+review done against a broken pipe. The remaining forms open once a round has completed
+end to end.
+
 1. **`qbank_id`** — merge `feature/qbank-id-addressability`, apply
-   `supabase/migrations/0001_add_questions_qbank_id.sql`, deploy, then run
-   `pipeline/backfill_qbank_ids.py --dry-run` and inspect the unmatched count before
-   writing. Deactivate whatever stays null. Nothing else here can proceed first.
+   `supabase/migrations/0001_add_questions_qbank_id.sql`, deploy. The backfill step is
+   dropped: §1.1 wipes instead, so there is nothing to match. Nothing else can proceed
+   first.
 2. **Add `form_id`, `form_position`, `form_kind`** to the `questions` table **and to the
    import zod schema** — they are being sent already and silently dropped.
 3. **`form_attempts` table and the two selector changes** — fixed forms and exact-pace
    timing.
 4. **Wipe `questions` and `question_flags`** (§1.1).
-5. **Reload.** `push_to_selectly.py --reset-tracking`, then push. This single step replaces
-   the old steps 2, 3, 5 and 6: the 3,133 repairs, the 7 rejected-but-live rows, the 158
+5. **Reload the pilot.** `push_to_selectly.py --reset-tracking`, then push with
+   `--forms` naming the ten (§8.1). The reset is mandatory — see §0. This single step
+   replaces the old steps 2, 3, 5 and 6: the repairs, the rejected-but-live rows, the 158
    banned verbal types and the form assignments all resolve because the bank is rebuilt
    from qbank's current state rather than patched toward it.
-6. VIC content import, once reviewed.
+6. **Add `qbank_id` to the flagged-questions CSV export** (§8.3). Small, and the review
+   loop cannot close without it.
+7. Open the remaining forms once one review round has run end to end. VIC content import
+   follows the same path.
 
 ---
 
@@ -425,3 +449,89 @@ These are decisions qbank cannot make alone.
   `form_kind='mock'`, and retire into drill when superseded. 19 mock forms are needed for a
   September launch with weekly mocks over the final three months. No mock form has been
   dealt in qbank; nothing in Selectly needs to handle `form_kind='mock'` until they are.
+
+---
+
+## 8. THE REVIEW LOOP (added 2026-08-15)
+
+**Decision: qbank and Selectly never talk to each other automatically.** qbank does not
+read Selectly's database; Selectly does not call qbank. The only channels are the push
+(qbank → Selectly, over HTTPS) and a CSV a human carries the other way. This is
+deliberate — the owner's call — and everything below is built to that constraint.
+
+### 8.1 The pilot: ten forms, 273 questions
+
+| Exam | Forms | Questions |
+|---|---|---:|
+| VIC | `vic-drill-mq-001..003`, `vic-drill-rv-001..002` | 169 |
+| NSW | `nsw-drill-read-001`, `nsw-drill-math-001..002`, `nsw-drill-ts-001..002` | 104 |
+
+Split within each exam is proportional to each component's share of its forms, so the
+reviewer sees every question type the app will serve. All ten are approved in qbank
+(`tools/approve_forms.py`, revertible) and carry `form_id`/`form_position`/`form_kind`.
+
+**Approval here does not mean reviewed.** It is what makes a question reachable by the
+pusher — `fetch_approved` sends `review_status='approved'` and nothing else. Every one of
+the 273 is unread by a human; the reviewer IS the check. Worth knowing which side of that
+is which: the VIC forms have been blind-solved question by question, the NSW ones have
+not (about 3% sampled), so expect the NSW half to surface more.
+
+### 8.2 The loop
+
+1. Reviewer (`fouijnu@`) works the forms in Selectly and flags what looks wrong.
+2. Admin (`qamar.adn@`) exports the flagged-questions CSV.
+3. The CSV comes to qbank. `tools/ingest_review_flags.py` matches each flag to its stored
+   question and writes a worklist. It applies **nothing** — a flag says "this looks
+   wrong", which is not the same as knowing what is wrong. Across the blind-solve campaign
+   that same signal resolved into a wrong key, a second correct answer, a figure
+   contradicting its stem, and a perfectly sound question misread. Each is adjudicated:
+   **repair / rekey / reject-and-replace / keep**.
+4. Fixes land **in qbank**, never in Selectly. A question rejected at review is replaced
+   by a newly authored one at the same archetype and position, so the form keeps its size.
+5. `push_to_selectly.py --forms ...` re-sends **only what changed**, upserting in place,
+   and switches off anything now rejected via `questions-fix`.
+
+**Why fixes never go into Selectly directly.** §0 of this document is a description of
+what happens when the two are corrected independently. Editing a flagged question in the
+app would rebuild that divergence one question at a time, and the next reload would
+silently revert it. Selectly is never edited; it is rebuilt from qbank's current state,
+incrementally.
+
+The one legitimate exception is `active`, which is a *serving* decision rather than a
+content correction. It is owned by `questions-fix` and excluded from the import's update
+set precisely so that a re-push cannot undo it.
+
+### 8.3 What Selectly must add for this to work
+
+**`qbank_id` in the flagged-questions CSV.** `/api/admin/flagged-questions/export`
+currently emits `question_id` — Selectly's own uuid, which qbank has never seen and cannot
+resolve. Join to `questions.qbank_id` and add the column. `tools/ingest_review_flags.py`
+refuses a CSV without it rather than guessing, so the loop is blocked on this. It is a few
+lines and it is the hinge of the whole workflow.
+
+**`formId`, `formPosition`, `formKind` in the import.** Confirmed by reading the code on
+2026-08-15: these appear **nowhere** in the Selectly repo — not in `validateQuestion`, not
+in the import's values object, not in the schema. qbank has been sending them all along and
+zod strips them silently. Without this the reload produces form-less questions and the
+forms have to be dealt a second time. §6 step 2, still outstanding.
+
+### 8.4 The obsolete flags now in the admin
+
+The `question_flags` rows currently visible on the admin page — and their CSV export — are
+from an earlier review round and **have already been actioned in qbank**. They refer to
+questions by Selectly uuids that will not survive the reload, and to content that has since
+been repaired. §1.1 wipes `question_flags` alongside `questions` for this reason. Do not
+try to carry them forward or reconcile them; they are spent.
+
+### 8.5 qbank-side changes already made (2026-08-15)
+
+- `push_to_selectly.py` tracks a **hash of the payload sent** per question, not merely
+  that it was sent. Under the old id-only tracking a repaired question was skipped
+  *because* it had been pushed before, which would have made the loop above impossible.
+  Old-format files load with a sentinel so the first run re-sends once, then settles.
+- `--forms` scopes a run to named forms — for the pilot, and for every later round.
+- A withdrawal pass switches off questions that are no longer sendable, addressed by
+  `qbankId`, scoped by `--forms`.
+- A guard refuses more than 200 withdrawals in one run. Bulk deactivation is the shape of
+  a mistake — a forgotten `--forms`, or a stale tracking file after approvals were reset.
+- `tools/approve_forms.py` and `tools/ingest_review_flags.py`, described above.

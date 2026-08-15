@@ -126,3 +126,31 @@ def test_tracking_round_trips_hashes(tmp_path, monkeypatch):
 def test_deactivate_is_a_noop_for_an_empty_list():
     from pipeline.push_to_selectly import deactivate
     assert deactivate("http://x", "s", [], dry_run=False) == 0
+
+
+def test_deactivate_sends_the_shape_questions_fix_expects(monkeypatch):
+    """The two Selectly endpoints do not share a contract: import takes a bearer token
+    and a `questions` array; questions-fix takes an x-import-secret header and a `fixes`
+    array addressed per row. Getting this wrong fails silently as a 403."""
+    import json as _json
+    import pipeline.push_to_selectly as m
+    seen = {}
+
+    class _Resp:
+        def read(self): return _json.dumps({"updated": 2}).encode()
+        def __enter__(self): return self
+        def __exit__(self, *a): return False
+
+    def fake_urlopen(req, timeout=None):
+        seen["url"] = req.full_url
+        seen["headers"] = {k.lower(): v for k, v in req.headers.items()}
+        seen["body"] = _json.loads(req.data)
+        return _Resp()
+
+    monkeypatch.setattr(m.urllib.request, "urlopen", fake_urlopen)
+    assert m.deactivate("http://x", "sec", ["q1", "q2"], dry_run=False) == 2
+    assert seen["url"].endswith("/api/admin/questions-fix")
+    assert seen["headers"].get("x-import-secret") == "sec"
+    assert "authorization" not in seen["headers"]
+    assert seen["body"] == {"fixes": [{"qbankId": "q1", "active": False},
+                                      {"qbankId": "q2", "active": False}]}
