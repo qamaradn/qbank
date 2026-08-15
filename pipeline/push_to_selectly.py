@@ -43,6 +43,12 @@ logger = logging.getLogger(__name__)
 REPO_ROOT = Path(__file__).parent.parent
 DB_PATH = REPO_ROOT / "run_data" / "db" / "qbank.db"
 TRACKING_FILE = REPO_ROOT / "run_data" / "db" / "pushed_to_selectly.json"
+# Marks a row carried over from the id-only tracking format, whose sent content is
+# unknown. Never equal to a real hash, so such rows are re-sent once.
+LEGACY_HASH = "unknown-legacy"
+# Above this many withdrawals in one run, stop and make the operator confirm. Bulk
+# deactivation is the shape of a mistake, not of a review round.
+DEACTIVATE_LIMIT = 200
 
 SCHOOL_IDS = ["vic-seal", "nsw-shspt"]
 
@@ -164,16 +170,37 @@ def load_env() -> None:
         os.environ.setdefault(key.strip(), value.strip())
 
 
-def load_tracking() -> set:
+def payload_hash(q: dict) -> str:
+    """Fingerprint of what was actually sent for a question.
+
+    The old tracking file recorded ids only, which was correct while the import was
+    insert-only: a question was either there or not. Now that the import upserts on
+    qbankId, "already pushed" is the wrong question to ask -- a question whose key or
+    options were repaired must go again, and under id-only tracking it never would.
+    Hashing the payload makes the pusher re-send exactly what changed and nothing else.
+    """
+    return hashlib.sha256(
+        json.dumps(q, sort_keys=True, ensure_ascii=False).encode("utf-8")
+    ).hexdigest()[:16]
+
+
+def load_tracking() -> dict:
+    """Return {qbank_id: payload_hash}. Older files held a bare id list; those load with
+    a sentinel hash so the first run after upgrading re-sends everything once and then
+    settles. That is the safe direction: re-sending is idempotent under upsert, whereas
+    treating an unknown hash as "unchanged" would strand real repairs."""
     if TRACKING_FILE.exists():
         data = json.loads(TRACKING_FILE.read_text())
-        return set(data.get("pushed_ids", []))
-    return set()
+        if "pushed" in data:
+            return data["pushed"]
+        return {qid: LEGACY_HASH for qid in data.get("pushed_ids", [])}
+    return {}
 
 
-def save_tracking(pushed_ids: set) -> None:
+def save_tracking(pushed: dict) -> None:
     TRACKING_FILE.parent.mkdir(parents=True, exist_ok=True)
-    TRACKING_FILE.write_text(json.dumps({"pushed_ids": sorted(pushed_ids)}, indent=2))
+    TRACKING_FILE.write_text(
+        json.dumps({"pushed": dict(sorted(pushed.items()))}, indent=2))
 
 
 def build_stem(row: dict) -> str:
@@ -257,22 +284,41 @@ def row_to_question(row: dict) -> dict:
     return q
 
 
-def fetch_approved(subject: str | None) -> list[dict]:
+def fetch_withdrawn(conn_path=None) -> list[dict]:
+    """Questions that are NOT sendable but may already be live in Selectly.
+
+    A question the reviewer rejects stops being returned by fetch_approved, and under
+    push-only semantics that means it simply stays live: the pusher has no way to say
+    "this one, stop serving it". These rows are what the deactivation pass acts on.
+    """
+    conn = sqlite3.connect(conn_path or DB_PATH)
+    conn.row_factory = sqlite3.Row
+    try:
+        return [dict(r) for r in conn.execute(
+            "SELECT id, stem, subject, review_status, form_id FROM questions "
+            "WHERE review_status != 'approved'")]
+    finally:
+        conn.close()
+
+
+def fetch_approved(subject: str | None, forms: list[str] | None = None) -> list[dict]:
     if not DB_PATH.exists():
         logger.error(f"Database not found: {DB_PATH}")
         sys.exit(1)
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
     try:
+        where = ["review_status='approved'"]
+        params: list = []
         if subject:
-            rows = conn.execute(
-                "SELECT * FROM questions WHERE review_status='approved' AND subject=? ORDER BY created_at",
-                (subject,),
-            ).fetchall()
-        else:
-            rows = conn.execute(
-                "SELECT * FROM questions WHERE review_status='approved' ORDER BY subject, created_at"
-            ).fetchall()
+            where.append("subject=?")
+            params.append(subject)
+        if forms:
+            where.append(f"form_id IN ({','.join('?' * len(forms))})")
+            params.extend(forms)
+        rows = conn.execute(
+            f"SELECT * FROM questions WHERE {' AND '.join(where)} "
+            f"ORDER BY subject, created_at", params).fetchall()
         return [dict(r) for r in rows]
     finally:
         conn.close()
@@ -297,6 +343,36 @@ def post_batch(url: str, secret: str, questions: list[dict]) -> tuple[int, int, 
         raise RuntimeError(f"HTTP {e.code}: {e.read().decode()}") from e
 
 
+def deactivate(url: str, secret: str, ids: list[str], dry_run: bool) -> int:
+    """Ask Selectly to stop serving questions that are no longer sendable.
+
+    Addresses rows by qbankId, which only works once Selectly commit c52ffa9 is
+    deployed. Before that this endpoint cannot find the row and the call is a no-op --
+    which is why it reports what it could not deactivate rather than failing quietly.
+    """
+    if not ids:
+        return 0
+    if dry_run:
+        logger.info(f"[dry-run] would deactivate {len(ids)} question(s)")
+        return 0
+    payload = json.dumps({"qbankIds": ids, "active": False}).encode("utf-8")
+    req = urllib.request.Request(
+        f"{url.rstrip('/')}/api/admin/questions-fix", data=payload,
+        headers={"Content-Type": "application/json",
+                 "Authorization": f"Bearer {secret}"}, method="POST")
+    try:
+        with urllib.request.urlopen(req, timeout=60) as resp:
+            body = json.loads(resp.read().decode("utf-8"))
+        n = body.get("updated", 0)
+        if n < len(ids):
+            logger.warning(f"deactivated {n} of {len(ids)} — the rest were not found by "
+                           f"qbankId. Is Selectly commit c52ffa9 deployed?")
+        return n
+    except urllib.error.HTTPError as e:
+        logger.error(f"deactivation failed: HTTP {e.code}: {e.read().decode()[:200]}")
+        return 0
+
+
 def run(args: argparse.Namespace) -> None:
     load_env()
 
@@ -309,7 +385,10 @@ def run(args: argparse.Namespace) -> None:
         return
 
     already_pushed = load_tracking()
-    all_rows = fetch_approved(args.subject)
+    forms = [f.strip() for f in (args.forms or "").split(",") if f.strip()]
+    all_rows = fetch_approved(args.subject, forms or None)
+    if forms:
+        logger.info(f"Restricted to {len(forms)} form(s): {', '.join(forms)}")
 
     excluded = banned_ids()
     if not excluded:
@@ -334,7 +413,27 @@ def run(args: argparse.Namespace) -> None:
     homeless = [r for r in all_rows if not school_ids_for(r)]
     all_rows = [r for r in all_rows if school_ids_for(r)]
 
-    to_push = [r for r in all_rows if r["id"] not in already_pushed]
+    # Send anything never sent, and anything whose sent content has since changed. The
+    # second half is the point: a repaired key or a redrawn figure has to reach Selectly,
+    # and under the old id-only tracking it never did.
+    payloads = {r["id"]: row_to_question(r) for r in all_rows}
+    fresh = [r for r in all_rows if r["id"] not in already_pushed]
+    changed = [r for r in all_rows
+               if r["id"] in already_pushed
+               and already_pushed[r["id"]] != payload_hash(payloads[r["id"]])]
+    to_push = fresh + changed
+
+    # Anything previously sent that is no longer sendable must be switched off, or a
+    # question rejected at review keeps being served.
+    sendable_ids = {r["id"] for r in all_rows}
+    if forms:
+        # Scope withdrawal to the same forms. Without this a pilot run would treat every
+        # question outside the pilot as "no longer sendable" and switch off the bank.
+        scoped = {r["id"] for r in fetch_withdrawn() if r.get("form_id") in set(forms)}
+        stale = sorted(qid for qid in already_pushed
+                       if qid in scoped and qid not in sendable_ids)
+    else:
+        stale = sorted(qid for qid in already_pushed if qid not in sendable_ids)
 
     # Summary
     by_subject: dict[str, int] = {}
@@ -357,13 +456,32 @@ def run(args: argparse.Namespace) -> None:
     with_forms = sum(1 for r in to_push if r.get("form_id"))
     logger.info(f"Carrying a form assignment: {with_forms} of {len(to_push)}")
     logger.info(f"Already pushed : {len(already_pushed)}")
-    logger.info(f"To push        : {len(to_push)}")
+    logger.info(f"To push        : {len(to_push)}  ({len(fresh)} new, "
+                f"{len(changed)} changed since last push)")
+    if stale:
+        logger.info(f"To deactivate  : {len(stale)} — pushed before, no longer sendable")
     for subj, count in sorted(by_subject.items()):
         logger.info(f"  {subj}: {count}")
 
-    if not to_push:
-        logger.info("Nothing new to push.")
+    # A withdrawal is work even when there is nothing to send. Only stop when neither
+    # half has anything to do.
+    if not to_push and not stale:
+        logger.info("Nothing to push and nothing to withdraw.")
         return
+    if not to_push:
+        logger.info("Nothing new to push — proceeding to the withdrawal pass only.")
+
+    # Deactivating in bulk is almost never what anyone means. It happens when approvals
+    # are reset, or when --forms is forgotten: every question outside the intended scope
+    # looks "no longer sendable". Make it deliberate.
+    if stale and len(stale) > DEACTIVATE_LIMIT and not args.force_deactivate:
+        logger.error(
+            f"REFUSING to deactivate {len(stale)} questions (limit {DEACTIVATE_LIMIT}). "
+            f"This usually means --forms was omitted, or approvals were reset and the "
+            f"tracking file still describes an older push. Re-run with --forms to scope "
+            f"it, or --force-deactivate if switching off {len(stale)} is genuinely "
+            f"intended.")
+        sys.exit(1)
 
     if args.dry_run:
         logger.info("DRY RUN — no API calls made.")
@@ -391,7 +509,7 @@ def run(args: argparse.Namespace) -> None:
 
     total_inserted = total_skipped = 0
     total_errors: list[str] = []
-    newly_pushed: set[str] = set()
+    newly_pushed: dict[str, str] = {}
 
     for i, batch in enumerate(batches, 1):
         questions = [row_to_question(r) for r in batch]
@@ -411,7 +529,7 @@ def run(args: argparse.Namespace) -> None:
                     rejected_idx.add(int(m.group(1)))
             for idx, r in enumerate(batch):
                 if idx not in rejected_idx:
-                    newly_pushed.add(r["id"])
+                    newly_pushed[r["id"]] = payload_hash(questions[idx])
             logger.info(f"  inserted={inserted} skipped={skipped} errors={len(errors)}")
             if errors:
                 for e in errors[:5]:
@@ -424,11 +542,22 @@ def run(args: argparse.Namespace) -> None:
         if i < len(batches):
             time.sleep(0.3)
 
-    save_tracking(already_pushed | newly_pushed)
+    tracked = {**already_pushed, **newly_pushed}
+
+    # Deactivate last: a question withdrawn from service should stop being served even
+    # if the push above partly failed, and dropping it from tracking would make the next
+    # run forget it ever existed.
+    if stale and not args.no_deactivate:
+        n = deactivate(url, secret, stale, args.dry_run)
+        for qid in stale:
+            if n:
+                tracked.pop(qid, None)
+
+    save_tracking(tracked)
 
     logger.info("─" * 50)
     logger.info(f"inserted={total_inserted}  skipped={total_skipped}  errors={len(total_errors)}")
-    logger.info(f"Cumulative pushed: {len(already_pushed | newly_pushed)}")
+    logger.info(f"Cumulative tracked: {len(tracked)}")
 
 
 def main() -> None:
@@ -439,6 +568,14 @@ def main() -> None:
     parser.add_argument("--batch", type=int, default=100, help="Questions per POST (default 100)")
     parser.add_argument("--dry-run", action="store_true", help="Show plan without sending")
     parser.add_argument("--reset-tracking", action="store_true", help="Clear push tracking and exit")
+    parser.add_argument("--forms", default="",
+                        help="Comma-separated form_ids to push, e.g. the pilot set. "
+                             "Restricts BOTH the push and the deactivation pass.")
+    parser.add_argument("--force-deactivate", action="store_true",
+                        help=f"Allow deactivating more than {DEACTIVATE_LIMIT} questions "
+                             f"at once. Almost always a mistake; read the error first.")
+    parser.add_argument("--no-deactivate", action="store_true",
+                        help="Skip switching off questions that are no longer sendable")
     args = parser.parse_args()
     run(args)
 

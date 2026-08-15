@@ -80,3 +80,49 @@ def test_every_routed_category_is_one_selectly_knows():
     valid = {"vic-seal", "nsw-shspt"}
     for subject, schools in CATEGORY_SCHOOLS.items():
         assert set(schools) <= valid, subject
+
+
+# --------------------------------------------------------------- push tracking
+# The tracking file used to hold ids only, which was right while the import was
+# insert-only. Now that it upserts on qbankId, a repaired question must go again --
+# the whole review loop depends on it.
+
+def test_payload_hash_changes_when_the_key_is_repaired():
+    from pipeline.push_to_selectly import payload_hash
+    q = {"qbankId": "x", "correctAnswer": "A", "options": {"A": "1", "B": "2"}}
+    before = payload_hash(q)
+    q["correctAnswer"] = "B"
+    assert payload_hash(q) != before
+
+
+def test_payload_hash_is_stable_for_identical_content():
+    from pipeline.push_to_selectly import payload_hash
+    a = {"qbankId": "x", "stem": "s", "options": {"A": "1", "B": "2"}}
+    b = {"options": {"B": "2", "A": "1"}, "stem": "s", "qbankId": "x"}
+    assert payload_hash(a) == payload_hash(b), "key order must not change the hash"
+
+
+def test_legacy_id_only_tracking_loads_as_unknown(tmp_path, monkeypatch):
+    """A file from the old format has no record of what was sent. Treating those rows as
+    'unchanged' would strand every repair made before the upgrade, so they re-send once."""
+    import json as _json
+    import pipeline.push_to_selectly as m
+    f = tmp_path / "pushed.json"
+    f.write_text(_json.dumps({"pushed_ids": ["a", "b"]}))
+    monkeypatch.setattr(m, "TRACKING_FILE", f)
+    loaded = m.load_tracking()
+    assert loaded == {"a": m.LEGACY_HASH, "b": m.LEGACY_HASH}
+    assert m.LEGACY_HASH != m.payload_hash({"qbankId": "a"})
+
+
+def test_tracking_round_trips_hashes(tmp_path, monkeypatch):
+    import pipeline.push_to_selectly as m
+    f = tmp_path / "pushed.json"
+    monkeypatch.setattr(m, "TRACKING_FILE", f)
+    m.save_tracking({"a": "h1", "b": "h2"})
+    assert m.load_tracking() == {"a": "h1", "b": "h2"}
+
+
+def test_deactivate_is_a_noop_for_an_empty_list():
+    from pipeline.push_to_selectly import deactivate
+    assert deactivate("http://x", "s", [], dry_run=False) == 0
