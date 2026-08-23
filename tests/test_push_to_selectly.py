@@ -111,7 +111,8 @@ def test_legacy_id_only_tracking_loads_as_unknown(tmp_path, monkeypatch):
     f.write_text(_json.dumps({"pushed_ids": ["a", "b"]}))
     monkeypatch.setattr(m, "TRACKING_FILE", f)
     loaded = m.load_tracking()
-    assert loaded == {"a": m.LEGACY_HASH, "b": m.LEGACY_HASH}
+    assert loaded == {"a": {"h": m.LEGACY_HASH, "f": None},
+                      "b": {"h": m.LEGACY_HASH, "f": None}}
     assert m.LEGACY_HASH != m.payload_hash({"qbankId": "a"})
 
 
@@ -119,8 +120,9 @@ def test_tracking_round_trips_hashes(tmp_path, monkeypatch):
     import pipeline.push_to_selectly as m
     f = tmp_path / "pushed.json"
     monkeypatch.setattr(m, "TRACKING_FILE", f)
-    m.save_tracking({"a": "h1", "b": "h2"})
-    assert m.load_tracking() == {"a": "h1", "b": "h2"}
+    m.save_tracking({"a": {"h": "h1", "f": "form-1"}, "b": {"h": "h2", "f": None}})
+    assert m.load_tracking() == {"a": {"h": "h1", "f": "form-1"},
+                                 "b": {"h": "h2", "f": None}}
 
 
 def test_deactivate_is_a_noop_for_an_empty_list():
@@ -164,3 +166,38 @@ def test_every_replacement_book_is_routed():
     for book in ("ma_nsw_replacements",):
         row = {"subject": "mathematics", "source_book": book}
         assert school_ids_for(row), f"{book} routes to no exam"
+
+
+def test_a_rejected_question_lifted_from_its_form_is_still_withdrawn(tmp_path, monkeypatch):
+    """The row that most needs switching off is the one that stops belonging to a form.
+
+    A question rejected at review is lifted out, so its form_id becomes NULL. Scoping the
+    withdrawal pass by CURRENT form made it invisible — it would have kept being served
+    to the reviewer indefinitely. Tracking records the form each question was sent as
+    part of, so scoping works on where it WAS.
+    """
+    import json as _json
+    import pipeline.push_to_selectly as m
+    f = tmp_path / "pushed.json"
+    f.write_text(_json.dumps({"pushed": {
+        "kept": {"h": "h1", "f": "nsw-drill-math-001"},
+        "rejected-and-lifted": {"h": "h2", "f": "nsw-drill-math-001"},
+        "other-form": {"h": "h3", "f": "vic-drill-mq-050"},
+    }}))
+    monkeypatch.setattr(m, "TRACKING_FILE", f)
+    tracked = m.load_tracking()
+    sendable = {"kept"}
+    want = {"nsw-drill-math-001"}
+    stale = sorted(q for q, v in tracked.items() if v.get("f") in want and q not in sendable)
+    assert stale == ["rejected-and-lifted"], stale
+
+
+def test_older_tracking_formats_load_forward(tmp_path, monkeypatch):
+    import json as _json
+    import pipeline.push_to_selectly as m
+    f = tmp_path / "pushed.json"
+    monkeypatch.setattr(m, "TRACKING_FILE", f)
+    f.write_text(_json.dumps({"pushed_ids": ["a"]}))
+    assert m.load_tracking() == {"a": {"h": m.LEGACY_HASH, "f": None}}
+    f.write_text(_json.dumps({"pushed": {"b": "hashonly"}}))
+    assert m.load_tracking() == {"b": {"h": "hashonly", "f": None}}

@@ -190,16 +190,28 @@ def payload_hash(q: dict) -> str:
 
 
 def load_tracking() -> dict:
-    """Return {qbank_id: payload_hash}. Older files held a bare id list; those load with
-    a sentinel hash so the first run after upgrading re-sends everything once and then
-    settles. That is the safe direction: re-sending is idempotent under upsert, whereas
-    treating an unknown hash as "unchanged" would strand real repairs."""
-    if TRACKING_FILE.exists():
-        data = json.loads(TRACKING_FILE.read_text())
-        if "pushed" in data:
-            return data["pushed"]
-        return {qid: LEGACY_HASH for qid in data.get("pushed_ids", [])}
-    return {}
+    """Return {qbank_id: {"h": payload_hash, "f": form_id_at_push_time}}.
+
+    The form is recorded because a question REJECTED at review is lifted out of its form
+    and its form_id becomes NULL. Scoping the withdrawal pass by current form therefore
+    made such a question invisible to it — so the one row that most needs switching off
+    is the one row that never would be. It has to be scoped by where the question was
+    when it was sent.
+
+    Two older formats load forward: a bare id list, and {id: hash}. Both carry no form,
+    so they withdraw only on an unscoped run. Their hashes are unknown or unformed, which
+    re-sends once and then settles; re-sending is idempotent under upsert, whereas
+    assuming "unchanged" would strand real repairs.
+    """
+    if not TRACKING_FILE.exists():
+        return {}
+    data = json.loads(TRACKING_FILE.read_text())
+    if "pushed" in data:
+        out = {}
+        for qid, v in data["pushed"].items():
+            out[qid] = v if isinstance(v, dict) else {"h": v, "f": None}
+        return out
+    return {qid: {"h": LEGACY_HASH, "f": None} for qid in data.get("pushed_ids", [])}
 
 
 def save_tracking(pushed: dict) -> None:
@@ -429,18 +441,21 @@ def run(args: argparse.Namespace) -> None:
     fresh = [r for r in all_rows if r["id"] not in already_pushed]
     changed = [r for r in all_rows
                if r["id"] in already_pushed
-               and already_pushed[r["id"]] != payload_hash(payloads[r["id"]])]
+               and already_pushed[r["id"]]["h"] != payload_hash(payloads[r["id"]])]
     to_push = fresh + changed
 
     # Anything previously sent that is no longer sendable must be switched off, or a
     # question rejected at review keeps being served.
     sendable_ids = {r["id"] for r in all_rows}
     if forms:
-        # Scope withdrawal to the same forms. Without this a pilot run would treat every
-        # question outside the pilot as "no longer sendable" and switch off the bank.
-        scoped = {r["id"] for r in fetch_withdrawn() if r.get("form_id") in set(forms)}
-        stale = sorted(qid for qid in already_pushed
-                       if qid in scoped and qid not in sendable_ids)
+        # Scope withdrawal by the form the question was SENT as part of, not the form it
+        # sits in now. A question rejected at review is lifted out of its form and its
+        # form_id becomes NULL, so scoping on the current value skipped exactly the rows
+        # that needed switching off. Without any scoping, a pilot run would instead treat
+        # every question outside the pilot as "no longer sendable" and switch off the bank.
+        want = set(forms)
+        stale = sorted(qid for qid, v in already_pushed.items()
+                       if v.get("f") in want and qid not in sendable_ids)
     else:
         stale = sorted(qid for qid in already_pushed if qid not in sendable_ids)
 
@@ -538,7 +553,8 @@ def run(args: argparse.Namespace) -> None:
                     rejected_idx.add(int(m.group(1)))
             for idx, r in enumerate(batch):
                 if idx not in rejected_idx:
-                    newly_pushed[r["id"]] = payload_hash(questions[idx])
+                    newly_pushed[r["id"]] = {"h": payload_hash(questions[idx]),
+                                             "f": r.get("form_id")}
             logger.info(f"  inserted={inserted} skipped={skipped} errors={len(errors)}")
             if errors:
                 for e in errors[:5]:
