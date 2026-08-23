@@ -683,3 +683,13 @@ def test_an_em_dash_frame_counts_as_asking():
     device, and missing the dash flagged two ordinary questions on the way to a push."""
     assert no_question_asked(
         dict(stem='The passage says "difficult". Here, "difficult" means —')) is None
+
+
+def test_an_unresolved_radicand_is_not_read_as_the_answer():
+    """√(8² + 15²) resolves to √289 = 17 exactly. Reading the 8 out of the unevaluated
+    form called a sound rhombus question calculator-work and blocked a push."""
+    q = dict(stem="What is the length of one side, to the nearest hundredth?",
+             option_a="23.00 cm", option_b="14.42 cm", option_c="34.00 cm",
+             option_d="17.00 cm", correct_answer="D",
+             explanation="Side = √(8² + 15²) = √(64 + 225) = √289 = 17.00 cm.")
+    assert calculator_required(q) is None

@@ -808,7 +808,12 @@ def teaching_manipulative(q):
             f"reasoning, not the materials a particular classroom used")
 
 
-_ROOT_OF = re.compile(r"√\s*\(?\s*(\d+(?:\.\d+)?)")
+# Only a RESOLVED radicand counts. "√(8² + 15²)" is working-in-progress, and reading the
+# 8 out of it called a question calculator-work when its real radicand, 289, is a perfect
+# square giving exactly 17. The lookahead skips any root whose contents are still an
+# expression, leaving the evaluated form later in the same line to be judged.
+_ROOT_OF = re.compile(
+    r"√\s*\(?\s*(\d+(?:\.\d+)?)(?![\d.])\s*\)?(?!\s*[²³^+\-*×])")
 _DECIMAL_KEY = re.compile(r"^\s*-?\d+\.\d{2,}\b")
 
 
