@@ -676,3 +676,10 @@ def test_points_on_one_scale_pass():
         f"<circle cx='{140 + 15 * x}' cy='{110 - 15 * y}' r='3'/>" for x, y in pts.values())
     body += "".join(f"<text x='10' y='10'>{n}({x},{y})</text>" for n, (x, y) in pts.items())
     assert plotted_points_inconsistent(f"<svg>{body}</svg>") is None
+
+
+def test_an_em_dash_frame_counts_as_asking():
+    """NSW reading opens its cloze with a dash rather than a colon. Both are the same
+    device, and missing the dash flagged two ordinary questions on the way to a push."""
+    assert no_question_asked(
+        dict(stem='The passage says "difficult". Here, "difficult" means —')) is None

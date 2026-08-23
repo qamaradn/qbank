@@ -898,7 +898,10 @@ def negative_count(q):
 # colon, which is the cloze frame reading comprehension uses throughout ("...most nearly
 # means:"); it opens with an imperative; or it carries a blank to fill. Missing any of
 # these made the first version fire on 1,498 perfectly well-formed questions.
-_ASKS = re.compile(r"\?|:\s*$|_{3,}|\b(?:which|what|who|when|where|why|how)\b", re.I)
+# A colon and an em-dash are the same device: both open a cloze frame the options
+# complete ("Here, 'difficult' means —"). NSW reading uses the dash throughout, and
+# leaving it out flagged two perfectly ordinary questions.
+_ASKS = re.compile(r"\?|[:—–-]\s*$|_{3,}|\b(?:which|what|who|when|where|why|how)\b", re.I)
 _IMPERATIVE = re.compile(
     r"\b(evaluate|simplify|find|calculate|work out|solve|round|convert|express|"
     r"arrange|complete|choose|select|identify|state|give|determine|write|compute|"
