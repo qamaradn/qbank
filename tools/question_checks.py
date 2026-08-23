@@ -835,7 +835,7 @@ def calculator_required(q):
 _DISCRETE = (r"runs|students|people|children|pupils|cars|buses|books|marbles|counters|"
              r"coins|tickets|seats|chairs|players|teams|goals|questions|pets|bricks|"
              r"boxes|apples|eggs|sheep|cows|birds|trees|houses|rooms|matches|bags|"
-             r"packets|classes")
+             r"packets|classes|wickets|runs|goals|tries|catches|overs|laps|sets|games")
 _HOW_MANY = re.compile(rf"\bhow many\s+(?:\w+\s+){{0,2}}?({_DISCRETE})\b", re.I)
 _PLAIN_NUM = re.compile(r"^\s*(-?[\d,]+(?:\.\d+)?)\s*$")
 
@@ -859,3 +859,221 @@ def non_integer_count(q):
         return None
     return (f"asks 'how many {u.group(1)}' but the key is {key.strip()} — "
             f"a count cannot be fractional")
+
+
+# ---------------------------------------------------------------------------
+# From the first VIC review round (2026-08-23). Six of the fourteen flags were
+# about FIGURE QUALITY -- a class neither the blind solve nor the NSW round
+# surfaced, because both were reading the maths rather than looking at the
+# picture. The reviewer's words were "rough", "unprofessional", "confusing".
+# ---------------------------------------------------------------------------
+
+def negative_count(q):
+    """A negative option for something that cannot be negative.
+
+    "How many wickets did she take in the last match?" offering "−1 wickets". It models
+    a real slip -- subtracting the wrong way round -- but no bowler takes minus one
+    wicket, so the option is never chosen and the question is a three-option one.
+    Sibling of non_integer_count: same principle, other direction.
+    """
+    key_letter = (q.get("correct_answer") or "").lower()
+    for L in "abcd":
+        opt = str(q.get("option_" + L) or "")
+        m = re.match(r"^\s*[-−]\s*\d", opt)
+        if not m:
+            continue
+        # The counted noun sits on the option ("−1 wickets") at least as often as it
+        # sits after "how many" in the stem, which asked "How many did she take".
+        unit_on_option = re.search(rf"\b({_DISCRETE})\b", opt, re.I)
+        if not unit_on_option and not _HOW_MANY.search(q.get("stem") or ""):
+            continue
+        if L == key_letter:
+            return f"the KEY {opt.strip()!r} is negative, but the stem counts things"
+        return (f"option {L.upper()} is {opt.strip()!r}; a count cannot be negative, so "
+                f"nobody picks it and the question has three real options")
+    return None
+
+
+# A stem asks its question in one of four ways: it ends in a question mark; it ends in a
+# colon, which is the cloze frame reading comprehension uses throughout ("...most nearly
+# means:"); it opens with an imperative; or it carries a blank to fill. Missing any of
+# these made the first version fire on 1,498 perfectly well-formed questions.
+_ASKS = re.compile(r"\?|:\s*$|_{3,}|\b(?:which|what|who|when|where|why|how)\b", re.I)
+_IMPERATIVE = re.compile(
+    r"\b(evaluate|simplify|find|calculate|work out|solve|round|convert|express|"
+    r"arrange|complete|choose|select|identify|state|give|determine|write|compute|"
+    r"estimate|order|match|rewrite|factorise|expand)\b", re.I)
+
+
+def no_question_asked(q):
+    """The stem presents information and never asks anything.
+
+    Flagged as "doesn't specify what the question really is". A stem that stops after
+    the material leaves the student inferring the task from the options, which is a
+    different and much vaguer exercise than the one intended.
+    """
+    stem = (q.get("stem") or "").strip()
+    if not stem or _ASKS.search(stem) or _IMPERATIVE.search(stem):
+        return None
+    return "stem presents information but never asks a question"
+
+
+_COMPOUND = re.compile(
+    r"compounded\s+(monthly|quarterly|weekly|daily|annually)|"
+    r"monthly\s+(?:instalments|repayments)|"
+    r"over\s+\d+\s+(?:years|months)\s+with", re.I)
+_PCT_CHAIN = re.compile(r"([+−-]?\s*\d+(?:\.\d+)?\s*%[,\s]+){3,}")
+
+
+def compounding_needs_calculator(q):
+    """Arithmetic no student does by hand: repeated compounding, or a chain of per cent
+    changes applied one after another.
+
+    Two flags in the VIC round -- an amortised 25-year mortgage compounded monthly, and
+    five consecutive daily percentage changes. Both are sound mathematics and neither
+    belongs in a paper sat without a calculator. calculator_required catches irrational
+    roots; this catches the other route to the same problem.
+    """
+    stem = q.get("stem") or ""
+    if (m := _COMPOUND.search(stem)):
+        return (f"stem says {m.group(0)!r} — compounding over many periods cannot be "
+                f"done by hand")
+    if _PCT_CHAIN.search(stem):
+        return ("stem applies four or more percentage changes in sequence, which is "
+                "calculator work")
+    return None
+
+
+_CIRCLE = re.compile(r"<circle[^>]*\bcx=[\'\"]([-\d.]+)[\'\"][^>]*\bcy=[\'\"]([-\d.]+)"
+                     r"[\'\"][^>]*\br=[\'\"]([-\d.]+)[\'\"][^>]*>")
+_ARC_R = re.compile(r"[Aa]\s*([\d.]+)[ ,]+([\d.]+)")
+
+
+def doubled_circle_outline(svg):
+    """A full circle is stroked, and arc paths retrace part of the same circumference.
+
+    Both circle figures in the VIC round did this: "the top part of the circumference
+    has double lining", "two lines on the right side of the circumference". The second
+    stroke sits a fraction off the first, so the edge looks smudged or doubled. Draw the
+    arcs OR the outline, not both.
+    """
+    if not svg:
+        return None
+    stroked = [(float(a), float(b), float(r)) for a, b, r in _CIRCLE.findall(svg)
+               if "stroke=" in svg and float(r) > 12]
+    if not stroked:
+        return None
+    for m in _ARC_R.finditer(svg):
+        rx, ry = float(m.group(1)), float(m.group(2))
+        if rx != ry:
+            continue
+        for _cx, _cy, r in stroked:
+            if abs(rx - r) < 0.5:
+                return (f"an arc of radius {rx:g} retraces a circle already stroked at "
+                        f"the same radius — the circumference is drawn twice")
+    return None
+
+
+_TEXT = re.compile(r"<text[^>]*\bx=[\'\"]([-\d.]+)[\'\"][^>]*\by=[\'\"]([-\d.]+)[\'\"]"
+                   r"[^>]*?(?:font-size=[\'\"]([\d.]+)[\'\"])?[^>]*>([^<]*)<")
+
+
+def overlapping_text_labels(svg, pad=6.0):
+    """Two labels whose boxes overlap, so both read as mush.
+
+    "the number 10cm on the light and 12cm at the bottom are both sort of overlapping
+    making it a little unclear and unprofessional." Widths are estimated from the
+    character count, which is approximate -- hence the generous padding and a minimum
+    overlap before it counts.
+    """
+    if not svg:
+        return None
+    boxes = []
+    for m in _TEXT.finditer(svg):
+        x, y = float(m.group(1)), float(m.group(2))
+        size = float(m.group(3) or 12)
+        label = (m.group(4) or "").strip()
+        if not label:
+            continue
+        w = len(label) * size * 0.55
+        anchor_mid = "text-anchor" in m.group(0) and "middle" in m.group(0)
+        x0 = x - w / 2 if anchor_mid else x
+        boxes.append((x0, y - size * 0.8, x0 + w, y + size * 0.25, label))
+    for i in range(len(boxes)):
+        for j in range(i + 1, len(boxes)):
+            ax0, ay0, ax1, ay1, al = boxes[i]
+            bx0, by0, bx1, by1, bl = boxes[j]
+            ox = min(ax1, bx1) - max(ax0, bx0)
+            oy = min(ay1, by1) - max(ay0, by0)
+            if ox > pad and oy > pad:
+                return (f"labels {al!r} and {bl!r} overlap by about "
+                        f"{ox:.0f}x{oy:.0f} px")
+    return None
+
+
+_LABELLED_POINT = re.compile(
+    r">\s*([A-Z])\s*\(\s*([-−]?\d+(?:\.\d+)?)\s*,\s*([-−]?\d+(?:\.\d+)?)\s*\)")
+_DOT = re.compile(r"<circle[^>]*\bcx=[\'\"]([-\d.]+)[\'\"][^>]*\bcy=[\'\"]([-\d.]+)"
+                  r"[\'\"][^>]*\br=[\'\"]([\d.]+)[\'\"]")
+
+
+def plotted_points_inconsistent(svg, tol=4.0):
+    """Points labelled with coordinates that are not drawn to one scale.
+
+    The parallelogram P(−6,2) Q(2,2) R(4,−4) S(−4,−4) was plotted at four DIFFERENT
+    horizontal scales -- 10, 16.67 and 10 pixels per unit between consecutive x values.
+    The reviewer saw it immediately: "the spacing of each point isn't equal, the
+    difference in 4 and 2 is tiny on the x axis". A figure like this cannot be reasoned
+    from, and invites a student to answer by eye and be wrong.
+
+    Fits one linear map to every labelled point and reports the worst residual.
+    """
+    if not svg:
+        return None
+    labelled = [(float(x.replace("−", "-")), float(y.replace("−", "-")))
+                for _n, x, y in _LABELLED_POINT.findall(svg)]
+    dots = [(float(a), float(b)) for a, b, r in _DOT.findall(svg) if float(r) <= 5]
+    if len(labelled) < 3 or len(dots) < len(labelled):
+        return None
+    # pair each labelled point with its nearest dot, left-to-right then top-to-bottom
+    used, pairs = set(), []
+    for ux, uy in labelled:
+        best = None
+        for i, (px, py) in enumerate(dots):
+            if i in used:
+                continue
+            if best is None:
+                best = i
+        if best is None:
+            return None
+        used.add(best)
+        pairs.append(((ux, uy), dots[best]))
+    if len({u for u, _ in pairs}) < 3:
+        return None
+    # least squares for px = ox + sx*ux and py = oy - sy*uy, on each axis independently
+    def fit(units, px):
+        n = len(units)
+        mu, mp = sum(units) / n, sum(px) / n
+        den = sum((u - mu) ** 2 for u in units)
+        if den == 0:
+            return None, None
+        s = sum((u - mu) * (p - mp) for u, p in zip(units, px)) / den
+        return s, mp - s * mu
+    ux = [u[0] for u, _ in pairs]
+    uy = [u[1] for u, _ in pairs]
+    pxs = [p[0] for _, p in pairs]
+    pys = [p[1] for _, p in pairs]
+    sx, ox = fit(ux, pxs)
+    sy, oy = fit(uy, pys)
+    if sx is None or sy is None:
+        return None
+    worst = 0.0
+    for (u, v), (px, py) in pairs:
+        worst = max(worst, abs(ox + sx * u - px), abs(oy + sy * v - py))
+    if worst > tol:
+        return (f"labelled points are not on one scale — worst point is {worst:.0f} px "
+                f"from where its own coordinates put it")
+    if abs(abs(sx) - abs(sy)) > 0.15 * max(abs(sx), abs(sy)):
+        return (f"axes use different scales ({abs(sx):.1f} vs {abs(sy):.1f} px per "
+                f"unit), so slopes and right angles are drawn wrong")
+    return None

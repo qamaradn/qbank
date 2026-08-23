@@ -90,6 +90,14 @@ def per_question(q: dict) -> list[tuple[str, str]]:
                   "calculator_required", "non_integer_count"):
         if (m := getattr(qc, _name)(q)):
             hits.append((_name, m))
+    for _name in ("negative_count", "no_question_asked", "compounding_needs_calculator"):
+        if (m := getattr(qc, _name)(q)):
+            hits.append((_name, m))
+    if q.get("figure_svg"):
+        for _name in ("doubled_circle_outline", "overlapping_text_labels",
+                      "plotted_points_inconsistent"):
+            if (m := getattr(qc, _name)(q["figure_svg"])):
+                hits.append((_name, m))
     for name, fn in (("doubled_token_errors", qc.doubled_token_errors),
                      ("option_wording_errors", qc.option_wording_errors)):
         for e in fn(q) or []:

@@ -13,6 +13,12 @@ from tools.question_checks import (
     teaching_manipulative,
     calculator_required,
     non_integer_count,
+    negative_count,
+    no_question_asked,
+    compounding_needs_calculator,
+    doubled_circle_outline,
+    overlapping_text_labels,
+    plotted_points_inconsistent,
     COMPREHENSION_RELATIONS,
     STRUCTURAL_RELATIONS,
     answer_shape_monotony,
@@ -598,3 +604,75 @@ def test_a_fractional_measurement_is_fine():
              option_a="2.5 mm", option_b="3 mm", option_c="2 mm", option_d="4 mm",
              correct_answer="A", explanation="")
     assert non_integer_count(q) is None
+
+
+# ---------------------------------------------------------------------------
+# Regression tests from the first VIC review round (2026-08-23). Six of the
+# fourteen flags were about figure QUALITY — a class neither the blind solve nor
+# the NSW round surfaced, because both were reading the maths, not looking.
+# ---------------------------------------------------------------------------
+
+def test_negative_count_is_caught():
+    """'maybe remove the -1 wickets option; how can a bowler have -1 wickets?'"""
+    q = dict(stem="Over 9 matches she averaged 3 wickets. In the first 8 she took 25. "
+                  "How many did she take in the last one?",
+             option_a="3 wickets", option_b="2 wickets", option_c="-1 wickets",
+             option_d="25 wickets", correct_answer="B")
+    assert "cannot be negative" in (negative_count(q) or "")
+
+
+def test_no_question_asked_is_caught():
+    """'doesn't specify what the question really is' — the stem stops after the material."""
+    q = dict(stem="Consider the following information about the Sydney Opera House. It "
+                  "hosts over 1,500 performances annually. Despite its fame, there have "
+                  "been ongoing debates about its acoustics and operational costs.")
+    assert no_question_asked(q)
+
+
+def test_a_colon_frame_and_a_mid_stem_imperative_both_count_as_asking():
+    """Reading uses a cloze frame and maths puts the imperative mid-sentence. An earlier
+    version fired on 1,498 well-formed questions for missing both."""
+    assert no_question_asked(dict(stem="the word 'decimated' most closely means:")) is None
+    assert no_question_asked(
+        dict(stem="Noon is 38C. Using F = (9/5)C + 32, convert this to Fahrenheit.")) is None
+
+
+def test_compounding_needs_calculator_is_caught():
+    """A 25-year mortgage compounded monthly, and five daily percentage changes."""
+    assert compounding_needs_calculator(dict(
+        stem="a loan at 4.2% per annum, compounded monthly, over 25 years"))
+    assert compounding_needs_calculator(dict(
+        stem="the value changes by +5%, -2%, +3%, -4%, and +6% respectively"))
+
+
+def test_doubled_circle_outline_is_caught():
+    """'the top part of the circumference has double lining' — an arc retraces a circle
+    already stroked at the same radius."""
+    svg = ("<svg><circle cx='140' cy='120' r='80' fill='none' stroke='currentColor'/>"
+           "<path d='M 60 120 A 80 80 0 0 1 108 50' stroke='currentColor'/></svg>")
+    assert "drawn twice" in (doubled_circle_outline(svg) or "")
+
+
+def test_an_arc_of_a_different_radius_is_not_a_doubled_outline():
+    svg = ("<svg><circle cx='140' cy='120' r='80' fill='none' stroke='currentColor'/>"
+           "<path d='M 100 120 A 40 40 0 0 1 108 90' stroke='currentColor'/></svg>")
+    assert doubled_circle_outline(svg) is None
+
+
+def test_plotted_points_inconsistent_is_caught():
+    """The real parallelogram: P(-6,2) Q(2,2) R(4,-4) S(-4,-4) drawn at three different
+    horizontal scales. 'the spacing of each point isn't equal'."""
+    svg = ("<svg><circle cx='65' cy='82' r='3'/><circle cx='185' cy='82' r='3'/>"
+           "<circle cx='205' cy='162' r='3'/><circle cx='85' cy='162' r='3'/>"
+           "<text x='30' y='78'>P(−6,2)</text><text x='188' y='78'>Q(2,2)</text>"
+           "<text x='208' y='170'>R(4,−4)</text><text x='48' y='175'>S(−4,−4)</text></svg>")
+    assert plotted_points_inconsistent(svg)
+
+
+def test_points_on_one_scale_pass():
+    """Same four points, plotted properly at 15 px per unit about (140, 110)."""
+    pts = {"P": (-6, 2), "Q": (2, 2), "R": (4, -4), "S": (-4, -4)}
+    body = "".join(
+        f"<circle cx='{140 + 15 * x}' cy='{110 - 15 * y}' r='3'/>" for x, y in pts.values())
+    body += "".join(f"<text x='10' y='10'>{n}({x},{y})</text>" for n, (x, y) in pts.items())
+    assert plotted_points_inconsistent(f"<svg>{body}</svg>") is None

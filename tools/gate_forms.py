@@ -36,6 +36,9 @@ DB = ROOT / "run_data/db/qbank.db"
 TRACKING = ROOT / "run_data/db/pushed_to_selectly.json"
 
 # Every one of these was written from a real defect. The comment names the round.
+# SHARED — nothing here depends on which exam the question serves. A table that will
+# not render, a time that cannot exist, an answer that needs a calculator: all of these
+# are wrong for a Year 6 paper and a Year 8 paper alike.
 BLOCKING = [
     ("options_distinct_by_value", "blind-solve: two options with the same value"),
     ("one_point_on_the_line", "blind-solve: more than one option satisfies the stem"),
@@ -46,16 +49,55 @@ BLOCKING = [
     ("non_integer_count", "NSW round 1: fractional answer to 'how many'"),
     ("leaked_working", "Aug 2026: the model's own reasoning left in the explanation"),
     ("rewrites_the_question", "Aug 2026: explanation edits the stem, so the item is unanswerable"),
+    ("negative_count", "VIC round 1: a count that cannot be negative, e.g. −1 wickets"),
+    ("no_question_asked", "VIC round 1: the stem never asks anything"),
+    ("compounding_needs_calculator", "VIC round 1: compounding or a chain of percentages"),
+    ("doubled_circle_outline", "VIC round 1: circumference drawn twice"),
+    ("plotted_points_inconsistent", "VIC round 1: points not plotted to one scale"),
 ]
 
+# EXAM-SPECIFIC — two things genuinely differ, and only two.
+#
+#   Year level. NSW selective is sat in Year 6; VIC is sat in Year 8. A question that is
+#   fair for one may be out of reach for the other, which is why the same reviewer note
+#   ("quite difficult for a year 6", "a little difficult for year 8s") arrived from both
+#   rounds about different questions.
+#
+#   Banned types. The VIC brief (§6) forbids word codes, hidden words, anagrams,
+#   alphabetical ordering and alphabet-position items. NSW Thinking Skills legitimately
+#   contains some of that family, so the same question is off-spec in one exam and in
+#   spec in the other.
+#
+# Everything else is shared. Resist adding to this: a check that differs per exam has to
+# earn it, or the two gates drift apart and neither is trusted.
+EXAM_BLOCKING = {
+    "vic": [("teaching_manipulative",
+             "VIC: tests classroom materials rather than reasoning")],
+    "nsw": [("teaching_manipulative",
+             "NSW round 1: tests classroom materials rather than reasoning")],
+}
+
+# Off-spec question types, VIC only. Sourced from the committed manifest rather than a
+# regex, because tools/vr_banned_types.py records which rule fired on each row.
+BANNED_MANIFEST = ROOT / "run_data/output/vr_banned_types.json"
+
+# Reported, never blocking. These have real false-positive rates -- 
+# explanation_addresses_a_distractor fires on a third of the bank because maths options
+# are numbers and cannot be quoted back in prose, and overlapping_text_labels estimates
+# glyph widths from character counts. A gate that people routinely override is worse
+# than no gate, so these stay advisory until their counts come down.
 ADVISORY = ["length_tell", "positional_reference", "key_restates_passage",
-            "explanation_addresses_a_distractor", "figure_svg_errors"]
+            "explanation_addresses_a_distractor", "figure_svg_errors",
+            "overlapping_text_labels"]
 
 
 # The checks do not share a calling convention -- some take the question dict, some a
 # single field, one takes the whole batch. Dispatch explicitly rather than guessing:
 # a wrong guess here makes a check silently never fire, which is worse than a crash.
 _TEXT_FIELD = {
+    "doubled_circle_outline": "figure_svg",
+    "overlapping_text_labels": "figure_svg",
+    "plotted_points_inconsistent": "figure_svg",
     "positional_reference": "stem",
     "leaked_working": "explanation",
     "rewrites_the_question": "explanation",
@@ -89,6 +131,8 @@ def main():
     ap.add_argument("--forms", default="", help="comma-separated form_ids")
     ap.add_argument("--next-push", action="store_true",
                     help="gate everything approved that has not been sent yet")
+    ap.add_argument("--exam", choices=["nsw", "vic"], default=None,
+                    help="apply the exam-specific checks as well as the shared ones")
     ap.add_argument("--show", type=int, default=12, help="max examples per check")
     args = ap.parse_args()
 
@@ -114,10 +158,19 @@ def main():
         print(f"nothing to gate ({scope})")
         return 0
 
+    checks = list(BLOCKING) + EXAM_BLOCKING.get(args.exam or "", [])
+    if args.exam is None:
+        # Infer from the forms rather than silently skipping the exam-specific tier.
+        exams = {f.split("-")[0] for f in {r["form_id"] or "" for r in rows} if f}
+        if len(exams) == 1:
+            inferred = exams.pop()
+            checks = list(BLOCKING) + EXAM_BLOCKING.get(inferred, [])
+            print(f"(exam inferred from the forms: {inferred})")
+
     blocking_hits = defaultdict(list)
     advisory_counts = Counter()
     for r in rows:
-        for name, _why in BLOCKING:
+        for name, _why in checks:
             if (m := run_check(name, r)):
                 blocking_hits[name].append((r, m))
         for name in ADVISORY:
@@ -138,7 +191,7 @@ def main():
 
     print(f"BLOCKING CHECKS: {total} failure(s) across "
           f"{len(blocking_hits)} check(s)\n")
-    why = dict(BLOCKING)
+    why = dict(checks)
     for name, hits in sorted(blocking_hits.items(), key=lambda x: -len(x[1])):
         print(f"  {name} — {len(hits)}   ({why[name]})")
         for r, m in hits[:args.show]:
