@@ -87,6 +87,11 @@ READING_BOOK_SCHOOLS: list[tuple[str, list[str]]] = [
 MATHS_BOOK_SCHOOLS: list[tuple[str, list[str]]] = [
     ("year7_nsw_maths", ["nsw-shspt"]),
     ("ma_nsw_selective", ["nsw-shspt"]),
+    # Questions authored to replace ones withdrawn at review. Registering the book is
+    # not optional: an unregistered maths book routes NOWHERE by design, so a
+    # replacement would load, be dealt into its form, and then silently never ship --
+    # leaving the form a question short with nothing to show for it.
+    ("ma_nsw_replacements", ["nsw-shspt"]),
     ("year9_maths", ["vic-seal"]),
     ("ma_vic_stats", ["vic-seal"]),
 ]

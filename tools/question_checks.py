@@ -735,3 +735,127 @@ def one_point_on_the_line(q):
         return f"no option lies on y = {grad:g}x {inter:+g}"
     return (f"options {'/'.join(on)} ALL lie on y = {grad:g}x {inter:+g}, so the question "
             f"has more than one correct answer")
+
+
+# ---------------------------------------------------------------------------
+# The five checks below were written FROM REVIEWER FLAGS, not from theory. Each
+# one names the question that produced it, so that if a check ever looks
+# over-zealous there is a real defect to argue against.
+# ---------------------------------------------------------------------------
+
+_MD_TABLE = re.compile(r"^\s*\|?[\s:]*-{3,}[\s:|-]*\|", re.M)
+
+
+def markdown_table_in_stem(q):
+    """A markdown table in the stem. Selectly renders the stem as PLAIN TEXT in a
+    white-space: pre-wrap div -- there is no markdown pass -- so the pipes and the
+    |---|---| separator row are shown to the student literally.
+
+    Flagged twice in the first NSW review round ("Table format is quite messy and
+    wrong", "Table is inaccurate, fix to make it more clear"). In both cases the DATA
+    was correct; only the rendering was broken, which is the worst kind of defect
+    because the question looks wrong while being right. Put tabular data in
+    figure_svg, which Selectly renders as an image.
+    """
+    stem = q.get("stem") or ""
+    if not _MD_TABLE.search(stem):
+        return None
+    return ("stem contains a markdown table; Selectly renders stems as plain text, so "
+            "the separator row is shown literally. Use figure_svg for tabular data")
+
+
+_BAD_MINUTES = re.compile(r"\b\d{1,2}:[6-9]\d\b")
+_BAD_HOUR = re.compile(r"\b(?:1[3-9]|[2-9]\d):[0-5]\d\s*(?:am|pm)\b", re.I)
+
+
+def invalid_clock_time(q):
+    """A clock time that cannot exist, such as 2:65 am.
+
+    From the NSW round: a flight-arrival question offered "2:65 am" as the distractor
+    for a student who adds 40 and 25 minutes without regrouping. The error it models is
+    real and worth testing, but written as a clock time it reads as a typo -- the
+    reviewer said it "makes the question seem inaccurate (even though the final answer
+    is correct)". Model that error with a valid time instead.
+    """
+    for field in ("stem", "option_a", "option_b", "option_c", "option_d", "explanation"):
+        text = str(q.get(field) or "")
+        for pat, why in ((_BAD_MINUTES, "minutes past 59"), (_BAD_HOUR, "hour past 12 with am/pm")):
+            m = pat.search(text)
+            if m:
+                return f"{field} contains {m.group(0)!r} — {why}, which is not a real time"
+    return None
+
+
+_MANIPULATIVE = re.compile(
+    r"\bzero pair|counter model|algebra tile|base-?ten block|MAB block|ten-?frame\b", re.I)
+
+
+def teaching_manipulative(q):
+    """Asks about a classroom teaching aid rather than about mathematics.
+
+    "Why would you add zero pairs to a counter model?" tests whether a student has been
+    taught integers with a particular manipulative. A selective exam tests reasoning, so
+    a student who understands integer subtraction perfectly but met it another way is
+    marked wrong for their teacher's choice of materials. The reviewer flagged it as
+    "quite difficult for a year 6"; the deeper problem is that it is not a maths
+    question at all.
+    """
+    text = (q.get("stem") or "") + " " + (q.get("explanation") or "")
+    m = _MANIPULATIVE.search(text)
+    if not m:
+        return None
+    return (f"refers to the teaching manipulative {m.group(0)!r}; selective exams test "
+            f"reasoning, not the materials a particular classroom used")
+
+
+_ROOT_OF = re.compile(r"√\s*\(?\s*(\d+(?:\.\d+)?)")
+_DECIMAL_KEY = re.compile(r"^\s*-?\d+\.\d{2,}\b")
+
+
+def calculator_required(q):
+    """The key is a multi-place decimal that can only be got by evaluating a surd.
+
+    A surd LEFT as a surd is exact and perfectly fair -- √65 is a fine answer. What is
+    unfair is being asked for 12.58 when the working is √158.186, which no student
+    produces without a calculator. The reviewer's note was exactly that: "this question
+    needs a calculator to be solved".
+    """
+    key_letter = (q.get("correct_answer") or "").lower()
+    key = str(q.get("option_" + key_letter) or "") if key_letter else ""
+    if "√" in key or not _DECIMAL_KEY.match(key.replace(",", "")):
+        return None
+    for m in _ROOT_OF.finditer(q.get("explanation") or ""):
+        val = float(m.group(1))
+        if val != int(val) or math.isqrt(int(val)) ** 2 != int(val):
+            return (f"key {key.strip()!r} requires {m.group(0)!r} to be evaluated as a "
+                    f"decimal — that needs a calculator")
+    return None
+
+
+_DISCRETE = (r"runs|students|people|children|pupils|cars|buses|books|marbles|counters|"
+             r"coins|tickets|seats|chairs|players|teams|goals|questions|pets|bricks|"
+             r"boxes|apples|eggs|sheep|cows|birds|trees|houses|rooms|matches|bags|"
+             r"packets|classes")
+_HOW_MANY = re.compile(rf"\bhow many\s+(?:\w+\s+){{0,2}}?({_DISCRETE})\b", re.I)
+_PLAIN_NUM = re.compile(r"^\s*(-?[\d,]+(?:\.\d+)?)\s*$")
+
+
+def non_integer_count(q):
+    """Asks how many of an indivisible thing there are, and answers with a fraction.
+
+    "A cricket team scores 275 runs... they score 75% of that. How many runs?" keyed to
+    206.25. The arithmetic is right and the question is still wrong: nobody scores a
+    quarter of a run. Its explanation even argues the point -- "the question asks for
+    the calculated value (not a rounded whole number of runs)" -- which is a question
+    defending itself against its own stem. Change the numbers so the answer divides.
+    """
+    key_letter = (q.get("correct_answer") or "").lower()
+    key = str(q.get("option_" + key_letter) or "") if key_letter else ""
+    m = _PLAIN_NUM.match(key.replace(",", ""))
+    if not m or float(m.group(1)) == int(float(m.group(1))):
+        return None
+    u = _HOW_MANY.search(q.get("stem") or "")
+    if not u:
+        return None
+    return (f"asks 'how many {u.group(1)}' but the key is {key.strip()} — "
+            f"a count cannot be fractional")

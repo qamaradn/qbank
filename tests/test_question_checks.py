@@ -8,6 +8,11 @@ import pytest
 from tools.question_checks import (
     options_distinct_by_value,
     one_point_on_the_line,
+    markdown_table_in_stem,
+    invalid_clock_time,
+    teaching_manipulative,
+    calculator_required,
+    non_integer_count,
     COMPREHENSION_RELATIONS,
     STRUCTURAL_RELATIONS,
     answer_shape_monotony,
@@ -511,3 +516,85 @@ def test_one_point_on_the_line_passes_a_sound_question():
              option_a="(2, 1)", option_b="(0, 2)", option_c="(1, −2)",
              option_d="(3, 4)", correct_answer="A")
     assert one_point_on_the_line(q) is None
+
+
+# ---------------------------------------------------------------------------
+# Regression tests from the first NSW review round (2026-08-22). Each case is the
+# real flagged question, so a future batch cannot reintroduce the same defect
+# without a named test going red.
+# ---------------------------------------------------------------------------
+
+def test_markdown_table_in_stem_is_caught():
+    """Flagged twice: 'Table format is quite messy and wrong'. Selectly renders stems as
+    plain text, so the |---|---| separator row reaches the student verbatim."""
+    q = dict(stem=(
+        "A hall in Warrnambool is hired using the rule c = 12h + 30.\n\n"
+        "| Hours (h) | 2  | 4  | ?   |\n"
+        "|-----------|----|----|-----|\n"
+        "| Cost ($c) | 54 | 78 | 126 |\n\n"
+        "How many hours does the $126 hire cover?"))
+    assert "markdown table" in (markdown_table_in_stem(q) or "")
+
+
+def test_prose_with_a_pipe_is_not_a_table():
+    assert markdown_table_in_stem(dict(stem="Choose the option A | B that fits.")) is None
+
+
+def test_invalid_clock_time_is_caught():
+    """'2:65 am' models a real error — adding 40 and 25 minutes without regrouping — but
+    as a clock time it reads as a typo and undermines a question whose key is correct."""
+    q = dict(stem="A flight leaves Perth at 11:40 pm and is in the air for 3 hours 25 minutes.",
+             option_a="2:65 am", option_b="3:05 pm", option_c="2:05 am", option_d="3:05 am",
+             correct_answer="D", explanation="")
+    msg = invalid_clock_time(q)
+    assert msg and "2:65" in msg
+
+
+def test_valid_times_pass():
+    q = dict(stem="Leaves at 11:40 pm.", option_a="2:40 am", option_b="3:05 pm",
+             option_c="2:05 am", option_d="3:05 am", correct_answer="D", explanation="")
+    assert invalid_clock_time(q) is None
+
+
+def test_teaching_manipulative_is_caught():
+    """A selective exam must not test which materials a student's classroom happened to
+    use. 'Why would you add zero pairs to a counter model?' does exactly that."""
+    q = dict(stem="Why would you add zero pairs to a counter model?", explanation="")
+    assert "manipulative" in (teaching_manipulative(q) or "")
+
+
+def test_calculator_required_is_caught():
+    """'this question needs a calculator to be solved' — the key is 12.58, reached only
+    by evaluating a root of a non-square."""
+    q = dict(stem="How far does he run? Round your answer to two decimal places.",
+             option_a="8.23 m", option_b="11.89 m", option_c="12.58 m", option_d="15.95 m",
+             correct_answer="C",
+             explanation="Using Pythagoras: √(11.885² + 4.115²) = √158.186 ≈ 12.58 m.")
+    assert "calculator" in (calculator_required(q) or "")
+
+
+def test_an_exact_surd_answer_is_not_calculator_work():
+    """Leaving the answer as a surd is exact and fair; only evaluating it is not."""
+    q = dict(stem="What is the distance?", option_a="√65 km", option_b="8 km",
+             option_c="9 km", option_d="65 km", correct_answer="A",
+             explanation="Distance = √(1² + 8²) = √65 km.")
+    assert calculator_required(q) is None
+
+
+def test_non_integer_count_is_caught():
+    """'how can a cricket team score runs with decimals?' — 206.25 runs."""
+    q = dict(stem=("A cricket team scores 275 runs in their first innings. In their "
+                   "second innings, they score 75% of their first innings total. How "
+                   "many runs did they score in the second innings?"),
+             option_a="206", option_b="205", option_c="206.25", option_d="207",
+             correct_answer="C", explanation="")
+    msg = non_integer_count(q)
+    assert msg and "206.25" in msg
+
+
+def test_a_fractional_measurement_is_fine():
+    """Only counts must be whole. 2.5 mm of rain is a measurement, not a count."""
+    q = dict(stem="What was the mean daily rainfall over the 30 days?",
+             option_a="2.5 mm", option_b="3 mm", option_c="2 mm", option_d="4 mm",
+             correct_answer="A", explanation="")
+    assert non_integer_count(q) is None

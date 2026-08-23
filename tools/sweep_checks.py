@@ -86,6 +86,10 @@ def per_question(q: dict) -> list[tuple[str, str]]:
         hits.append(("options_distinct_by_value", m))
     if (m := qc.one_point_on_the_line(q)):
         hits.append(("one_point_on_the_line", m))
+    for _name in ("markdown_table_in_stem", "invalid_clock_time", "teaching_manipulative",
+                  "calculator_required", "non_integer_count"):
+        if (m := getattr(qc, _name)(q)):
+            hits.append((_name, m))
     for name, fn in (("doubled_token_errors", qc.doubled_token_errors),
                      ("option_wording_errors", qc.option_wording_errors)):
         for e in fn(q) or []:

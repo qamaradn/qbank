@@ -154,3 +154,13 @@ def test_deactivate_sends_the_shape_questions_fix_expects(monkeypatch):
     assert "authorization" not in seen["headers"]
     assert seen["body"] == {"fixes": [{"qbankId": "q1", "active": False},
                                       {"qbankId": "q2", "active": False}]}
+
+
+def test_every_replacement_book_is_routed():
+    """A replacement question that routes nowhere is worse than no replacement: the form
+    is dealt as full, the pusher silently drops it, and the paper ships a question short.
+    Caught in the first NSW review round, where ma_nsw_replacements was unregistered."""
+    from pipeline.push_to_selectly import school_ids_for
+    for book in ("ma_nsw_replacements",):
+        row = {"subject": "mathematics", "source_book": book}
+        assert school_ids_for(row), f"{book} routes to no exam"
