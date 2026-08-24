@@ -683,7 +683,11 @@ def main() -> None:
     parser.add_argument("--url", default="", help="Selectly app URL (overrides .env)")
     parser.add_argument("--secret", default="", help="IMPORT_SECRET (overrides .env)")
     parser.add_argument("--subject", choices=VALID_SUBJECTS, help="Push one subject only")
-    parser.add_argument("--batch", type=int, default=100, help="Questions per POST (default 100)")
+    # 40, not 100. Figures travel as data URIs, so a hundred questions can be several
+    # megabytes and take longer than the caller's patience -- a 273-question push was
+    # killed at two minutes mid-run, after the rows had landed but before tracking was
+    # written, leaving qbank believing it had sent nothing.
+    parser.add_argument("--batch", type=int, default=40, help="Questions per POST (default 40)")
     parser.add_argument("--dry-run", action="store_true", help="Show plan without sending")
     parser.add_argument("--reset-tracking", action="store_true", help="Clear push tracking and exit")
     parser.add_argument("--forms", default="",
