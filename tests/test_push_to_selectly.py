@@ -201,3 +201,32 @@ def test_older_tracking_formats_load_forward(tmp_path, monkeypatch):
     assert m.load_tracking() == {"a": {"h": m.LEGACY_HASH, "f": None}}
     f.write_text(_json.dumps({"pushed": {"b": "hashonly"}}))
     assert m.load_tracking() == {"b": {"h": "hashonly", "f": None}}
+
+
+def test_tracking_refuses_a_different_database(tmp_path, monkeypatch):
+    """Two Selectly databases exist and look alike — the local Supabase carries qbank_id
+    and form_id too. Pushing to the wrong one would send the questions there, mark them
+    all as sent, and leave production silently missing every repair.
+    """
+    import json as _json
+    import pytest as _pytest
+    import pipeline.push_to_selectly as m
+    f = tmp_path / "pushed.json"
+    f.write_text(_json.dumps({"target": "https://selectly-fawn.vercel.app",
+                              "pushed": {"a": {"h": "h1", "f": None}}}))
+    monkeypatch.setattr(m, "TRACKING_FILE", f)
+    m.load_tracking()
+    with _pytest.raises(SystemExit):
+        m.check_target("http://127.0.0.1:54321")
+    m.check_target("https://selectly-fawn.vercel.app/")     # trailing slash is the same
+
+
+def test_tracking_without_a_target_does_not_block(tmp_path, monkeypatch):
+    """Files written before the target was recorded must keep working."""
+    import json as _json
+    import pipeline.push_to_selectly as m
+    f = tmp_path / "pushed.json"
+    f.write_text(_json.dumps({"pushed": {"a": {"h": "h1", "f": None}}}))
+    monkeypatch.setattr(m, "TRACKING_FILE", f)
+    m.load_tracking()
+    m.check_target("http://anywhere")

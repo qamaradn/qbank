@@ -45,6 +45,7 @@ DB_PATH = REPO_ROOT / "run_data" / "db" / "qbank.db"
 TRACKING_FILE = REPO_ROOT / "run_data" / "db" / "pushed_to_selectly.json"
 # Marks a row carried over from the id-only tracking format, whose sent content is
 # unknown. Never equal to a real hash, so such rows are re-sent once.
+_seen_target: dict = {}
 LEGACY_HASH = "unknown-legacy"
 # Above this many withdrawals in one run, stop and make the operator confirm. Bulk
 # deactivation is the shape of a mistake, not of a review round.
@@ -206,6 +207,7 @@ def load_tracking() -> dict:
     if not TRACKING_FILE.exists():
         return {}
     data = json.loads(TRACKING_FILE.read_text())
+    _seen_target["url"] = data.get("target")
     if "pushed" in data:
         out = {}
         for qid, v in data["pushed"].items():
@@ -214,10 +216,32 @@ def load_tracking() -> dict:
     return {qid: {"h": LEGACY_HASH, "f": None} for qid in data.get("pushed_ids", [])}
 
 
-def save_tracking(pushed: dict) -> None:
+def save_tracking(pushed: dict, target: str | None = None) -> None:
     TRACKING_FILE.parent.mkdir(parents=True, exist_ok=True)
-    TRACKING_FILE.write_text(
-        json.dumps({"pushed": dict(sorted(pushed.items()))}, indent=2))
+    TRACKING_FILE.write_text(json.dumps(
+        {"target": target or _seen_target.get("url"),
+         "pushed": dict(sorted(pushed.items()))}, indent=2))
+
+
+def check_target(url: str) -> None:
+    """Refuse to reuse one database's tracking against another.
+
+    Tracking says WHAT was sent but, until now, not WHERE. There are two Selectly
+    databases on this machine's horizon -- a local Supabase and the production
+    deployment -- and they look alike: the local one also carries qbank_id and form_id.
+    Pushing to the wrong one would send the questions there, mark them all as sent, and
+    leave production silently missing every repair, with no error anywhere. A whole
+    afternoon was spent on exactly this confusion in the other direction.
+    """
+    was = _seen_target.get("url")
+    if was and url and was.rstrip("/") != url.rstrip("/"):
+        logger.error(
+            f"REFUSING to push. This tracking file describes {was}, but the target is "
+            f"{url}. Tracking is per-database: reusing it across two would mark "
+            f"questions as sent to a database that never received them. Point "
+            f"SELECTLY_URL at the right one, or --reset-tracking to start this database "
+            f"from scratch.")
+        sys.exit(1)
 
 
 def build_stem(row: dict) -> str:
@@ -406,6 +430,15 @@ def run(args: argparse.Namespace) -> None:
         return
 
     already_pushed = load_tracking()
+    # Before anything else: this must be the database the tracking file describes.
+    # Every early return below would otherwise skip the check, and "nothing to push"
+    # aimed at the wrong database is precisely the silence this guards against.
+    url = args.url or os.environ.get("SELECTLY_URL", "")
+    secret = args.secret or os.environ.get("SELECTLY_IMPORT_SECRET", "")
+    if url:
+        check_target(url)
+        logger.info(f"Target: {url}")
+
     forms = [f.strip() for f in (args.forms or "").split(",") if f.strip()]
     all_rows = fetch_approved(args.subject, forms or None)
     if forms:
@@ -515,17 +548,12 @@ def run(args: argparse.Namespace) -> None:
         logger.info(preview[:600] + ("..." if len(preview) > 600 else ""))
         return
 
-    url = args.url or os.environ.get("SELECTLY_URL", "")
-    secret = args.secret or os.environ.get("SELECTLY_IMPORT_SECRET", "")
-
     if not url:
         logger.error("No URL — set SELECTLY_URL in .env or pass --url")
         sys.exit(1)
     if not secret:
         logger.error("No secret — set SELECTLY_IMPORT_SECRET in .env or pass --secret")
         sys.exit(1)
-
-    logger.info(f"Target: {url}")
 
     batch_size = args.batch
     batches = [to_push[i : i + batch_size] for i in range(0, len(to_push), batch_size)]
@@ -578,7 +606,7 @@ def run(args: argparse.Namespace) -> None:
             if n:
                 tracked.pop(qid, None)
 
-    save_tracking(tracked)
+    save_tracking(tracked, url)
 
     logger.info("─" * 50)
     logger.info(f"inserted={total_inserted}  skipped={total_skipped}  errors={len(total_errors)}")
