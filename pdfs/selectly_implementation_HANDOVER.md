@@ -535,3 +535,61 @@ try to carry them forward or reconcile them; they are spent.
 - A guard refuses more than 200 withdrawals in one run. Bulk deactivation is the shape of
   a mistake — a forgotten `--forms`, or a stale tracking file after approvals were reset.
 - `tools/approve_forms.py` and `tools/ingest_review_flags.py`, described above.
+
+---
+
+## 9. CLEARING RESOLVED FLAGS (added 2026-08-24)
+
+### 9.1 The one endpoint still missing
+
+**`POST /api/admin/flags-clear`**, authenticated with `x-import-secret` like
+`questions-fix` and `questions-dump`.
+
+```jsonc
+// request
+{ "qbankIds": ["ce671dbe-…", "eba092f4-…"] }
+// response
+{ "deleted": 14 }
+```
+
+Delete rows from `question_flags` whose `questionId` maps to a `questions` row with one
+of those `qbank_id` values. Nothing else — no cascade, no touching `questions`.
+
+qbank already calls it: `push_to_selectly.py --clear-flags <round>`, which runs after a
+successful push and reads the ids from that round's worklist. Until the route exists the
+push still succeeds and logs that flags were not cleared, so shipping this is not urgent
+— but every round leaves its resolved flags in the admin list, and the next CSV repeats
+them.
+
+### 9.2 Why by id and not by exam
+
+The obvious design — "clear all the VIC flags after a VIC push" — is wrong, and the
+first two rounds show why.
+
+**The CSVs are not region-pure.** The NSW round's export carried four NSW flags *and two
+VIC ones*, because both reviewers export from the same admin list. Clearing "all VIC"
+after that round would have deleted two flags nobody had adjudicated, and they would
+have vanished without anyone knowing they existed.
+
+**A flag can arrive mid-round.** Repairs take hours; a reviewer working in that window
+raises a flag against a question nobody has looked at. A blanket clear removes it
+silently, and the reviewer has no way to tell their report was lost.
+
+Clearing exactly the ids that were adjudicated has neither problem, and needs no
+knowledge of exams or forms on either side.
+
+### 9.3 `keep` verdicts are cleared too
+
+A flag whose verdict was `keep` — the question was read and found sound — is as resolved
+as a repaired one, and its question is not re-pushed because nothing changed. Those ids
+are in the round file and are cleared with the rest. Leaving them would have the same
+question re-reported every round, and reviewers would stop trusting the list.
+
+For the same reason `--clear-flags` runs even when the push has nothing to send: a round
+can adjudicate a dozen questions and change none of them.
+
+### 9.4 What it must not do
+
+Clearing runs **after** a successful push and is skipped if the push reported errors. A
+flag must never be cleared while the question it describes is still wrong in Selectly —
+that turns a reported defect into an unreported one.

@@ -418,6 +418,54 @@ def deactivate(url: str, secret: str, ids: list[str], dry_run: bool) -> int:
         return 0
 
 
+def clear_flags(url: str, secret: str, round_file,
+                dry_run: bool) -> None:
+    """Clear the reviewer flags this round adjudicated, so the next CSV is only new work.
+
+    Cleared by ADJUDICATED ID, not by region. Two reasons, both learned the hard way:
+
+      * the CSVs are not region-pure. The first one carried four NSW flags and two VIC
+        ones together, because both reviewers export from the same admin list. Clearing
+        "all VIC flags" after an NSW round would have deleted two flags nobody had
+        looked at yet.
+      * a flag raised WHILE a round is being worked would be swept away by a blanket
+        clear, silently, and the reviewer would never know their report was lost.
+
+    Every flag in the round file is cleared whatever the verdict, including the ones
+    judged `keep` — the reviewer asked, the question was read, and the answer was "this
+    one is sound". Leaving those flagged would have them re-reported every round.
+    """
+    if not round_file.exists():
+        logger.error(f"no round file at {round_file} — nothing to clear")
+        return
+    ids = sorted({x["qbank_id"] for x in json.loads(round_file.read_text())
+                  if x.get("qbank_id")})
+    if not ids:
+        logger.info("round file holds no qbank ids; nothing to clear")
+        return
+    if dry_run:
+        logger.info(f"[dry-run] would clear {len(ids)} adjudicated flag(s)")
+        return
+    payload = json.dumps({"qbankIds": ids}).encode("utf-8")
+    req = urllib.request.Request(
+        f"{url.rstrip('/')}/api/admin/flags-clear", data=payload,
+        headers={"Content-Type": "application/json", "x-import-secret": secret},
+        method="POST")
+    try:
+        with urllib.request.urlopen(req, timeout=60) as resp:
+            body = json.loads(resp.read().decode("utf-8"))
+        logger.info(f"cleared {body.get('deleted', 0)} flag(s) of {len(ids)} adjudicated")
+    except urllib.error.HTTPError as e:
+        if e.code == 404:
+            logger.warning(
+                "flags were NOT cleared: /api/admin/flags-clear does not exist yet. It "
+                "is specified in the handover, §9. The push itself succeeded; the "
+                "reviewer will see the corrected questions but their old flags will "
+                "still be listed.")
+        else:
+            logger.error(f"clearing flags failed: HTTP {e.code}: {e.read().decode()[:200]}")
+
+
 def run(args: argparse.Namespace) -> None:
     load_env()
 
@@ -524,6 +572,14 @@ def run(args: argparse.Namespace) -> None:
     # half has anything to do.
     if not to_push and not stale:
         logger.info("Nothing to push and nothing to withdraw.")
+        # Still clear the flags. A round can adjudicate several questions and change
+        # none of them -- every verdict `keep` -- and those flags are just as resolved
+        # as the repaired ones. Nothing to push means Selectly already holds current
+        # content, so clearing is safe here by definition.
+        if args.clear_flags:
+            clear_flags(url, secret,
+                        REPO_ROOT / "run_data/output/review_flags"
+                        / f"round_{args.clear_flags}.json", args.dry_run)
         return
     if not to_push:
         logger.info("Nothing new to push — proceeding to the withdrawal pass only.")
@@ -608,6 +664,15 @@ def run(args: argparse.Namespace) -> None:
 
     save_tracking(tracked, url)
 
+    # Last, and only if the push itself did not fail: a flag must not be cleared while
+    # the question it describes is still wrong in Selectly.
+    if args.clear_flags and not total_errors:
+        clear_flags(url, secret,
+                    REPO_ROOT / "run_data/output/review_flags"
+                    / f"round_{args.clear_flags}.json", args.dry_run)
+    elif args.clear_flags:
+        logger.warning("flags not cleared — the push reported errors")
+
     logger.info("─" * 50)
     logger.info(f"inserted={total_inserted}  skipped={total_skipped}  errors={len(total_errors)}")
     logger.info(f"Cumulative tracked: {len(tracked)}")
@@ -627,6 +692,10 @@ def main() -> None:
     parser.add_argument("--force-deactivate", action="store_true",
                         help=f"Allow deactivating more than {DEACTIVATE_LIMIT} questions "
                              f"at once. Almost always a mistake; read the error first.")
+    parser.add_argument("--clear-flags", metavar="ROUND", default="",
+                        help="after a successful push, clear the reviewer flags this "
+                             "round adjudicated, e.g. --clear-flags vic1 for "
+                             "run_data/output/review_flags/round_vic1.json")
     parser.add_argument("--no-deactivate", action="store_true",
                         help="Skip switching off questions that are no longer sendable")
     args = parser.parse_args()

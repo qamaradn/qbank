@@ -230,3 +230,50 @@ def test_tracking_without_a_target_does_not_block(tmp_path, monkeypatch):
     monkeypatch.setattr(m, "TRACKING_FILE", f)
     m.load_tracking()
     m.check_target("http://anywhere")
+
+
+def test_clear_flags_uses_adjudicated_ids_not_a_region(tmp_path, monkeypatch):
+    """CSVs are not region-pure — the first one carried four NSW flags and two VIC ones,
+    because both reviewers export from the same admin list. Clearing "all VIC" after an
+    NSW round would have deleted two flags nobody had adjudicated."""
+    import json as _json
+    import pipeline.push_to_selectly as m
+    rf = tmp_path / "round_x.json"
+    rf.write_text(_json.dumps([
+        {"qbank_id": "a", "form_id": "nsw-drill-math-001", "verdict": "repair"},
+        {"qbank_id": "b", "form_id": "vic-drill-mq-001", "verdict": "keep"},
+    ]))
+    seen = {}
+
+    class _Resp:
+        def read(self): return _json.dumps({"deleted": 2}).encode()
+        def __enter__(self): return self
+        def __exit__(self, *a): return False
+
+    def fake(req, timeout=None):
+        seen["url"] = req.full_url
+        seen["headers"] = {k.lower(): v for k, v in req.headers.items()}
+        seen["body"] = _json.loads(req.data)
+        return _Resp()
+
+    monkeypatch.setattr(m.urllib.request, "urlopen", fake)
+    m.clear_flags("http://x", "sec", rf, dry_run=False)
+    assert seen["url"].endswith("/api/admin/flags-clear")
+    assert seen["headers"].get("x-import-secret") == "sec"
+    # both ids, including the one whose verdict was `keep` — it was still adjudicated
+    assert seen["body"] == {"qbankIds": ["a", "b"]}
+
+
+def test_clear_flags_survives_the_endpoint_not_existing(tmp_path, monkeypatch, caplog):
+    """Until Selectly ships the route, a push must still succeed and say what happened."""
+    import json as _json
+    import urllib.error
+    import pipeline.push_to_selectly as m
+    rf = tmp_path / "round_x.json"
+    rf.write_text(_json.dumps([{"qbank_id": "a"}]))
+
+    def fake(req, timeout=None):
+        raise urllib.error.HTTPError(req.full_url, 404, "Not Found", {}, None)
+
+    monkeypatch.setattr(m.urllib.request, "urlopen", fake)
+    m.clear_flags("http://x", "sec", rf, dry_run=False)   # must not raise
