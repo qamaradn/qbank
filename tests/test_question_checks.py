@@ -19,6 +19,9 @@ from tools.question_checks import (
     doubled_circle_outline,
     overlapping_text_labels,
     plotted_points_inconsistent,
+    text_overlaps_geometry,
+    axes_unlabelled,
+    angle_arc_malformed,
     COMPREHENSION_RELATIONS,
     STRUCTURAL_RELATIONS,
     answer_shape_monotony,
@@ -693,3 +696,74 @@ def test_an_unresolved_radicand_is_not_read_as_the_answer():
              option_d="17.00 cm", correct_answer="D",
              explanation="Side = √(8² + 15²) = √(64 + 225) = √289 = 17.00 cm.")
     assert calculator_required(q) is None
+
+
+# --------------------------------------------------------------- VIC round 2
+# All three flags were figure geometry, on figures nobody had questioned before.
+
+def test_text_overlaps_geometry_is_caught():
+    """'fix the graph as the 0,5 is overlapping the line' — the point label was placed
+    at the plotted line's own coordinates and printed straight through it."""
+    svg = ('<svg><line x1="40" y1="130" x2="220" y2="40" stroke="currentColor"/>'
+           '<text x="44" y="128" font-size="11">(0, 5)</text></svg>')
+    assert "on top of the line" in (text_overlaps_geometry(svg) or "")
+
+
+def test_a_rotated_axis_title_is_not_lying_across_the_plot():
+    """An axis title written sideways up the y-axis sits in the margin. Read as
+    horizontal text it appeared to sprawl over the data and both text checks reported
+    collisions that were not there."""
+    svg = ('<svg><line x1="40" y1="130" x2="220" y2="40" stroke="currentColor"/>'
+           '<text x="2" y="105" font-size="12" transform="rotate(-90,12,105)">'
+           'Dial reading (kg)</text></svg>')
+    assert text_overlaps_geometry(svg) is None
+
+
+def test_axes_unlabelled_is_caught():
+    """'please label the axis for professionalism' — bars, numbers, and no word saying
+    what is being counted."""
+    svg = ('<svg><path d="M34 12V144H330" stroke="currentColor"/>'
+           '<text x="24" y="148" font-size="10">0</text>'
+           '<text x="24" y="126" font-size="10">2</text>'
+           '<text x="24" y="104" font-size="10">4</text>'
+           '<text x="24" y="82" font-size="10">6</text></svg>')
+    assert "no axis titles" in (axes_unlabelled(svg) or "")
+
+
+def test_a_coordinate_plane_needs_no_axis_titles():
+    """x and y are the labels, by convention. Requiring words flagged every graph."""
+    svg = ('<svg><path d="M34 12V144H330" stroke="currentColor"/>'
+           '<text x="1" y="1" font-size="10">1</text><text x="2" y="2" font-size="10">2</text>'
+           '<text x="3" y="3" font-size="10">3</text><text x="4" y="4" font-size="10">4</text>'
+           '<text x="9" y="9" font-size="12">x</text>'
+           '<text x="8" y="8" font-size="12">y</text></svg>')
+    assert axes_unlabelled(svg) is None
+
+
+def test_a_number_line_needs_no_axis_titles():
+    """One rule, no second dimension: the numbers are the quantity."""
+    svg = ('<svg><path d="M28 60H332" stroke="currentColor"/>'
+           '<text x="40" y="84" font-size="9">-5</text><text x="65" y="84" font-size="9">0</text>'
+           '<text x="90" y="84" font-size="9">5</text><text x="115" y="84" font-size="9">10</text>'
+           '</svg>')
+    assert axes_unlabelled(svg) is None
+
+
+def test_angle_arc_malformed_is_caught():
+    """'that little curve line going outside the triangle by a tiny bit near angle A' —
+    endpoints 24.00 and 24.19 from the vertex against a declared radius of 24."""
+    svg = ('<svg><polygon points="40,60 160,60 40,150"/>'
+           '<path d="M40 126A24 24 0 0 0 61 138"/></svg>')
+    assert "not sit on the angle" in (angle_arc_malformed(svg) or "")
+
+
+def test_an_exact_angle_arc_passes():
+    import math
+    A, r = (40.0, 150.0), 24.0
+    p1 = (40.0, 150.0 - r)
+    dx, dy = 120.0, -90.0
+    L = math.hypot(dx, dy)
+    p2 = (A[0] + dx / L * r, A[1] + dy / L * r)
+    svg = (f'<svg><polygon points="40,60 160,60 40,150"/>'
+           f'<path d="M{p1[0]:.2f} {p1[1]:.2f}A{r:g} {r:g} 0 0 0 {p2[0]:.2f} {p2[1]:.2f}"/></svg>')
+    assert angle_arc_malformed(svg) is None

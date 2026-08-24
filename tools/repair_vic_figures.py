@@ -21,7 +21,7 @@ RECORD = ROOT / "run_data/output/vic_figure_repairs.json"
 C = "currentColor"
 
 
-def grid(xmin, xmax, ymin, ymax, cell=22, pad=26):
+def grid(xmin, xmax, ymin, ymax, cell=22, pad=34):
     """A coordinate plane with ONE scale on both axes and gridlines that show it."""
     w = (xmax - xmin) * cell + 2 * pad
     h = (ymax - ymin) * cell + 2 * pad
@@ -54,16 +54,31 @@ def grid(xmin, xmax, ymin, ymax, cell=22, pad=26):
     for x in range(xmin, xmax + 1, 2):
         if x == 0:
             continue
-        tx, ty = px(x, 0)
-        body.append(f'<text x="{tx:.0f}" y="{ty + 12:.0f}" font-size="9" fill="{C}" '
+        tx, _ = px(x, 0)
+        # Bottom margin, not on the axis. With negative coordinates the x-axis runs
+        # through the middle of the picture, so labels placed against it land in the
+        # data — which is how "-2" ended up printed across the parallelogram's diagonal.
+        body.append(f'<text x="{tx:.0f}" y="{h - 8:.0f}" font-size="9" fill="{C}" '
                     f'fill-opacity=".7" text-anchor="middle">{x}</text>')
     for y in range(ymin, ymax + 1, 2):
         if y == 0:
             continue
-        tx, ty = px(0, y)
-        body.append(f'<text x="{tx - 6:.0f}" y="{ty + 3:.0f}" font-size="9" fill="{C}" '
+        _, ty = px(0, y)
+        # Tick labels go in the left margin, not beside an interior axis. Sitting next
+        # to the axis put "-2" on top of the parallelogram's diagonal; out here nothing
+        # drawn in the data area can reach them.
+        body.append(f'<text x="{pad - 8:.0f}" y="{ty + 3:.0f}" font-size="9" fill="{C}" '
                     f'fill-opacity=".7" text-anchor="end">{y}</text>')
-    return body, px, w, h
+    # The axis letters. Redrawing these figures yesterday I dropped them, and the check
+    # written the next day found all three — a coordinate plane says what it is with x
+    # and y, and without them it is just a grid.
+    axr, _ = px(xmax, 0)
+    _, ayt = px(0, ymax)
+    body.append(f'<text x="{axr + 10:.0f}" y="{px(0, 0)[1] + 4:.0f}" font-size="12" '
+                f'fill="{C}">x</text>')
+    body.append(f'<text x="{px(0, 0)[0] + 6:.0f}" y="{ayt - 8:.0f}" font-size="12" '
+                f'fill="{C}">y</text>')
+    return body, px, w + 14, h + 6
 
 
 def wrap(body, w, h):
@@ -187,12 +202,14 @@ def two_points():
 def two_lines():
     """One line of slope 1 and one of slope −1 on equal axes, so 45° looks like 45°."""
     body, px, w, h = grid(-1, 6, -1, 9)
-    for (x0, y0), (x1, y1) in ((( -1, -1), (6, 6)), ((0, 8), (6, 2))):
+    # Stop the lines short of the margin. Drawn to the grid corner, the y = x line ended
+    # exactly where the "-1" tick label sits and printed through it.
+    for (x0, y0), (x1, y1) in (((-0.6, -0.6), (5.6, 5.6)), ((0, 8), (5.6, 2.4))):
         a, b = px(x0, y0)
         c, d = px(x1, y1)
         body.append(f'<line x1="{a:.0f}" y1="{b:.0f}" x2="{c:.0f}" y2="{d:.0f}" '
                     f'stroke="{C}" stroke-width="2"/>')
-    body += dot(px, 4, 4, "P(4, 4)", dx=7, dy=-7)
+    body += dot(px, 4, 4, "P(4, 4)", dx=24, dy=4)
     body += dot(px, 0, 8, "(0, 8)", dx=7, dy=-5)
     return wrap(body, w, h)
 

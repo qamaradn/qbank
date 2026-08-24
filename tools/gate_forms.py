@@ -54,6 +54,13 @@ BLOCKING = [
     ("compounding_needs_calculator", "VIC round 1: compounding or a chain of percentages"),
     ("doubled_circle_outline", "VIC round 1: circumference drawn twice"),
     ("plotted_points_inconsistent", "VIC round 1: points not plotted to one scale"),
+    # Promoted from advisory after VIC round 2. It had already caught the graph whose
+    # axis title printed through the tick numbers -- the check was right and its tier
+    # was wrong, so the gate waved it through and a reviewer had to find it.
+    ("overlapping_text_labels", "VIC round 2: two labels printed over each other"),
+    ("text_overlaps_geometry", "VIC round 2: a label printed over a plotted line"),
+    ("axes_unlabelled", "VIC round 2: a chart with no axis titles"),
+    ("angle_arc_malformed", "VIC round 2: angle mark not centred on its vertex"),
 ]
 
 # EXAM-SPECIFIC — two things genuinely differ, and only two.
@@ -88,13 +95,16 @@ BANNED_MANIFEST = ROOT / "run_data/output/vr_banned_types.json"
 # than no gate, so these stay advisory until their counts come down.
 ADVISORY = ["length_tell", "positional_reference", "key_restates_passage",
             "explanation_addresses_a_distractor", "figure_svg_errors",
-            "overlapping_text_labels"]
+]
 
 
 # The checks do not share a calling convention -- some take the question dict, some a
 # single field, one takes the whole batch. Dispatch explicitly rather than guessing:
 # a wrong guess here makes a check silently never fire, which is worse than a crash.
 _TEXT_FIELD = {
+    "text_overlaps_geometry": "figure_svg",
+    "axes_unlabelled": "figure_svg",
+    "angle_arc_malformed": "figure_svg",
     "doubled_circle_outline": "figure_svg",
     "overlapping_text_labels": "figure_svg",
     "plotted_points_inconsistent": "figure_svg",

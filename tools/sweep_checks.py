@@ -95,7 +95,8 @@ def per_question(q: dict) -> list[tuple[str, str]]:
             hits.append((_name, m))
     if q.get("figure_svg"):
         for _name in ("doubled_circle_outline", "overlapping_text_labels",
-                      "plotted_points_inconsistent"):
+                      "plotted_points_inconsistent", "text_overlaps_geometry",
+                      "axes_unlabelled", "angle_arc_malformed"):
             if (m := getattr(qc, _name)(q["figure_svg"])):
                 hits.append((_name, m))
     for name, fn in (("doubled_token_errors", qc.doubled_token_errors),

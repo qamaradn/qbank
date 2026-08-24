@@ -986,6 +986,36 @@ _TEXT = re.compile(r"<text[^>]*\bx=[\'\"]([-\d.]+)[\'\"][^>]*\by=[\'\"]([-\d.]+)
                    r"[^>]*?(?:font-size=[\'\"]([\d.]+)[\'\"])?[^>]*>([^<]*)<")
 
 
+def _text_box(m, pad=0.0):
+    """Bounding box for one <text>, honouring a rotate(±90) transform.
+
+    An axis title is written sideways up the y-axis. Treated as horizontal it appears to
+    sprawl across the whole plot, which made both text checks report collisions that are
+    not there — "Dial reading (kg)" looked like it lay over the plotted line when it sits
+    quietly in the left margin.
+    """
+    x, y = float(m.group(1)), float(m.group(2))
+    size = float(m.group(3) or 12)
+    label = (m.group(4) or "").strip()
+    if not label:
+        return None
+    w = len(label) * size * 0.55
+    tag = m.group(0)
+    rot = re.search(r"rotate\s*\(\s*(-?\d+(?:\.\d+)?)", tag)
+    if rot and abs(abs(float(rot.group(1))) - 90) < 1:
+        cx = cy = None
+        nums = re.findall(r"-?\d+(?:\.\d+)?", rot.string[rot.start():])
+        if len(nums) >= 3:
+            cx, cy = float(nums[1]), float(nums[2])
+        cx = x if cx is None else cx
+        cy = y if cy is None else cy
+        return (cx - size * 0.8 + pad, cy - w / 2 + pad,
+                cx + size * 0.25 - pad, cy + w / 2 - pad, label)
+    mid = "text-anchor" in tag and "middle" in tag
+    x0 = x - w / 2 if mid else x
+    return (x0 + pad, y - size * 0.8 + pad, x0 + w - pad, y + size * 0.25 - pad, label)
+
+
 def overlapping_text_labels(svg, pad=6.0):
     """Two labels whose boxes overlap, so both read as mush.
 
@@ -996,17 +1026,7 @@ def overlapping_text_labels(svg, pad=6.0):
     """
     if not svg:
         return None
-    boxes = []
-    for m in _TEXT.finditer(svg):
-        x, y = float(m.group(1)), float(m.group(2))
-        size = float(m.group(3) or 12)
-        label = (m.group(4) or "").strip()
-        if not label:
-            continue
-        w = len(label) * size * 0.55
-        anchor_mid = "text-anchor" in m.group(0) and "middle" in m.group(0)
-        x0 = x - w / 2 if anchor_mid else x
-        boxes.append((x0, y - size * 0.8, x0 + w, y + size * 0.25, label))
+    boxes = [b for b in (_text_box(m) for m in _TEXT.finditer(svg)) if b]
     for i in range(len(boxes)):
         for j in range(i + 1, len(boxes)):
             ax0, ay0, ax1, ay1, al = boxes[i]
@@ -1084,4 +1104,163 @@ def plotted_points_inconsistent(svg, tol=4.0):
     if abs(abs(sx) - abs(sy)) > 0.15 * max(abs(sx), abs(sy)):
         return (f"axes use different scales ({abs(sx):.1f} vs {abs(sy):.1f} px per "
                 f"unit), so slopes and right angles are drawn wrong")
+    return None
+
+
+# ---------------------------------------------------------------------------
+# VIC review round 2 (2026-08-24). All three flags were figure geometry, on
+# figures nobody had complained about before -- a reminder that "the reviewer
+# did not mention it" is not evidence a figure is sound.
+# ---------------------------------------------------------------------------
+
+_LINE_EL = re.compile(
+    r"<line[^>]*\bx1=[\'\"]([-\d.]+)[\'\"][^>]*\by1=[\'\"]([-\d.]+)[\'\"]"
+    r"[^>]*\bx2=[\'\"]([-\d.]+)[\'\"][^>]*\by2=[\'\"]([-\d.]+)[\'\"]")
+
+
+def _seg_hits_box(x1, y1, x2, y2, bx0, by0, bx1, by1):
+    """Does a segment pass through an axis-aligned box? Liang-Barsky, short form."""
+    dx, dy = x2 - x1, y2 - y1
+    t0, t1 = 0.0, 1.0
+    for p, q in ((-dx, x1 - bx0), (dx, bx1 - x1), (-dy, y1 - by0), (dy, by1 - y1)):
+        if p == 0:
+            if q < 0:
+                return False
+            continue
+        r = q / p
+        if p < 0:
+            if r > t1:
+                return False
+            t0 = max(t0, r)
+        else:
+            if r < t0:
+                return False
+            t1 = min(t1, r)
+    return t0 <= t1
+
+
+def text_overlaps_geometry(svg, pad=1.5):
+    """A label sitting on top of a drawn line.
+
+    "fix the graph as the 0,5 is overlapping the line". The point label was placed at the
+    plotted line's own coordinates, so it printed straight through it. Distinct from
+    overlapping_text_labels, which only compares text with text.
+
+    Axis titles and tick labels are exempt: they sit alongside the axes by design and a
+    strict reading would flag every chart ever drawn.
+    """
+    if not svg:
+        return None
+    lines = [tuple(map(float, m.groups())) for m in _LINE_EL.finditer(svg)]
+    if not lines:
+        return None
+    for m in _TEXT.finditer(svg):
+        b = _text_box(m, pad)
+        if not b or len(b[4]) < 2:
+            continue
+        box = b[:4]
+        if box[2] <= box[0] or box[3] <= box[1]:
+            continue
+        label = b[4]
+        for (a, b, c, d) in lines:
+            # an axis is a long horizontal or vertical rule; labels belong beside those
+            if abs(a - c) < 1 or abs(b - d) < 1:
+                continue
+            if _seg_hits_box(a, b, c, d, *box):
+                return (f"label {label!r} is drawn on top of the line from "
+                        f"({a:g}, {b:g}) to ({c:g}, {d:g})")
+    return None
+
+
+_HAS_WORD = re.compile(r"[A-Za-z]{3,}")
+
+
+def axes_unlabelled(svg):
+    """A chart with numbers up the side and along the bottom, and no word saying what
+    they are. "please label the axis for professionalism".
+
+    Only fires on figures that clearly ARE charts -- several numeric labels and a long
+    axis rule -- so diagrams of shapes are untouched.
+    """
+    if not svg:
+        return None
+    texts = [(m.group(4) or "").strip() for m in _TEXT.finditer(svg)]
+    numeric = [t for t in texts if re.fullmatch(r"-?\d+(?:\.\d+)?", t)]
+    if len(numeric) < 4:
+        return None
+    if not re.search(r"<(?:line|path)[^>]*d?=?[^>]*>", svg):
+        return None
+    if any(_HAS_WORD.search(t) for t in texts):
+        return None
+    # A coordinate plane is labelled by convention: the axes are x and y, and nothing
+    # more is needed or wanted. Only charts that MEASURE something -- litres, students,
+    # kilograms -- need words saying what the numbers count.
+    singles = {t for t in texts if len(t) == 1}
+    if {"x", "y"} <= singles:
+        return None
+    # A number line has one rule and no second dimension. Its numbers ARE the quantity,
+    # so there is nothing to name. Only figures with both a horizontal and a vertical
+    # rule are charts in the sense this check means.
+    rules = [tuple(map(float, m.groups())) for m in _LINE_EL.finditer(svg)]
+    horiz = any(abs(b - d) < 1 and abs(a - c) > 40 for a, b, c, d in rules)
+    vert = any(abs(a - c) < 1 and abs(b - d) > 40 for a, b, c, d in rules)
+    # An axis pair is often one path, e.g. "M34 12V144H330". Measure how far it actually
+    # travels: a tick mark is also "V" and must not count. Judging by string length
+    # instead made every tick on a number line look like an axis.
+    for d in re.findall(r"<path[^>]*\bd=[\'\"]([^\'\"]+)", svg):
+        m0 = re.match(r"\s*M\s*(-?[\d.]+)[ ,]+(-?[\d.]+)", d)
+        if not m0:
+            continue
+        x0, y0 = float(m0.group(1)), float(m0.group(2))
+        for cmd, val in re.findall(r"([VH])\s*(-?[\d.]+)", d):
+            if cmd == "V" and abs(float(val) - y0) > 40:
+                vert = True
+            if cmd == "H" and abs(float(val) - x0) > 40:
+                horiz = True
+    if not (horiz and vert):
+        return None
+    return ("the figure is a chart with numeric scales but no axis titles — a reader "
+            "cannot tell what is being counted or measured")
+
+
+_N = r"[-+]?[\d.]+"
+_ARC = re.compile(
+    rf"<path[^>]*\bd=[\'\"]\s*M\s*({_N})[ ,]+({_N})\s*"
+    rf"A\s*({_N})[ ,]+({_N})[ ,]+{_N}[ ,]+[01][ ,]+[01][ ,]+({_N})[ ,]+({_N})")
+_POLY = re.compile(r"<polygon[^>]*\bpoints=[\'\"]([^\'\"]+)[\'\"]")
+
+
+def angle_arc_malformed(svg, tol=0.15):
+    """An angle mark whose two ends are not the same distance from their vertex.
+
+    "try fixing that little curve line that is going outside the triangle by a tiny bit
+    near angle A." The arc declared radius 24 while its endpoints sat 24.00 and 24.19
+    from the vertex. SVG must then fit a circle of radius 24 through two points that do
+    not both lie on one, so the centre lands off the vertex and the arc bulges past the
+    edge. A fifth of a pixel of sloppiness is visible, and a reviewer found it.
+    """
+    if not svg:
+        return None
+    verts = []
+    for m in _POLY.finditer(svg):
+        raw = m.group(1).replace(",", " ").replace("\u2212", "-")
+        try:
+            nums = [float(n) for n in raw.split()]
+        except ValueError:
+            continue          # a points list we cannot read is not one to judge
+        verts += list(zip(nums[0::2], nums[1::2]))
+    if not verts:
+        return None
+    for m in _ARC.finditer(svg):
+        x1, y1, rx, ry, x2, y2 = (float(g) for g in m.groups())
+        if abs(rx - ry) > 0.01:
+            continue
+        v = min(verts, key=lambda p: max(math.dist(p, (x1, y1)), math.dist(p, (x2, y2))))
+        d1, d2 = math.dist(v, (x1, y1)), math.dist(v, (x2, y2))
+        if max(d1, d2) > 4 * rx:
+            continue                       # not an angle mark at this vertex
+        if abs(d1 - d2) > tol or abs(d1 - rx) > tol or abs(d2 - rx) > tol:
+            return (f"angle arc at ({v[0]:g}, {v[1]:g}) declares r={rx:g} but its ends "
+                    f"are {d1:.2f} and {d2:.2f} from the vertex — it will not sit on "
+                    f"the angle")
     return None
