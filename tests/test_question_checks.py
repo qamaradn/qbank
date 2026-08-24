@@ -764,6 +764,25 @@ def test_an_exact_angle_arc_passes():
     dx, dy = 120.0, -90.0
     L = math.hypot(dx, dy)
     p2 = (A[0] + dx / L * r, A[1] + dy / L * r)
+    # sweep flag 1: the flag that puts the centre ON the vertex. Written as 0 this test
+    # asserted that a wrong-facing arc was acceptable, and it passed until the check
+    # learned to compute the centre.
     svg = (f'<svg><polygon points="40,60 160,60 40,150"/>'
-           f'<path d="M{p1[0]:.2f} {p1[1]:.2f}A{r:g} {r:g} 0 0 0 {p2[0]:.2f} {p2[1]:.2f}"/></svg>')
+           f'<path d="M{p1[0]:.2f} {p1[1]:.2f}A{r:g} {r:g} 0 0 1 {p2[0]:.2f} {p2[1]:.2f}"/></svg>')
     assert angle_arc_malformed(svg) is None
+
+
+def test_an_arc_with_perfect_endpoints_can_still_face_the_wrong_way():
+    """'flip angle A's arc to be facing the other way.'
+
+    The first repair put both endpoints exactly 24 from the vertex and the check passed
+    — but the sweep flag chooses which of TWO candidate centres SVG uses, and the wrong
+    one swings the arc 42.9 px away from the vertex. Endpoints alone cannot see this;
+    only computing the centre the renderer will actually use can.
+    """
+    poly = '<polygon points="40,60 160,60 40,150"/>'
+    wrong = f'<svg>{poly}<path d="M40.00 126.00A24.0 24.0 0 0 0 59.20 135.60"/></svg>'
+    right = f'<svg>{poly}<path d="M40.00 126.00A24.0 24.0 0 0 1 59.20 135.60"/></svg>'
+    msg = angle_arc_malformed(wrong)
+    assert msg and "wrong way round" in msg
+    assert angle_arc_malformed(right) is None

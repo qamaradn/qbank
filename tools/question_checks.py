@@ -1226,7 +1226,23 @@ def axes_unlabelled(svg):
 _N = r"[-+]?[\d.]+"
 _ARC = re.compile(
     rf"<path[^>]*\bd=[\'\"]\s*M\s*({_N})[ ,]+({_N})\s*"
-    rf"A\s*({_N})[ ,]+({_N})[ ,]+{_N}[ ,]+[01][ ,]+[01][ ,]+({_N})[ ,]+({_N})")
+    rf"A\s*({_N})[ ,]+({_N})[ ,]+{_N}[ ,]+([01])[ ,]+([01])[ ,]+({_N})[ ,]+({_N})")
+
+
+def _arc_centre(x1, y1, x2, y2, r, f_large, f_sweep):
+    """Where SVG will actually put the centre of this arc (spec F.6.5, rx = ry, no
+    rotation). The flags choose between two candidate centres, and only one of them is
+    the vertex — which is why an arc can have perfect endpoints and still bulge the
+    wrong way."""
+    dx2, dy2 = (x1 - x2) / 2, (y1 - y2) / 2
+    den = r * r * (dy2 * dy2 + dx2 * dx2)
+    if den <= 0:
+        return None
+    k2 = (r ** 4 - r * r * dy2 * dy2 - r * r * dx2 * dx2) / den
+    k = math.sqrt(k2) if k2 > 0 else 0.0
+    if f_large == f_sweep:
+        k = -k
+    return (k * dy2 + (x1 + x2) / 2, -k * dx2 + (y1 + y2) / 2)
 _POLY = re.compile(r"<polygon[^>]*\bpoints=[\'\"]([^\'\"]+)[\'\"]")
 
 
@@ -1252,7 +1268,8 @@ def angle_arc_malformed(svg, tol=0.15):
     if not verts:
         return None
     for m in _ARC.finditer(svg):
-        x1, y1, rx, ry, x2, y2 = (float(g) for g in m.groups())
+        x1, y1, rx, ry, f_large, f_sweep, x2, y2 = (
+            float(g) if i not in (4, 5) else int(g) for i, g in enumerate(m.groups()))
         if abs(rx - ry) > 0.01:
             continue
         v = min(verts, key=lambda p: max(math.dist(p, (x1, y1)), math.dist(p, (x2, y2))))
@@ -1263,4 +1280,12 @@ def angle_arc_malformed(svg, tol=0.15):
             return (f"angle arc at ({v[0]:g}, {v[1]:g}) declares r={rx:g} but its ends "
                     f"are {d1:.2f} and {d2:.2f} from the vertex — it will not sit on "
                     f"the angle")
+        # Endpoints alone are not enough. The sweep flag chooses which of two centres
+        # SVG uses, and the wrong one swings the arc away from the vertex entirely --
+        # "flip angle A's arc to be facing the other way". Perfect endpoints, wrong side.
+        c = _arc_centre(x1, y1, x2, y2, rx, f_large, f_sweep)
+        if c and math.dist(c, v) > max(tol, 0.5):
+            return (f"angle arc at ({v[0]:g}, {v[1]:g}) is centred {math.dist(c, v):.1f} "
+                    f"px away at ({c[0]:.1f}, {c[1]:.1f}) — the sweep flag has it "
+                    f"curving the wrong way round")
     return None
