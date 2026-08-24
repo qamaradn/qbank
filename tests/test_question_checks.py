@@ -786,3 +786,13 @@ def test_an_arc_with_perfect_endpoints_can_still_face_the_wrong_way():
     msg = angle_arc_malformed(wrong)
     assert msg and "wrong way round" in msg
     assert angle_arc_malformed(right) is None
+
+
+def test_a_halo_label_is_not_a_collision():
+    """The same text twice at the same spot is one label with a stroke behind it, drawn
+    so it stays readable over a gridline — a technique, not a defect."""
+    svg = ('<svg>'
+           '<text x="118.2" y="130.2" font-size="8.5" fill="white" stroke="white" '
+           'stroke-width="3">-5</text>'
+           '<text x="118.2" y="130.2" font-size="8.5" fill="currentColor">-5</text></svg>')
+    assert overlapping_text_labels(svg) is None

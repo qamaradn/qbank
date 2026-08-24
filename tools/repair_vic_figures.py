@@ -232,6 +232,25 @@ def parallelogram():
     return wrap(body, w, h)
 
 
+def parallelogram_klmn():
+    """K(-3,5) L(5,5) M(7,-1) N(-1,-1), on one scale. The dashed diagonal is KM, the
+    side of triangle KLM the question asks about — KL is 8 across, M is 6 below it, so
+    the area is 24."""
+    body, px, w, h = grid(-5, 9, -3, 7, cell=18)
+    pts = {"K": (-3, 5), "L": (5, 5), "M": (7, -1), "N": (-1, -1)}
+    path = " L".join(f"{px(*pts[n])[0]:.0f} {px(*pts[n])[1]:.0f}" for n in "KLMN")
+    body.append(f'<path d="M{path} Z" fill="{C}" fill-opacity=".05" stroke="{C}" '
+                f'stroke-width="2"/>')
+    a, b = px(*pts["K"])
+    c2, d = px(*pts["M"])
+    body.append(f'<line x1="{a:.0f}" y1="{b:.0f}" x2="{c2:.0f}" y2="{d:.0f}" stroke="{C}" '
+                f'stroke-width="1.5" stroke-dasharray="5,4"/>')
+    for n, (x, y) in pts.items():
+        body += dot(px, x, y, f"{n}({x}, {y})",
+                    dx=-48 if x < 1 else 8, dy=-8 if y > 0 else 16)
+    return wrap(body, w, h)
+
+
 FIGURES = {
     "8373edd1-8636-4546-b5ea-5bcd6d30c63e": ("spinner: circumference drawn twice", spinner),
     "fba184a9-37f3-42f9-a9d6-1749dc0caa5e": ("circle: arcs retraced the outline", arcs),
@@ -240,6 +259,8 @@ FIGURES = {
     "cb520797-c4ca-40d4-bb4c-904aae8a0809": ("lines: slope 1 not drawn at 45°", two_lines),
     "f4d44f5e-eba6-4ddf-95e5-060e6395cdc1": ("parallelogram: three different x scales",
                                              parallelogram),
+    "__KLMN__": ("parallelogram KLMN: points 12 px off their own scale",
+                 parallelogram_klmn),
 }
 
 

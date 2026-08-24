@@ -944,8 +944,18 @@ def compounding_needs_calculator(q):
     """
     stem = q.get("stem") or ""
     if (m := _COMPOUND.search(stem)):
-        return (f"stem says {m.group(0)!r} — compounding over many periods cannot be "
-                f"done by hand")
+        # Sub-annual compounding always means many periods. Annual compounding is only
+        # calculator work once the term is long: 1.1 squared is mental arithmetic,
+        # 1.04 to the fourth is not.
+        period = (m.group(1) or "").lower()
+        if period in ("monthly", "weekly", "daily", "quarterly"):
+            return (f"stem says {m.group(0)!r} — compounding over many periods cannot "
+                    f"be done by hand")
+        yrs = re.search(r"(?:after|over|for)\s+(\d+)\s+years?", stem, re.I)
+        if not yrs or int(yrs.group(1)) > 3:
+            return (f"stem says {m.group(0)!r} over "
+                    f"{yrs.group(1) + ' years' if yrs else 'an unstated term'} — "
+                    f"that cannot be done by hand")
     if _PCT_CHAIN.search(stem):
         return ("stem applies four or more percentage changes in sequence, which is "
                 "calculator work")
@@ -1031,6 +1041,11 @@ def overlapping_text_labels(svg, pad=6.0):
         for j in range(i + 1, len(boxes)):
             ax0, ay0, ax1, ay1, al = boxes[i]
             bx0, by0, bx1, by1, bl = boxes[j]
+            # The same text at the same spot is one label drawn twice: a thick pale
+            # stroke behind, the real glyphs on top, so it stays readable over a
+            # gridline. It is a rendering technique, not a collision.
+            if al == bl and abs(ax0 - bx0) < 1.5 and abs(ay0 - by0) < 1.5:
+                continue
             ox = min(ax1, bx1) - max(ax0, bx0)
             oy = min(ay1, by1) - max(ay0, by0)
             if ox > pad and oy > pad:
@@ -1218,6 +1233,20 @@ def axes_unlabelled(svg):
             if cmd == "H" and abs(float(val) - x0) > 40:
                 horiz = True
     if not (horiz and vert):
+        return None
+    # A chart's axes meet at an origin. A shape divided by internal rules also has long
+    # horizontal and vertical lines, but they cross rather than share an endpoint -- a
+    # rectangle cut into sections was being asked to label axes it does not have.
+    ends = []
+    for a, b, cc, d in rules:
+        if (abs(b - d) < 1 and abs(a - cc) > 40) or (abs(a - cc) < 1 and abs(b - d) > 40):
+            ends += [(a, b), (cc, d)]
+    meets = any(abs(p[0] - q[0]) < 2 and abs(p[1] - q[1]) < 2
+                for i, p in enumerate(ends) for q in ends[i + 1:])
+    axis_path = any(re.search(r"[VH]", d) and re.match(r"\s*M", d)
+                    for d in re.findall(r"<path[^>]*\bd=[\'\"]([^\'\"]+)", svg)
+                    if len(re.findall(r"[VH]", d)) >= 2)
+    if not (meets or axis_path):
         return None
     return ("the figure is a chart with numeric scales but no axis titles — a reader "
             "cannot tell what is being counted or measured")
