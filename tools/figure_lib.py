@@ -706,8 +706,19 @@ def plane(points=None, lines=None, polygon=None, xr=(-4, 4), yr=(-4, 4), cell=30
     def clear(bx0, by0, bx1, by1):
         return min([_seg_box_gap(s, bx0, by0, bx1, by1) for s in drawn] or [99])
 
-    xs = [i for i in range(x0, x1 + 1) if i]
-    ys = [j for j in range(y0, y1 + 1) if j]
+    # At small cell sizes the x-axis "-1" and the y-axis "-1" sit in the same corner and
+    # print over each other: the x label is centred at ax-cell and the y label ends at
+    # ax-9, and their boxes intersect for any cell under about 22 px. Labelling alternate
+    # ticks is what a real graph does at that scale, and it costs bytes rather than
+    # spending them. Tick MARKS stay on every unit, so nothing is unreadable.
+    # Decided PER AXIS. Thinning a short axis leaves it with one or two numbers, and
+    # _axis_ticks needs three to fit a mapping -- so the figure stops being verifiable,
+    # which is a worse fault than the collision this avoids.
+    def thin(lo, hi):
+        every = [v for v in range(lo, hi + 1) if v]
+        alt = [v for v in every if v % 2 == 0]
+        return alt if (cell < 22 and len(alt) >= 3) else every
+    xs, ys = thin(x0, x1), thin(y0, y1)
     below = min([clear(px(i, 0)[0] - 7, ay + 6, px(i, 0)[0] + 7, ay + 18) for i in xs]
                 or [99])
     above = min([clear(px(i, 0)[0] - 7, ay - 18, px(i, 0)[0] + 7, ay - 6) for i in xs]
@@ -736,7 +747,11 @@ def plane(points=None, lines=None, polygon=None, xr=(-4, 4), yr=(-4, 4), cell=30
     for j in ys:
         _, y = px(0, j)
         lab.append(tick(ax + ydx, y + 4, str(j).replace("-", "\u2212"), yanch))
-    lab.append(tick(ax - 9 if left >= right else ax + 9, ay + 15, "O", yanch))
+    # The "O" sits in the corner between the two tick columns and is the first thing to
+    # collide when they crowd. It names something every reader can already see, so at
+    # tight scales it simply goes.
+    if cell >= 24:
+        lab.append(tick(ax - 9 if left >= right else ax + 9, ay + 15, "O", yanch))
     b.append(f'<g font-family="system-ui,sans-serif" fill="currentColor" '
              f'fill-opacity=".75">{"".join(lab)}</g>')
     b.append(txt(ox + gw + 20, ay + 14, "x", 12, "middle", ".9"))
@@ -766,6 +781,7 @@ def plane(points=None, lines=None, polygon=None, xr=(-4, 4), yr=(-4, 4), cell=30
     # question shows three points and names none of them. A dict keyed on "" would
     # collapse them into one, so carry pairs rather than a mapping.
     pairs = list(pts.items()) if isinstance(pts, dict) else [("", q) for q in pts]
+    plab = []
     for name, (x, y) in pairs:
         cx, cy = px(x, y)
         if dots:
@@ -784,7 +800,11 @@ def plane(points=None, lines=None, polygon=None, xr=(-4, 4), yr=(-4, 4), cell=30
                     dx, dy = 30 * (1 if vx >= 0 else -1), -12
                 elif x == 0:
                     dx, dy = 34 * (1 if vx >= 0 else -1), -14 if vy >= 0 else 16
-            b.append(txt(cx + dx, cy + dy, name, 13, "middle", ".9"))
+            plab.append(f'<text x="{cx + dx:.0f}" y="{cy + dy:.0f}" font-size="13" '
+                        f'text-anchor="middle">{name}</text>')
+    if plab:
+        b.append(f'<g font-family="system-ui,sans-serif" fill="currentColor" '
+                 f'fill-opacity=".9">{"".join(plab)}</g>')
     return svg("".join(b), vb=f"0 0 {vw:.0f} {vh:.0f}")
 
 
