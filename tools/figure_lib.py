@@ -811,7 +811,7 @@ def plane(points=None, lines=None, polygon=None, xr=(-4, 4), yr=(-4, 4), cell=30
 # ------------------------------------------------------------------ labelled triangles
 def right_triangle(up_len, base_len, corner="C", up="A", right="B", up_label=None,
                    base_label=None, hyp_label=None, angle=None, vw=280, pad=42,
-                   max_px=150):
+                   max_px=150, midpoint=None, midpoint_label=None):
     """A right triangle drawn to its own side lengths, dimensions outside it.
 
     Two reviewer rules from VIC round 5 are structural here rather than remembered:
@@ -864,6 +864,18 @@ def right_triangle(up_len, base_len, corner="C", up="A", right="B", up_label=Non
         nx, ny = (ry - uy), -(rx - ux)           # normal, pointing away from the corner
         n = max((nx * nx + ny * ny) ** 0.5, 1e-9)
         b.append(txt(mx + 26 * nx / n, my + 26 * ny / n + 4, hyp_label, 13))
+
+    # The median to the hypotenuse is its own question type -- "S is the midpoint of PQ
+    # and RS = 7.5" -- and it has to be drawn from the same vertices as everything else
+    # or it lands off the line it bisects.
+    if midpoint:
+        mx, my = (ux + rx) / 2, (uy + ry) / 2
+        b.append(f'<circle cx="{mx:.0f}" cy="{my:.0f}" r="3.5" fill="currentColor"/>')
+        b.append(f'<line x1="{cx:.0f}" y1="{cy:.0f}" x2="{mx:.0f}" y2="{my:.0f}" '
+                 f'stroke="currentColor" stroke-width="1.5" stroke-dasharray="5,4"/>')
+        b.append(txt(mx + 14, my - 4, midpoint, 14))
+        if midpoint_label:
+            b.append(txt((cx + mx) / 2 + 4, (cy + my) / 2 + 16, midpoint_label, 13))
 
     if angle:
         at, text = angle
