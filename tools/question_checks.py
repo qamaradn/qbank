@@ -1460,7 +1460,15 @@ def coordinate_figure_without_grid(svg, want=4):
 
 
 _ROUND_TOLD = re.compile(
-    r"\bround(?:ed|ing)?\b|\bnearest\b|\bapproximat|\bto \d+ decimal|\b1 d\.?p\.?|"
+    # "to one decimal place" is how a stem actually words it; matching only digits made
+    # the check reject its own repair as not having said anything.
+    r"\bround(?:ed|ing)?\b|\bnearest\b|\bapproximat|"
+    r"\bto (?:\d+|one|two|three|four) decimal|\b1 d\.?p\.?|"
+    # A stem that asks which option is CLOSEST, or what is MOST LIKELY, has already
+    # told the student not to expect an exact match. Appending "give your answer to the
+    # nearest cent" to those read as a contradiction, and to a trend-reading question it
+    # implies a calculation that is not there.
+    r"\bclosest to\b|\bmost likely\b|\bbest estimate\b|"
     r"\b2 d\.?p\.?|\bestimate", re.I)
 _APPROX_IN_WORKING = re.compile(r"≈|\bapprox|\bclosest\b|\brounds? to\b", re.I)
 # The marker has to sit against a NUMBER. Matching the word anywhere in the prose is
@@ -1484,6 +1492,27 @@ def rounds_without_saying_so(q):
     m = _APPROX_NUMBER.search(expl)
     if not m:
         return None
+    # The approximation has to be of the ANSWER. An explanation that says "x = 5, so
+    # x³ + √x = 125 + √25" may carry a "≈" for an intermediate surd or for pi while the
+    # keyed answer is exact -- "what is the y-intercept?" keyed to 3 is not rounded, and
+    # telling a student to round it is worse than saying nothing. Fire only when one of
+    # the approximated numbers rounds to the key at the key's own precision.
+    keytxt = str(q.get("option_" + str(q.get("correct_answer") or "a").lower()) or "")
+    kv = _numeric_value(keytxt)
+    if kv is None:
+        return None
+    dec = len(keytxt.split(".")[1].rstrip("%").strip()) if "." in keytxt else 0
+    approx_of_answer = None
+    for am in _APPROX_NUMBER.finditer(expl):
+        av = _numeric_value(re.sub(r"^[^\d-]*", "", am.group(0)))
+        if av is None:
+            continue
+        if abs(round(av, dec) - kv) < 10 ** (-dec) / 2 + 1e-9:
+            approx_of_answer = am
+            break
+    if approx_of_answer is None:
+        return None
+    m = approx_of_answer
     # "approximately 14 survivors" in a science extrapolation is prose, not a rounded
     # calculation: the question asks which value is most likely and no exact answer was
     # ever on offer. Requiring the options themselves to be numeric drops 64 science and
