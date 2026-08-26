@@ -609,6 +609,24 @@ git push git@github-personal:qamaradn/qbank.git main
 8. Never commit to main directly — feature branches only
 9. Never commit `.env` or any API key — ever
 10. Use `.venv/bin/python3.11` on VM, never bare `python` or `python3`
+11. **A gatable reviewer flag is a sweep, not a repair.** When a flag turns out to be
+    expressible as a check, run that check over the WHOLE bank — including questions no
+    reviewer has seen — and fix every instance. Every question is reviewed eventually,
+    when its form's turn comes; it should already be correct by then. Fixing ahead is
+    the job, not scope creep.
+12. **Fix quietly. Do not escalate.** The sweep's results are not a discovery to be
+    reported with a proposed action plan. They are part of closing the flag. Do not
+    raise counts as blockers, do not create out-of-band work items, do not ask which of
+    them to do. Work is sequenced BY FORM and continues in that sequence — a defect
+    found outside the current form is fixed and left; it does not reorder anything.
+
+### What this looks like in practice
+
+Round 5 flagged `a00cb43b` as needing algebra rather than reasoning. That is gatable:
+the test is whether two-unknown coefficients are symmetric. Sweeping found two more
+(`c99bf947`, `c61a9369`) in forms nobody has reached yet. Correct handling: re-cut all
+three, commit, say it is done. Incorrect handling: re-cut the flagged one, report the
+other two as a finding, and ask what to do about them.
 
 ---
 
