@@ -66,6 +66,12 @@ BLOCKING = [
     ("multi_letter_variable", "VIC round 4: T_wc reads as a product of unknowns"),
     ("asks_rationale_not_skill", "VIC round 4: asks why a method is preferred"),
     ("figure_proportions_disagree", "VIC round 4: shape drawn to the wrong proportions"),
+    # Round 5. The first check here that asks whether a figure is CORRECT rather than
+    # whether it is tidy. The twelve above are all hygiene, and the gate was clean on
+    # all ten figures the reviewer flagged -- "figures fixed" and "the gate passes" are
+    # different claims and this round is what it cost to learn the difference.
+    ("plotted_geometry_matches_stem", "VIC round 5: figure disagrees with the stem"),
+    ("gridlines_off_the_ticks", "VIC round 5: grid drawn off its own tick marks"),
 ]
 
 # EXAM-SPECIFIC — two things genuinely differ, and only two.
@@ -112,6 +118,7 @@ _TEXT_FIELD = {
     "angle_arc_malformed": "figure_svg",
     "axis_scale_nonlinear": "figure_svg",
     "coordinate_figure_without_grid": "figure_svg",
+    "gridlines_off_the_ticks": "figure_svg",
     "doubled_circle_outline": "figure_svg",
     "overlapping_text_labels": "figure_svg",
     "plotted_points_inconsistent": "figure_svg",

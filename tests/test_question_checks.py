@@ -28,6 +28,8 @@ from tools.question_checks import (
     multi_letter_variable,
     asks_rationale_not_skill,
     figure_proportions_disagree,
+    plotted_geometry_matches_stem,
+    gridlines_off_the_ticks,
     COMPREHENSION_RELATIONS,
     STRUCTURAL_RELATIONS,
     answer_shape_monotony,
@@ -854,3 +856,90 @@ def test_a_shape_drawn_to_its_labels_passes():
              figure_svg='<svg><polygon points="44,34 268,34 268,178 44,178"/>'
                         '<text x="1" y="1">14 cm</text><text x="2" y="2">9 cm</text></svg>')
     assert figure_proportions_disagree(q) is None
+
+
+# ---------------------------------------------------------------------------
+# VIC review round 5 (2026-08-26). Seven of twelve flags were figures whose
+# points and lines are not where the stem says. Twelve checks existed; none
+# fired, because every one of them measures hygiene rather than correctness.
+# ---------------------------------------------------------------------------
+
+_GRID = ("<text x='46' y='135'>-2</text><text x='86' y='135'>-1</text>"
+         "<text x='170' y='135'>1</text><text x='210' y='135'>2</text>"
+         "<text x='120' y='44'>2</text><text x='120' y='84'>1</text>"
+         "<text x='120' y='164'>-1</text><text x='120' y='204'>-2</text>")
+
+
+def test_point_drawn_at_the_wrong_coordinate_is_caught():
+    """"Point B is not correcly marked at the right coordinate (its at -2,2)". The key
+    was B and the stem asked for (-2, 3); B's dot sat one whole unit low. Ticks put the
+    origin at (130, 120) at 40 px per unit, so (-2, 3) is pixel (50, 0)."""
+    q = dict(stem="Which point is located at coordinates (-2, 3)?",
+             figure_svg=f"<svg>{_GRID}<circle cx='50' cy='40' r='5'/></svg>")
+    m = plotted_geometry_matches_stem(q) or ""
+    assert "disagrees with the stem" in m and "(-2, 3)" in m
+
+
+def test_point_drawn_where_the_stem_says_passes():
+    q = dict(stem="Which point is located at coordinates (-2, 3)?",
+             figure_svg=f"<svg>{_GRID}<circle cx='50' cy='0' r='5'/></svg>")
+    assert plotted_geometry_matches_stem(q) is None
+
+
+def test_a_plane_with_nothing_to_read_it_by_says_so():
+    """"Fix the lines so they pass through the designated points." That figure carried
+    no tick numbers at all, so its two labels implied 13 and 24 px per unit and nothing
+    could adjudicate. A figure no check can verify must not be reported as verified --
+    it returns needs-a-human instead of None."""
+    q = dict(stem="One line passes through C(0, 4) and D(4, 0).",
+             figure_svg="<svg><line x1='20' y1='163' x2='220' y2='15'/>"
+                        "<text x='92' y='112'>O</text></svg>")
+    assert "needs a human" in (plotted_geometry_matches_stem(q) or "")
+
+
+def test_axis_drawn_off_zero_is_caught():
+    """"The y-axis should be within the square between the -1 and 3 points." Three
+    vertices straddled x = 0 and the y-axis was drawn to the left of all of them."""
+    q = dict(stem="a square has three of its vertices at (-1, 4), (3, 4), and (3, 0)",
+             figure_svg="<svg><line x1='30' y1='220' x2='30' y2='20'/>"
+                        "<text x='22' y='16'>y</text>"
+                        "<circle cx='80' cy='60' r='4'/><circle cx='240' cy='60' r='4'/>"
+                        "<circle cx='240' cy='220' r='4'/>"
+                        "<text x='55' y='54'>(-1,4)</text>"
+                        "<text x='244' y='54'>(3,4)</text>"
+                        "<text x='244' y='234'>(3,0)</text></svg>")
+    assert "y-axis is drawn at x = " in (plotted_geometry_matches_stem(q) or "")
+
+
+def test_a_height_line_is_not_mistaken_for_an_axis():
+    """A dashed height dropped from a triangle's apex is long, straight and vertical,
+    and taking every such line as an axis flagged a figure that was entirely correct.
+    The axis is the line the figure's own "y" title sits beside."""
+    q = dict(stem="triangle ABC has vertices at A(0, 0), B(8, 0), and C(3, 6)",
+             figure_svg="<svg><line x1='20' y1='180' x2='20' y2='10'/>"
+                        "<line x1='74' y1='72' x2='74' y2='180'/>"
+                        "<text x='14' y='8'>y</text>"
+                        "<circle cx='20' cy='180' r='3'/><circle cx='164' cy='180' r='3'/>"
+                        "<circle cx='74' cy='72' r='3'/>"
+                        "<text x='8' y='195'>A(0,0)</text>"
+                        "<text x='150' y='195'>B(8,0)</text>"
+                        "<text x='78' y='67'>C(3,6)</text></svg>")
+    assert plotted_geometry_matches_stem(q) is None
+
+
+def test_gridlines_off_their_tick_marks_are_caught():
+    """"Fix the graphs for the lines to line up with each value." The grid was drawn
+    5 px left of the tick marks and the plotted dots, so every point read 0.125 units
+    off. The stem named no coordinates, so a stem-driven check could never reach it."""
+    svg = ("<svg><path d='M35 34V194M75 34V194M115 34V194'/>"
+           "<line x1='80' y1='190' x2='80' y2='193'/>"
+           "<line x1='120' y1='190' x2='120' y2='193'/>"
+           "<line x1='160' y1='190' x2='160' y2='193'/></svg>")
+    assert "misses its tick mark" in (gridlines_off_the_ticks(svg) or "")
+
+
+def test_gridlines_on_their_tick_marks_pass():
+    svg = ("<svg><path d='M40 34V194M80 34V194M120 34V194'/>"
+           "<line x1='80' y1='190' x2='80' y2='193'/>"
+           "<line x1='120' y1='190' x2='120' y2='193'/></svg>")
+    assert gridlines_off_the_ticks(svg) is None

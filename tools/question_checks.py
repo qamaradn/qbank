@@ -1644,3 +1644,251 @@ def figure_proportions_disagree(q, tol=0.25):
             f"own labels say {dims[0]:g} by {dims[1]:g}, a ratio of {want:.2f} — a "
             f"reader who trusts the picture gets a different answer from one who "
             f"trusts the words")
+
+
+# ---------------------------------------------------------------------------
+# VIC review round 5 (2026-08-26). Seven of twelve flags were the same defect:
+# a figure whose points and lines are not where the STEM says they are. Twelve
+# checks existed and none of them fired, because every one measures figure
+# hygiene -- overlapping labels, doubled outlines, bounding boxes -- and none
+# measures whether the picture shows what the question describes.
+#
+# plotted_points_inconsistent is the near miss. It needs the SVG itself to carry
+# "B(-2, 3)"; in these figures the label is a bare "B" and the coordinates live
+# in the stem, so it had nothing to read and returned None on all four.
+# ---------------------------------------------------------------------------
+
+_STEM_POINT = re.compile(
+    r"(?:\b([A-Z])\s*)?\(\s*([-−]?\d+(?:\.\d+)?)\s*,\s*([-−]?\d+(?:\.\d+)?)\s*\)")
+_SVG_COORD_TEXT = re.compile(
+    r">\s*(?:[A-Z]\s*)?\(\s*([-−]?\d+(?:\.\d+)?)\s*,\s*([-−]?\d+(?:\.\d+)?)\s*\)\s*<")
+
+
+def _num(t):
+    return float(str(t).replace("−", "-").replace("−", "-"))
+
+
+def _fit_axis(pairs):
+    """Least squares value->pixel. Returns (scale, offset) or (None, None)."""
+    n = len(pairs)
+    if n < 2:
+        return None, None
+    mv = sum(v for v, _ in pairs) / n
+    mp = sum(p for _, p in pairs) / n
+    den = sum((v - mv) ** 2 for v, _ in pairs)
+    if den == 0:
+        return None, None
+    s = sum((v - mv) * (p - mp) for v, p in pairs) / den
+    return s, mp - s * mv
+
+
+def _figure_axis_map(svg):
+    """(sx, ox, sy, oy, source) mapping figure units to pixels, or None.
+
+    Two sources, in order of trust. Tick labels are read first because they are what
+    a student reads. Failing that, coordinate labels printed beside their dots.
+    """
+    xs, ys = _axis_ticks(svg)
+    if len(xs) >= 2 and len(ys) >= 2:
+        sx, ox = _fit_axis(xs)
+        sy, oy = _fit_axis(ys)
+        if sx and sy and abs(sx) > 2 and abs(sy) > 2:
+            return sx, ox, sy, oy, "the tick labels"
+    # Coordinate texts paired with their nearest dot. Only trustworthy when every
+    # label lands on a distinct dot and the resulting fit is tight -- a label sitting
+    # nearer a dot that is not its own produces a mapping that is confidently wrong,
+    # which is worse than no mapping at all.
+    labels = []
+    for tm in _TEXT.finditer(svg):
+        cm = _SVG_COORD_TEXT.fullmatch(">" + (tm.group(4) or "").strip() + "<")
+        if cm:
+            labels.append((_num(cm.group(1)), _num(cm.group(2)),
+                           float(tm.group(1)), float(tm.group(2))))
+    dots = [(float(a), float(b)) for a, b, r in _DOT.findall(svg) if float(r) <= 6]
+    if len(labels) < 2 or len(dots) < len(labels):
+        return None
+    used, px, py = set(), [], []
+    for u, v, tx, ty in labels:
+        best, bd = None, 1e9
+        for i, (dx, dy) in enumerate(dots):
+            if i in used:
+                continue
+            d = (dx - tx) ** 2 + (dy - ty) ** 2
+            if d < bd:
+                best, bd = i, d
+        if best is None or bd > 60 ** 2:
+            return None
+        used.add(best)
+        px.append((u, dots[best][0]))
+        py.append((v, dots[best][1]))
+    if len({u for u, _ in px}) < 2 or len({v for v, _ in py}) < 2:
+        return None
+    sx, ox = _fit_axis(px)
+    sy, oy = _fit_axis(py)
+    if not sx or not sy or abs(sx) < 2 or abs(sy) < 2:
+        return None
+    for (u, p) in px:
+        if abs(ox + sx * u - p) > 4:
+            return None
+    for (v, p) in py:
+        if abs(oy + sy * v - p) > 4:
+            return None
+    return sx, ox, sy, oy, "the coordinate labels"
+
+
+def _oblique_lines(svg):
+    """Drawn segments that are neither axis, tick nor gridline."""
+    out = []
+    for m in _LINE_EL.finditer(svg):
+        x1, y1, x2, y2 = (float(g) for g in m.groups())
+        if abs(x1 - x2) > 3 and abs(y1 - y2) > 3:
+            out.append((x1, y1, x2, y2))
+    return out
+
+
+def _dist_to_segment(px, py, x1, y1, x2, y2):
+    dx, dy = x2 - x1, y2 - y1
+    den = dx * dx + dy * dy
+    if den == 0:
+        return ((px - x1) ** 2 + (py - y1) ** 2) ** 0.5
+    # The stem's point may lie beyond the drawn extent of the line, which is fine --
+    # the line is a window onto an infinite one. Measure to the INFINITE line.
+    return abs(dy * px - dx * py + x2 * y1 - y2 * x1) / den ** 0.5
+
+
+def plotted_geometry_matches_stem(q, tol=6.0):
+    """Points and lines drawn somewhere other than where the stem puts them.
+
+    Round 5, four separate figures: "Point B is not correctly marked at the right
+    coordinate (its at -2,2)"; "Fix the lines so they pass through the designated
+    points"; "Again fix the line so it passes through the designated intercepts";
+    "The y-axis should be within the square between the -1 and 3 points".
+
+    Reads the coordinates out of the STEM, derives the axis mapping from the figure,
+    and checks that what is drawn agrees. Where no mapping can be derived it says so
+    rather than passing: a coordinate figure nothing can verify is not a figure that
+    has been verified.
+    """
+    svg = q.get("figure_svg") or ""
+    stem = q.get("stem") or ""
+    if not svg or _looks_like_a_table(svg):
+        return None
+    want = []
+    for m in _STEM_POINT.finditer(stem):
+        want.append((m.group(1), _num(m.group(2)), _num(m.group(3))))
+    if not want:
+        return None
+
+    amap = _figure_axis_map(svg)
+    if amap is None:
+        return (f"the stem places {len(want)} point(s) on a coordinate plane, but the "
+                f"figure carries no tick labels and no resolvable coordinate labels — "
+                f"nothing can check that they are drawn where the stem says (needs a "
+                f"human)")
+    sx, ox, sy, oy, source = amap
+
+    def to_px(u, v):
+        return ox + sx * u, oy + sy * v
+
+    def to_units(px, py):
+        return (px - ox) / sx, (py - oy) / sy
+
+    dots = [(float(a), float(b)) for a, b, r in _DOT.findall(svg) if float(r) <= 6]
+    lines = _oblique_lines(svg)
+
+    # 1. The drawn axes must sit where the mapping puts zero. The square with three
+    #    vertices at x = -1 and x = 3 had its y-axis drawn to the left of both.
+    #
+    #    WHICH long line is the axis has to be settled before this can be asked. Taking
+    #    every long straight line flagged two sound figures: a dashed height line
+    #    dropped from a triangle's apex, and a gridline drawn as <line> rather than in
+    #    the grid path. Both are long, straight and not axes. The axis is the one the
+    #    figure's own "x" or "y" title sits beside.
+    zx, zy = to_px(0, 0)
+    titles = {(t.group(4) or "").strip(): (float(t.group(1)), float(t.group(2)))
+              for t in _TEXT.finditer(svg) if (t.group(4) or "").strip() in ("x", "y")}
+    for axis, name in ((0, "y"), (1, "x")):
+        if name not in titles:
+            continue
+        tx, ty = titles[name]
+        best, bd = None, 1e9
+        for m in _LINE_EL.finditer(svg):
+            x1, y1, x2, y2 = (float(g) for g in m.groups())
+            if axis == 0 and not (abs(x1 - x2) < 1 and abs(y1 - y2) > 60):
+                continue
+            if axis == 1 and not (abs(y1 - y2) < 1 and abs(x1 - x2) > 60):
+                continue
+            d = abs(x1 - tx) if axis == 0 else abs(y1 - ty)
+            if d < bd:
+                best, bd = (x1 if axis == 0 else y1), d
+        if best is None or bd > 25:
+            continue
+        off = abs(best - (zx if axis == 0 else zy))
+        if off > tol * 2:
+            u, v = to_units(best, best)
+            val = u if axis == 0 else v
+            other = "x" if axis == 0 else "y"
+            return (f"the {name}-axis is drawn at {other} = {val:.1f} by {source}, but "
+                    f"{'an' if name == 'x' else 'a'} {name}-axis is the line {other} = 0")
+
+    # 2. Every point the stem names is drawn, as a dot or on a drawn line.
+    worst = None
+    for name, u, v in want:
+        ex, ey = to_px(u, v)
+        near = min((((d[0] - ex) ** 2 + (d[1] - ey) ** 2) ** 0.5, d) for d in dots) \
+            if dots else None
+        if near and near[0] <= tol:
+            continue
+        if any(_dist_to_segment(ex, ey, *L) <= tol for L in lines):
+            continue
+        label = f"{name} " if name else ""
+        if near:
+            au, av = to_units(*near[1])
+            worst = (near[0], f"{label}should be at ({u:g}, {v:g}) but the nearest "
+                              f"point is plotted at ({au:.1f}, {av:.1f})")
+        else:
+            worst = (999.0, f"nothing is drawn at {label}({u:g}, {v:g})")
+        break
+    if worst:
+        return (f"the figure disagrees with the stem — {worst[1]}, read off {source}")
+
+    return None
+
+
+def gridlines_off_the_ticks(svg):
+    """Gridlines that do not pass through the tick marks they claim to index.
+
+    "Fix the graphs for the lines to line up with each value." Split out of
+    plotted_geometry_matches_stem because it is not about the stem: the figure whose
+    grid was 5 px off named no coordinates at all, so a stem-driven check could never
+    reach it. Comparing gridlines against the tick LABELS is what let it through --
+    the labels sat 5 px left of their own marks, so grid and labels agreed with each
+    other, disagreed with the marks and the plotted dots, and every point on the
+    figure read 0.125 units off.
+    """
+    if not svg or _looks_like_a_table(svg):
+        return None
+    marks = {0: [], 1: []}
+    for m in _LINE_EL.finditer(svg):
+        x1, y1, x2, y2 = (float(g) for g in m.groups())
+        if abs(x1 - x2) < 1 and 0 < abs(y1 - y2) <= 9:
+            marks[0].append(x1)
+        elif abs(y1 - y2) < 1 and 0 < abs(x1 - x2) <= 9:
+            marks[1].append(y1)
+    for axis in (0, 1):
+        if len(marks[axis]) < 2:
+            continue
+        rules = []
+        for dpath in re.findall(r"<path[^>]*\bd=[\'\"]([^\'\"]+)", svg):
+            for mm in re.finditer(r"[Mm]\s*([-\d.]+)[ ,]+([-\d.]+)\s*([VvHh])", dpath):
+                if (mm.group(3) in "Vv") == (axis == 0):
+                    rules.append(float(mm.group(1) if axis == 0 else mm.group(2)))
+        if len(rules) < 2:
+            continue
+        gaps = [min(abs(t - r) for r in rules) for t in marks[axis]]
+        if min(gaps) > 2:
+            nm = "vertical" if axis == 0 else "horizontal"
+            return (f"every {nm} gridline misses its tick mark, by {min(gaps):.0f}-"
+                    f"{max(gaps):.0f} px — a point read off the grid is read off the "
+                    f"wrong value")
+    return None
