@@ -21,7 +21,7 @@ RECORD = ROOT / "run_data/output/vic_figure_repairs.json"
 C = "currentColor"
 
 
-def grid(xmin, xmax, ymin, ymax, cell=22, pad=34):
+def grid(xmin, xmax, ymin, ymax, cell=22, pad=46):
     """A coordinate plane with ONE scale on both axes and gridlines that show it."""
     w = (xmax - xmin) * cell + 2 * pad
     h = (ymax - ymin) * cell + 2 * pad
@@ -246,8 +246,9 @@ def parallelogram_klmn():
     body.append(f'<line x1="{a:.0f}" y1="{b:.0f}" x2="{c2:.0f}" y2="{d:.0f}" stroke="{C}" '
                 f'stroke-width="1.5" stroke-dasharray="5,4"/>')
     for n, (x, y) in pts.items():
+        room_left = (x - (-8)) >= 3
         body += dot(px, x, y, f"{n}({x}, {y})",
-                    dx=-48 if x < 1 else 8, dy=-8 if y > 0 else 16)
+                    dx=-44 if (room_left and x < 1) else 8, dy=-9 if y > 0 else 18)
     return wrap(body, w, h)
 
 
