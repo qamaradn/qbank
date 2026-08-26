@@ -1333,6 +1333,29 @@ def angle_arc_malformed(svg, tol=0.15):
 # have to approximate."
 # ---------------------------------------------------------------------------
 
+def _looks_like_a_table(svg):
+    """A table's numbers are cell VALUES, not axis ticks.
+
+    Its giveaway is a worded label sharing a row with numbers -- "Hours (h) | 2 | 4 | ?".
+    An axis title sits below or beside the ticks, never in line with them. Without this,
+    every table converted out of markdown reads as a chart with a broken scale.
+    """
+    rows = {}
+    for m in _TEXT.finditer(svg):
+        t = (m.group(4) or "").strip()
+        if not t:
+            continue
+        rows.setdefault(round(float(m.group(2)) / 5), []).append(t)
+    for labels in rows.values():
+        if len(labels) < 3:
+            continue
+        worded = [t for t in labels if re.search(r"[A-Za-z]{2,}", t)]
+        numeric = [t for t in labels if re.fullmatch(r"-?\d+(?:\.\d+)?", t)]
+        if worded and len(numeric) >= 2:
+            return True
+    return False
+
+
 def _axis_ticks(svg):
     """Numeric labels paired with their pixel position, split by axis.
 
@@ -1357,7 +1380,7 @@ def _axis_ticks(svg):
     return (xs if len(xs) >= 3 else []), (ys if len(ys) >= 3 else [])
 
 
-def axis_scale_nonlinear(svg, tol=0.12):
+def axis_scale_nonlinear(svg, tol=0.2):
     """Tick labels that are not evenly spaced for their values.
 
     "why is there a huge jump from 1 to 32 suddenly, which makes the question wrong."
@@ -1365,6 +1388,8 @@ def axis_scale_nonlinear(svg, tol=0.12):
     and any point plotted on it is somewhere its coordinates do not say.
     """
     if not svg:
+        return None
+    if _looks_like_a_table(svg):
         return None
     for name, ticks in zip(("x", "y"), _axis_ticks(svg)):
         if len(ticks) < 3:
@@ -1394,6 +1419,8 @@ def coordinate_figure_without_grid(svg, want=4):
     approximating is not what the question is testing.
     """
     if not svg:
+        return None
+    if _looks_like_a_table(svg):
         return None
     xs, ys = _axis_ticks(svg)
     if len(xs) < 3 or len(ys) < 3:
