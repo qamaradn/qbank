@@ -1422,6 +1422,22 @@ def coordinate_figure_without_grid(svg, want=4):
         return None
     if _looks_like_a_table(svg):
         return None
+    # A dimensioned shape has numbers along two edges and is not a plane: the same
+    # rectangle-divided-into-sections that axes_unlabelled had to learn about. Reuse
+    # that judgement rather than keeping two opinions about what a chart is.
+    if axes_unlabelled(svg + "<text>units</text>") is None and _looks_like_a_table(svg):
+        return None
+    # A four-quadrant plane's axes CROSS, so "must meet at an endpoint" is the wrong
+    # test here -- it exempted every plane with negative coordinates. What a dimensioned
+    # shape has and a plane does not is a large drawn rect: the rectangle divided into
+    # sections IS a rect, while a plane's only rect is its transparent background.
+    for m in re.finditer(r"<rect\b[^>]*>", svg):
+        tag = m.group(0)
+        wh = re.search(r'width=[\'\"]([\d.]+)[\'\"][^>]*height=[\'\"]([\d.]+)', tag)
+        if not wh or float(wh.group(1)) <= 40 or float(wh.group(2)) <= 40:
+            continue
+        if "stroke=" in tag or re.search(r'fill=[\'\"](?!none)', tag):
+            return None
     xs, ys = _axis_ticks(svg)
     if len(xs) < 3 or len(ys) < 3:
         return None                     # not a two-axis plot
@@ -1573,6 +1589,20 @@ def figure_proportions_disagree(q, tol=0.25):
         dims = sorted({float(d) for d in _DIM_LABEL.findall(stem)}, reverse=True)
     if len(dims) < 2:
         return None
+    # Two shapes whose bounding box is NOT given by their largest labels:
+    #   a figure with an unknown side ("b", "x", "?") -- the widest dimension may be the
+    #   one nobody has written down. The trapezium's parallel side b is 11 while its
+    #   labels read 7 and 5.
+    #   a triangle -- the longest label is usually the hypotenuse, which spans the box
+    #   diagonally rather than bounding it. AB = 17 with BC = 15 means legs of 15 and 8.
+    labels = [(m.group(4) or "").strip() for m in _TEXT.finditer(svg)]
+    if any(re.fullmatch(r"[a-z?]|[a-z]\s*=\s*\?", t, re.I) for t in labels):
+        return None
+    for m in re.finditer(r"<polygon[^>]*\bpoints=[\'\"]([^\'\"]+)", svg):
+        nums = [n for n in m.group(1).replace(",", " ").split()
+                if re.fullmatch(r"-?\d+(?:\.\d+)?", n)]
+        if len(nums) == 6:
+            return None                  # a triangle
     xs, ys = [], []
     for m in re.finditer(r"<polygon[^>]*\bpoints=[\'\"]([^\'\"]+)", svg):
         nums = [float(n) for n in m.group(1).replace(",", " ").split()
@@ -1591,10 +1621,25 @@ def figure_proportions_disagree(q, tol=0.25):
     if dw <= 0 or dh <= 0:
         return None
     drawn = dw / dh
+    # Dimensions STACK. A rectangle 6 tall with a triangle 4 tall on it stands 10 tall,
+    # and no label says 10 — so the box is not given by the two largest numbers written
+    # on the figure. Accept the drawing if its ratio matches any pair of dimensions the
+    # labels can produce, sums included.
+    cands = set(dims)
+    for i, a in enumerate(dims):
+        for b in dims[i + 1:]:
+            cands.add(a + b)
     want = dims[0] / dims[1]
-    for target in (want, 1 / want):          # the long side may be either way up
-        if abs(drawn - target) <= tol * target:
-            return None
+    for a in cands:
+        for b in cands:
+            # a/a is 1.0 for every figure, so allowing it passed anything square --
+            # including the 190x185 shape whose labels said 14 by 9, the defect this
+            # check exists for.
+            if b <= 0 or a == b:
+                continue
+            target = a / b
+            if abs(drawn - target) <= tol * target:
+                return None
     return (f"the shape is drawn {dw:.0f}x{dh:.0f} px, a ratio of {drawn:.2f}, but its "
             f"own labels say {dims[0]:g} by {dims[1]:g}, a ratio of {want:.2f} — a "
             f"reader who trusts the picture gets a different answer from one who "
