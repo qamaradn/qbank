@@ -858,7 +858,60 @@ CREATE INDEX IF NOT EXISTS idx_wp_review_status ON writing_prompts(review_status
 
 ## CURRENT STATUS
 
-**Last worked on:** 2026-08-12 (second session)
+**Last worked on:** 2026-08-26 — VIC review round 5 closed, both exams.
+
+**ROUND 5 IS CLOSED (2026-08-26).** All twelve reviewer flags repaired: ten VIC
+quantitative figures and two NSW Thinking Skills taxonomy calls. Record and reasoning in
+`pdfs/figure_correctness_TASK.md`.
+
+**The round's real finding: twelve checks existed and the gate was CLEAN on all ten
+flagged figures.** Every one of the twelve measured figure HYGIENE — overlapping labels,
+doubled outlines, bounding boxes — and none measured whether the picture shows what the
+question describes. "The gate passes" and "the figures are correct" are different claims.
+`plotted_geometry_matches_stem` is the first check that asks the second one: it reads the
+coordinates out of the STEM, derives the axis mapping from the figure's own ticks, and
+verifies the drawn points, lines and axes agree. Where it cannot derive a mapping it
+returns **needs a human** rather than None.
+
+Figures are now redrawn by `figure_lib.plane` / `.right_triangle` / `.trapezium`, which
+place axes, ticks, gridlines, dots, dimensions and angle arcs from ONE mapping, so the
+picture has no way to disagree with the words. Repair scripts re-run the full check set
+on their own output and roll back if anything fails — that guard caught three of my own
+redraws.
+
+**Three exemptions were each individually correct and each removed the only thing
+looking.** `figure_proportions_disagree` exempts triangles (a hypotenuse crosses the
+bounding box rather than setting it) and exempts figures with an unknown side. Behind
+those: a 7 cm side drawn HALF AGAIN LONGER than its 24 cm one, a triangle 25% out of
+shape, a 5 cm height drawn taller than a 7 cm base. Where a check cannot judge, it must
+say "needs a human", not return None.
+
+**Two silent measurement faults, both bank-wide:** `_text_box` measured
+`text-anchor="end"` as if the label started at x, so both overlap checks were reading the
+wrong side of every axis (11 newly caught, 18 correctly cleared); and tick-label
+BASELINES sit ~4 px below the ticks they name, biasing every label-derived mapping by
+0.13 units — most of a 6 px tolerance, spent before the check began.
+
+**The new checks block 70 questions across 50 forms** (`plotted_geometry_matches_stem`
+32, `rounds_without_saying_so` 37, `gridlines_off_the_ticks` 1; worst form holds 3).
+Nearly all VIC. These are new findings, not regressions — one of them,
+`vic-drill-mq-005 pos 15`, is the flagged `11125ee3` defect in a different question.
+**They must be cleared before the next push.**
+
+**STILL OPEN — 24 triangles may be drawn to a default shape.** A crude probe over the 261
+polygon figures found 24 whose two longest drawn sides disagree with their two longest
+labels by more than 22%, all quantitative_reasoning, many drawn at exactly 1.0 or 1.41
+while their labels say 2.0–3.0. Needs triage (the probe will catch arrowheads and
+similar-triangle figures) then redraw via `right_triangle`. See TASK §5.
+
+**ONE OPEN QUESTION FOR THE OWNER.** `844bbdfe` ("two sisters' ages add up to 19 and
+multiply to 88") was flagged as a quadratic and KEPT. No quadratic is needed and none is
+used — the stored explanation reasons over factor pairs, which is what UCLES PT1 numeric
+deduction asks for, and the reviewer hedged ("could potentially fit in"). Confirm or
+overrule. The other three non-symmetric numeric-deduction items were re-cut, not
+rejected, so the `nsw-drill-ts` forms keep their size.
+
+**Previously:** 2026-08-12 (second session)
 
 **VIC AUTHORING IS COMPLETE.** Reading 395, verbal 341, maths Statistics 100, writing 44
 — 880 items across four components, every one `pending`. `vic_content_taxonomy_TASK.md`
