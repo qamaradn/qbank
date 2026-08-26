@@ -604,3 +604,185 @@ def symbol_grid(rows, size=30, vw=340, pad=10, shade=()):
         f'text-anchor="middle">{s}</text>'
         for r, row in enumerate(rows) for c, s in enumerate(row) if s)
     return svg(fills + grid + texts, vb=f"0 0 {vw} {vh:.0f}")
+
+
+# ------------------------------------------------------------------ four-quadrant plane
+def _seg_box_gap(seg, bx0, by0, bx1, by1):
+    """Shortest distance from a segment to a box, 0 if it passes through."""
+    (x1, y1), (x2, y2) = seg
+    best = 1e9
+    steps = 40
+    for i in range(steps + 1):
+        t = i / steps
+        px, py = x1 + (x2 - x1) * t, y1 + (y2 - y1) * t
+        dx = max(bx0 - px, 0, px - bx1)
+        dy = max(by0 - py, 0, py - by1)
+        best = min(best, (dx * dx + dy * dy) ** 0.5)
+    return best
+
+
+def plane(points=None, lines=None, polygon=None, xr=(-4, 4), yr=(-4, 4), cell=30,
+          pad=22, dots=True, label_off=(11, -8)):
+    """A four-quadrant coordinate plane where everything derives from one mapping.
+
+    coord_grid covers the first quadrant only, and every figure in VIC round 5 that a
+    reviewer flagged needed negative coordinates. Those figures were drawn by hand, and
+    each one drifted in its own direction: a point plotted a whole unit low, two lines
+    that miss the intercepts they are labelled with, a y-axis drawn outside the square
+    it should have cut through, tick labels implying 13 px per unit on one side of a
+    figure and 24 on the other.
+
+    Every one of those is impossible here, because the axes, the ticks, the gridlines,
+    the dots and the lines are all placed by px() and there is no second opinion about
+    where a unit is. That is the point of this function -- not tidiness.
+
+    points:  {"B": (-2, 3)}          dots, labelled
+             [(1, 1), (2, 3)]        dots the student must read off the grid
+    lines:   [((0, 4), (4, 0))]      drawn through both points and clipped to the plane
+    polygon: [(-1, 4), (3, 4), ...]  closed outline
+    """
+    x0, x1 = xr
+    y0, y1 = yr
+    gw, gh = (x1 - x0) * cell, (y1 - y0) * cell
+    ox, oy = pad + 16, pad
+    vw, vh = gw + 2 * pad + 30, gh + 2 * pad + 20
+
+    def px(x, y):
+        return ox + (x - x0) * cell, oy + (y1 - y) * cell
+
+    ax, ay = px(0, 0)
+
+    # Lines are resolved to pixels FIRST, because where they run decides which side of
+    # each axis its numbers can safely go. Drawing the labels first is how a line ended
+    # up printed through the "-6" that names its own intercept.
+    drawn = []
+    for (pa, pb) in (lines or []):
+        (ux, uy), (vx, vy) = pa, pb
+        if ux == vx:
+            drawn.append((px(ux, y0), px(ux, y1)))
+            continue
+        m = (vy - uy) / (vx - ux)
+        cand = [(x0, uy + m * (x0 - ux)), (x1, uy + m * (x1 - ux))]
+        if m != 0:
+            cand += [((y0 - uy) / m + ux, y0), ((y1 - uy) / m + ux, y1)]
+        inside = sorted(c for c in cand
+                        if x0 - 1e-9 <= c[0] <= x1 + 1e-9 and y0 - 1e-9 <= c[1] <= y1 + 1e-9)
+        if len(inside) >= 2:
+            drawn.append((px(*inside[0]), px(*inside[-1])))
+
+    b = []
+    rules = []
+    for i in range(x0, x1 + 1):
+        x, _ = px(i, 0)
+        rules.append(f"M{x:.0f} {oy:.0f}V{oy + gh:.0f}")
+    for j in range(y0, y1 + 1):
+        _, y = px(0, j)
+        rules.append(f"M{ox:.0f} {y:.0f}H{ox + gw:.0f}")
+    b.append(f'<path d="{"".join(rules)}" stroke="currentColor" stroke-opacity=".18" '
+             f'stroke-width="1" fill="none"/>')
+
+    b.append(f'<path d="M{ox:.0f} {ay:.0f}H{ox + gw + 12:.0f}M{ax:.0f} {oy + gh:.0f}'
+             f'V{oy - 12:.0f}" stroke="currentColor" stroke-width="1.6"/>')
+    b.append(f'<polygon points="{ox + gw + 12:.0f},{ay - 4:.0f} {ox + gw + 19:.0f},'
+             f'{ay:.0f} {ox + gw + 12:.0f},{ay + 4:.0f}" fill="currentColor"/>')
+    b.append(f'<polygon points="{ax - 4:.0f},{oy - 12:.0f} {ax:.0f},{oy - 19:.0f} '
+             f'{ax + 4:.0f},{oy - 12:.0f}" fill="currentColor"/>')
+
+    # Tick marks ride in one path with the numbers placed off the same coordinate, so a
+    # gridline, a mark and a label cannot drift apart -- the defect that made every
+    # point on one flagged figure read 0.125 units off. gridlines_off_the_ticks reads
+    # short path segments as marks, so folding them in costs the check nothing.
+    marks = []
+    for i in range(x0, x1 + 1):
+        if i:
+            x, _ = px(i, 0)
+            marks.append(f"M{x:.0f} {ay - 4:.0f}V{ay + 4:.0f}")
+    for j in range(y0, y1 + 1):
+        if j:
+            _, y = px(0, j)
+            marks.append(f"M{ax - 4:.0f} {y:.0f}H{ax + 4:.0f}")
+    b.append(f'<path d="{"".join(marks)}" stroke="currentColor" stroke-width="1.4"/>')
+
+    def clear(bx0, by0, bx1, by1):
+        return min([_seg_box_gap(s, bx0, by0, bx1, by1) for s in drawn] or [99])
+
+    xs = [i for i in range(x0, x1 + 1) if i]
+    ys = [j for j in range(y0, y1 + 1) if j]
+    below = min([clear(px(i, 0)[0] - 7, ay + 6, px(i, 0)[0] + 7, ay + 18) for i in xs]
+                or [99])
+    above = min([clear(px(i, 0)[0] - 7, ay - 18, px(i, 0)[0] + 7, ay - 6) for i in xs]
+                or [99])
+    left = min([clear(ax - 21, px(0, j)[1] - 7, ax - 7, px(0, j)[1] + 5) for j in ys]
+               or [99])
+    right = min([clear(ax + 7, px(0, j)[1] - 7, ax + 21, px(0, j)[1] + 5) for j in ys]
+                or [99])
+    gap = 9 if max(left, right) > 12 else 14
+    xdy = 16 if below >= above else -9
+    ydx = -gap if left >= right else gap
+    xanch, yanch = "middle", ("end" if left >= right else "start")
+
+    # Shared attributes ride on a <g>; x, y, font-size and text-anchor stay on each
+    # <text> because question_checks._text_box reads all four off the tag to size a
+    # label's box. Hoisting text-anchor would make every centred number measure as if
+    # it started where it actually centres, and the overlap checks would quietly
+    # mis-box the whole figure.
+    def tick(x, y, s, anchor):
+        return f'<text x="{x:.0f}" y="{y:.0f}" font-size="10" text-anchor="{anchor}">{s}</text>'
+
+    lab = []
+    for i in xs:
+        x, _ = px(i, 0)
+        lab.append(tick(x, ay + xdy, str(i).replace("-", "\u2212"), xanch))
+    for j in ys:
+        _, y = px(0, j)
+        lab.append(tick(ax + ydx, y + 4, str(j).replace("-", "\u2212"), yanch))
+    lab.append(tick(ax - 9 if left >= right else ax + 9, ay + 15, "O", yanch))
+    b.append(f'<g font-family="system-ui,sans-serif" fill="currentColor" '
+             f'fill-opacity=".75">{"".join(lab)}</g>')
+    b.append(txt(ox + gw + 20, ay + 14, "x", 12, "middle", ".9"))
+    b.append(txt(ax + 13, oy - 14, "y", 12, "middle", ".9"))
+
+    if polygon:
+        pts = " ".join(f"{a:.0f},{c:.0f}" for a, c in (px(*q) for q in polygon))
+        b.append(f'<polygon points="{pts}" fill="currentColor" fill-opacity=".12" '
+                 f'stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>')
+
+    for (a, c), (d, e) in drawn:
+        b.append(f'<line x1="{a:.0f}" y1="{c:.0f}" x2="{d:.0f}" y2="{e:.0f}" '
+                 f'stroke="currentColor" stroke-width="2" stroke-opacity=".9"/>')
+
+    lx, ly = label_off
+    # A vertex label belongs OUTSIDE its shape. Placed by a fixed offset they landed
+    # inside the square -- the "?" naming the answer printed over the very edge that
+    # leads to it -- which is the same fault the reviewer raised against a triangle:
+    # "put the figure's dimension outside the triangle". Push each label away from the
+    # polygon's centre instead.
+    cen = None
+    if polygon:
+        cen = (sum(q[0] for q in polygon) / len(polygon),
+               sum(q[1] for q in polygon) / len(polygon))
+    pts = points or {}
+    # A list plots bare dots the student has to read off the grid -- one flagged
+    # question shows three points and names none of them. A dict keyed on "" would
+    # collapse them into one, so carry pairs rather than a mapping.
+    pairs = list(pts.items()) if isinstance(pts, dict) else [("", q) for q in pts]
+    for name, (x, y) in pairs:
+        cx, cy = px(x, y)
+        if dots:
+            b.append(f'<circle cx="{cx:.0f}" cy="{cy:.0f}" r="4.5" fill="currentColor"/>')
+        if name.strip():
+            if cen is None:
+                dx, dy = lx, ly
+            else:
+                vx, vy = x - cen[0], y - cen[1]
+                n = max((vx * vx + vy * vy) ** 0.5, 1e-9)
+                dx, dy = 26 * vx / n, -18 * vy / n + 4
+                # A vertex sitting ON an axis has the axis's own numbers directly
+                # outward of it, so "outward" collides with the tick row: (3, 0) landed
+                # on the "3" beneath it. Send those labels along the axis instead.
+                if y == 0:
+                    dx, dy = 30 * (1 if vx >= 0 else -1), -12
+                elif x == 0:
+                    dx, dy = 34 * (1 if vx >= 0 else -1), -14 if vy >= 0 else 16
+            b.append(txt(cx + dx, cy + dy, name, 13, "middle", ".9"))
+    return svg("".join(b), vb=f"0 0 {vw:.0f} {vh:.0f}")

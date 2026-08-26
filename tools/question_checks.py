@@ -1021,8 +1021,14 @@ def _text_box(m, pad=0.0):
         cy = y if cy is None else cy
         return (cx - size * 0.8 + pad, cy - w / 2 + pad,
                 cx + size * 0.25 - pad, cy + w / 2 - pad, label)
-    mid = "text-anchor" in tag and "middle" in tag
-    x0 = x - w / 2 if mid else x
+    # text-anchor="end" was measured as if the label started at x, putting its box a
+    # whole width to the RIGHT of where it draws. Every y-axis number is end-anchored,
+    # so the overlap checks were reading the wrong side of every axis in the bank --
+    # they cleared a "-2" that sits on a plotted line, and could have flagged one that
+    # does not.
+    anch = re.search(r"text-anchor=[\'\"](\w+)", tag)
+    a = anch.group(1) if anch else "start"
+    x0 = x - w / 2 if a == "middle" else (x - w if a == "end" else x)
     return (x0 + pad, y - size * 0.8 + pad, x0 + w - pad, y + size * 0.25 - pad, label)
 
 
@@ -1682,6 +1688,40 @@ def _fit_axis(pairs):
     return s, mp - s * mv
 
 
+def _tick_marks(svg):
+    """Short segments sitting across an axis: (xs, ys) in pixels."""
+    out = {0: [], 1: []}
+    for m in _LINE_EL.finditer(svg):
+        x1, y1, x2, y2 = (float(g) for g in m.groups())
+        if abs(x1 - x2) < 1 and 0 < abs(y1 - y2) <= 9:
+            out[0].append(x1)
+        elif abs(y1 - y2) < 1 and 0 < abs(x1 - x2) <= 9:
+            out[1].append(y1)
+    for dpath in re.findall(r"<path[^>]*\bd=[\'\"]([^\'\"]+)", svg):
+        for mm in re.finditer(r"[Mm]\s*([-\d.]+)[ ,]+([-\d.]+)\s*([VvHh])\s*([-\d.]+)",
+                              dpath):
+            a, b, cmd, c = (mm.group(1), mm.group(2), mm.group(3), mm.group(4))
+            if cmd in "Vv" and abs(float(c) - float(b)) <= 9:
+                out[0].append(float(a))
+            elif cmd in "Hh" and abs(float(c) - float(a)) <= 9:
+                out[1].append(float(b))
+    return out
+
+
+def _offset_from_marks(svg, axis, scale, offset):
+    """Re-seat a label-derived offset on the tick marks, which carry no baseline."""
+    marks = _tick_marks(svg).get(axis) or []
+    if len(marks) < 2:
+        return offset
+    deltas = []
+    for mk in marks:
+        v = (mk - offset) / scale
+        deltas.append(mk - (offset + scale * round(v)))
+    deltas.sort()
+    med = deltas[len(deltas) // 2]
+    return offset + med if abs(med) <= 9 else offset
+
+
 def _figure_axis_map(svg):
     """(sx, ox, sy, oy, source) mapping figure units to pixels, or None.
 
@@ -1693,6 +1733,14 @@ def _figure_axis_map(svg):
         sx, ox = _fit_axis(xs)
         sy, oy = _fit_axis(ys)
         if sx and sy and abs(sx) > 2 and abs(sy) > 2:
+            # A tick number's y is its BASELINE, which sits about 4 px below the tick it
+            # names so the glyph centres on it. The fit absorbs that as a constant, so
+            # every mapping derived from labels reads ~0.13 units low on the y-axis --
+            # a systematic bias eating most of this check's tolerance before it starts.
+            # Tick MARKS carry no such convention, so where they exist they set the
+            # offset and the labels keep setting the scale.
+            ox = _offset_from_marks(svg, 0, sx, ox)
+            oy = _offset_from_marks(svg, 1, sy, oy)
             return sx, ox, sy, oy, "the tick labels"
     # Coordinate texts paired with their nearest dot. Only trustworthy when every
     # label lands on a distinct dot and the resulting fit is tight -- a label sitting
@@ -1794,6 +1842,15 @@ def plotted_geometry_matches_stem(q, tol=6.0):
         return (px - ox) / sx, (py - oy) / sy
 
     dots = [(float(a), float(b)) for a, b, r in _DOT.findall(svg) if float(r) <= 6]
+    # A triangle's vertices are corners of a polygon, not circles. Counting only dots
+    # would report "nothing is drawn at D (1, 4)" for a figure that draws D perfectly
+    # well -- and would say the same for one that draws it a unit low, which is no use
+    # to whoever has to fix it.
+    for pg in re.findall(r"<(?:polygon|polyline)[^>]*\bpoints=[\'\"]([^\'\"]+)", svg):
+        nums = [float(n) for n in pg.replace(",", " ").split()
+                if re.fullmatch(r"-?\d+(?:\.\d+)?", n)]
+        if len(nums) >= 6:            # an arrowhead is 3 points and means nothing here
+            dots += list(zip(nums[0::2], nums[1::2]))
     lines = _oblique_lines(svg)
 
     # 1. The drawn axes must sit where the mapping puts zero. The square with three
@@ -1834,6 +1891,11 @@ def plotted_geometry_matches_stem(q, tol=6.0):
     # 2. Every point the stem names is drawn, as a dot or on a drawn line.
     worst = None
     for name, u, v in want:
+        # The origin is structural, not plotted. "the corner of the grid at (0, 0)"
+        # names a place every plane already has, and demanding a dot there flagged a
+        # sound question. Clause 1 has already checked the axes cross where they should.
+        if (u, v) == (0, 0) and not name:
+            continue
         ex, ey = to_px(u, v)
         near = min((((d[0] - ex) ** 2 + (d[1] - ey) ** 2) ** 0.5, d) for d in dots) \
             if dots else None
@@ -1845,7 +1907,7 @@ def plotted_geometry_matches_stem(q, tol=6.0):
         if near:
             au, av = to_units(*near[1])
             worst = (near[0], f"{label}should be at ({u:g}, {v:g}) but the nearest "
-                              f"point is plotted at ({au:.1f}, {av:.1f})")
+                              f"point drawn is at ({au:.1f}, {av:.1f})")
         else:
             worst = (999.0, f"nothing is drawn at {label}({u:g}, {v:g})")
         break
