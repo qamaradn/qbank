@@ -92,7 +92,8 @@ def per_question(q: dict) -> list[tuple[str, str]]:
             hits.append((_name, m))
     for _name in ("negative_count", "no_question_asked", "compounding_needs_calculator",
                   "rounds_without_saying_so", "multi_letter_variable",
-                  "asks_rationale_not_skill", "caret_power_notation"):
+                  "asks_rationale_not_skill", "caret_power_notation",
+                  "figure_proportions_disagree"):
         if (m := getattr(qc, _name)(q)):
             hits.append((_name, m))
     if q.get("figure_svg"):

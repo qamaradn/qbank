@@ -27,6 +27,7 @@ from tools.question_checks import (
     rounds_without_saying_so,
     multi_letter_variable,
     asks_rationale_not_skill,
+    figure_proportions_disagree,
     COMPREHENSION_RELATIONS,
     STRUCTURAL_RELATIONS,
     answer_shape_monotony,
@@ -836,3 +837,20 @@ def test_caret_conversion_handles_letters_and_bare_digits():
     from tools.repair_caret_powers import convert
     assert convert("x^2 + y^2 = r^2")[0] == "x² + y² = r²"
     assert convert("(1+r)^n / ((1+r)^n - 1)")[0] == "(1+r)ⁿ / ((1+r)ⁿ - 1)"
+
+
+def test_figure_proportions_disagree_is_caught():
+    """"is 128 not the answer?" — the key of 104 was right. The shape was drawn 190x185,
+    very nearly square, while its own labels said 14 by 9. A reader who trusts the
+    picture computes something a reader who trusts the words does not."""
+    q = dict(stem="a rectangle 14 cm wide and 9 cm tall",
+             figure_svg='<svg><polygon points="60,25 250,25 250,210 60,210"/>'
+                        '<text x="1" y="1">14 cm</text><text x="2" y="2">9 cm</text></svg>')
+    assert "trusts the picture" in (figure_proportions_disagree(q) or "")
+
+
+def test_a_shape_drawn_to_its_labels_passes():
+    q = dict(stem="a rectangle 14 cm wide and 9 cm tall",
+             figure_svg='<svg><polygon points="44,34 268,34 268,178 44,178"/>'
+                        '<text x="1" y="1">14 cm</text><text x="2" y="2">9 cm</text></svg>')
+    assert figure_proportions_disagree(q) is None

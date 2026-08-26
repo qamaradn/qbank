@@ -1519,3 +1519,56 @@ def caret_power_notation(q):
         if "^" in text:
             return f"{field} contains a caret that is not a simple power: {text[:40]!r}"
     return None
+
+
+_DIM_LABEL = re.compile(r"(\d+(?:\.\d+)?)\s*(?:cm|mm|m|km)\b")
+
+
+def figure_proportions_disagree(q, tol=0.25):
+    """A shape drawn to different proportions than the lengths written on it.
+
+    "the shaded shape is formed by taking a rectangle 14 cm wide and 9 cm tall" — drawn
+    190 px by 185 px, very nearly square. A reader who trusts the picture computes a
+    different area from a reader who trusts the words, which is how a question with a
+    correct key drew "is 128 not the answer?". The same fault, in a triangle: "side QR
+    should be much shorter than side PQ (7 vs 24)".
+
+    Compares the outermost drawn bounding box against the two largest dimension labels.
+    Deliberately coarse -- it is looking for a shape that is visibly the wrong shape, not
+    for a pixel or two.
+    """
+    svg = q.get("figure_svg") or ""
+    stem = q.get("stem") or ""
+    if not svg:
+        return None
+    dims = sorted({float(d) for d in _DIM_LABEL.findall(svg)}, reverse=True)
+    if len(dims) < 2:
+        dims = sorted({float(d) for d in _DIM_LABEL.findall(stem)}, reverse=True)
+    if len(dims) < 2:
+        return None
+    xs, ys = [], []
+    for m in re.finditer(r"<polygon[^>]*\bpoints=[\'\"]([^\'\"]+)", svg):
+        nums = [float(n) for n in m.group(1).replace(",", " ").split()
+                if re.fullmatch(r"-?\d+(?:\.\d+)?", n)]
+        xs += nums[0::2]
+        ys += nums[1::2]
+    for m in re.finditer(r"<rect[^>]*\bx=[\'\"]([-\d.]+)[\'\"][^>]*\by=[\'\"]([-\d.]+)"
+                         r"[\'\"][^>]*\bwidth=[\'\"]([\d.]+)[\'\"][^>]*"
+                         r"\bheight=[\'\"]([\d.]+)", svg):
+        x, y, w, h = (float(g) for g in m.groups())
+        xs += [x, x + w]
+        ys += [y, y + h]
+    if len(xs) < 3 or len(ys) < 3:
+        return None
+    dw, dh = max(xs) - min(xs), max(ys) - min(ys)
+    if dw <= 0 or dh <= 0:
+        return None
+    drawn = dw / dh
+    want = dims[0] / dims[1]
+    for target in (want, 1 / want):          # the long side may be either way up
+        if abs(drawn - target) <= tol * target:
+            return None
+    return (f"the shape is drawn {dw:.0f}x{dh:.0f} px, a ratio of {drawn:.2f}, but its "
+            f"own labels say {dims[0]:g} by {dims[1]:g}, a ratio of {want:.2f} — a "
+            f"reader who trusts the picture gets a different answer from one who "
+            f"trusts the words")

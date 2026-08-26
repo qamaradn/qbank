@@ -65,6 +65,7 @@ BLOCKING = [
     ("coordinate_figure_without_grid", "VIC round 4: a plane with no gridlines to read"),
     ("multi_letter_variable", "VIC round 4: T_wc reads as a product of unknowns"),
     ("asks_rationale_not_skill", "VIC round 4: asks why a method is preferred"),
+    ("figure_proportions_disagree", "VIC round 4: shape drawn to the wrong proportions"),
 ]
 
 # EXAM-SPECIFIC — two things genuinely differ, and only two.
