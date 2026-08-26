@@ -22,6 +22,11 @@ from tools.question_checks import (
     text_overlaps_geometry,
     axes_unlabelled,
     angle_arc_malformed,
+    axis_scale_nonlinear,
+    coordinate_figure_without_grid,
+    rounds_without_saying_so,
+    multi_letter_variable,
+    asks_rationale_not_skill,
     COMPREHENSION_RELATIONS,
     STRUCTURAL_RELATIONS,
     answer_shape_monotony,
@@ -796,3 +801,20 @@ def test_a_halo_label_is_not_a_collision():
            'stroke-width="3">-5</text>'
            '<text x="118.2" y="130.2" font-size="8.5" fill="currentColor">-5</text></svg>')
     assert overlapping_text_labels(svg) is None
+
+
+def test_two_single_digit_labels_that_merge_are_caught():
+    """'why is there a huge jump from 1 to 32' — a "3" and a "2" five pixels apart on
+    the same axis line read as one number. They overlap by 1.6 px, so a fixed 6 px
+    threshold missed them; the threshold now scales with the narrower label."""
+    svg = ('<svg><text x="115" y="44" font-size="12">3</text>'
+           '<text x="120" y="44" font-size="12">2</text></svg>')
+    assert overlapping_text_labels(svg)
+
+
+def test_axis_scale_nonlinear_and_grid_checks_exist():
+    """A plane with ticks but no gridlines forces the reader to estimate."""
+    ticks = "".join(f'<text x="{40+30*i}" y="150" font-size="10">{i-2}</text>' for i in range(5))
+    ticks += "".join(f'<text x="20" y="{40+30*i}" font-size="10">{2-i}</text>' for i in range(5))
+    svg = f'<svg><line x1="20" y1="90" x2="200" y2="90"/><line x1="100" y1="10" x2="100" y2="160"/>{ticks}</svg>'
+    assert coordinate_figure_without_grid(svg)

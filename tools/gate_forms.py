@@ -61,6 +61,10 @@ BLOCKING = [
     ("text_overlaps_geometry", "VIC round 2: a label printed over a plotted line"),
     ("axes_unlabelled", "VIC round 2: a chart with no axis titles"),
     ("angle_arc_malformed", "VIC round 2: angle mark not centred on its vertex"),
+    ("axis_scale_nonlinear", "VIC round 4: axis ticks not evenly spaced for their values"),
+    ("coordinate_figure_without_grid", "VIC round 4: a plane with no gridlines to read"),
+    ("multi_letter_variable", "VIC round 4: T_wc reads as a product of unknowns"),
+    ("asks_rationale_not_skill", "VIC round 4: asks why a method is preferred"),
 ]
 
 # EXAM-SPECIFIC — two things genuinely differ, and only two.
@@ -105,6 +109,8 @@ _TEXT_FIELD = {
     "text_overlaps_geometry": "figure_svg",
     "axes_unlabelled": "figure_svg",
     "angle_arc_malformed": "figure_svg",
+    "axis_scale_nonlinear": "figure_svg",
+    "coordinate_figure_without_grid": "figure_svg",
     "doubled_circle_outline": "figure_svg",
     "overlapping_text_labels": "figure_svg",
     "plotted_points_inconsistent": "figure_svg",

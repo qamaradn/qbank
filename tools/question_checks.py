@@ -1048,7 +1048,14 @@ def overlapping_text_labels(svg, pad=6.0):
                 continue
             ox = min(ax1, bx1) - max(ax0, bx0)
             oy = min(ay1, by1) - max(ay0, by0)
-            if ox > pad and oy > pad:
+            # A fixed 6 px is too coarse for single characters. Two one-digit tick
+            # labels 5 px apart overlap by only 1.6 px and still merge into one number:
+            # a "3" and a "2" on the same axis line read as "32", which is exactly what
+            # a reviewer reported as "a huge jump from 1 to 32". Scale the threshold to
+            # the narrower label.
+            narrow = min(ax1 - ax0, bx1 - bx0)
+            need = min(pad, max(1.2, 0.22 * narrow))
+            if ox > need and oy > need:
                 return (f"labels {al!r} and {bl!r} overlap by about "
                         f"{ox:.0f}x{oy:.0f} px")
     return None
@@ -1318,3 +1325,145 @@ def angle_arc_malformed(svg, tol=0.15):
                     f"px away at ({c[0]:.1f}, {c[1]:.1f}) — the sweep flag has it "
                     f"curving the wrong way round")
     return None
+
+
+# ---------------------------------------------------------------------------
+# VIC review round 4 (2026-08-25/26). Seventeen flags, and SEVEN were coordinate
+# figures a reader could not use: "I can't really tell what point is where. I
+# have to approximate."
+# ---------------------------------------------------------------------------
+
+def _axis_ticks(svg):
+    """Numeric labels paired with their pixel position, split by axis.
+
+    Returns (xs, ys) as lists of (value, pixel). A tick label's OTHER coordinate is
+    roughly constant along an axis, which is how the two are told apart.
+    """
+    pts = []
+    for m in _TEXT.finditer(svg):
+        t = (m.group(4) or "").strip().replace("\u2212", "-")
+        if not re.fullmatch(r"-?\d+(?:\.\d+)?", t):
+            continue
+        pts.append((float(t), float(m.group(1)), float(m.group(2))))
+    if len(pts) < 4:
+        return [], []
+    ys_const = {}
+    xs_const = {}
+    for v, x, y in pts:
+        ys_const.setdefault(round(y / 6), []).append((v, x))
+        xs_const.setdefault(round(x / 6), []).append((v, y))
+    xs = max(ys_const.values(), key=len) if ys_const else []
+    ys = max(xs_const.values(), key=len) if xs_const else []
+    return (xs if len(xs) >= 3 else []), (ys if len(ys) >= 3 else [])
+
+
+def axis_scale_nonlinear(svg, tol=0.12):
+    """Tick labels that are not evenly spaced for their values.
+
+    "why is there a huge jump from 1 to 32 suddenly, which makes the question wrong."
+    An axis whose numbers do not advance at a constant rate per pixel cannot be read,
+    and any point plotted on it is somewhere its coordinates do not say.
+    """
+    if not svg:
+        return None
+    for name, ticks in zip(("x", "y"), _axis_ticks(svg)):
+        if len(ticks) < 3:
+            continue
+        ticks = sorted(set(ticks))
+        rates = []
+        for (v1, p1), (v2, p2) in zip(ticks, ticks[1:]):
+            if v2 == v1:
+                continue
+            rates.append((p2 - p1) / (v2 - v1))
+        if len(rates) < 2:
+            continue
+        lo, hi = min(rates, key=abs), max(rates, key=abs)
+        if abs(hi) > 1e-9 and abs(abs(hi) - abs(lo)) / abs(hi) > tol:
+            return (f"the {name}-axis is not to a constant scale — its ticks advance at "
+                    f"{abs(lo):.1f} and {abs(hi):.1f} px per unit in different places, "
+                    f"so nothing plotted on it is where its coordinates say")
+    return None
+
+
+def coordinate_figure_without_grid(svg, want=4):
+    """A coordinate plane with no gridlines, so points can only be estimated.
+
+    Asked for three times in one round: "try adding the lines across the values",
+    "graph looks pretty rough... try adding the lines across the values", "for all
+    questions add the lines on each number". Without them a reader approximates, and
+    approximating is not what the question is testing.
+    """
+    if not svg:
+        return None
+    xs, ys = _axis_ticks(svg)
+    if len(xs) < 3 or len(ys) < 3:
+        return None                     # not a two-axis plot
+    rules = 0
+    for a, b, c, d in (tuple(map(float, m.groups())) for m in _LINE_EL.finditer(svg)):
+        if (abs(a - c) < 1 or abs(b - d) < 1) and max(abs(a - c), abs(b - d)) > 30:
+            rules += 1
+    for dpath in re.findall(r"<path[^>]*\bd=[\'\"]([^\'\"]+)", svg):
+        rules += len(re.findall(r"[MmVvHh]", dpath)) // 2
+    if rules >= want + 2:
+        return None
+    return ("a coordinate plane with tick numbers but no gridlines — a reader can only "
+            "estimate where a point sits, which is not what the question is testing")
+
+
+_ROUND_TOLD = re.compile(
+    r"\bround(?:ed|ing)?\b|\bnearest\b|\bapproximat|\bto \d+ decimal|\b1 d\.?p\.?|"
+    r"\b2 d\.?p\.?|\bestimate", re.I)
+_APPROX_IN_WORKING = re.compile(r"≈|\bapprox|\bclosest\b|\brounds? to\b", re.I)
+
+
+def rounds_without_saying_so(q):
+    """The working ends in an approximation the stem never asked for.
+
+    "The exact answer is a decimal, while the closest answer is 3, try to revise the
+    question to include 'Round to the nearest tenth'." A student who works exactly and
+    finds their value absent from the options has done nothing wrong, and has no way to
+    know which option is meant.
+    """
+    stem = q.get("stem") or ""
+    expl = q.get("explanation") or ""
+    if _ROUND_TOLD.search(stem):
+        return None
+    if not _APPROX_IN_WORKING.search(expl):
+        return None
+    return ("the explanation rounds or approximates, but the stem never says to — a "
+            "student working exactly cannot tell which option is intended")
+
+
+_MULTI_VAR = re.compile(r"\b([A-Za-z])_\{?([A-Za-z]{2,})\}?")
+
+
+def multi_letter_variable(q):
+    """Variables like T_wc in a formula the student has to read under time pressure.
+
+    "Try make the variables shorter. Multiple letter variables look strange and
+    confusing." A subscript of two or more letters reads as a product of unknowns.
+    """
+    m = _MULTI_VAR.search(q.get("stem") or "")
+    if not m:
+        return None
+    return (f"the formula uses {m.group(0)!r} — a multi-letter subscript reads as a "
+            f"product of unknowns; use a single letter")
+
+
+_WHY_NOT_HOW = re.compile(
+    r"^\s*why (?:is|are|would|do|does|might)\b.*\b(?:instead of|rather than|used|"
+    r"reported|preferred|chosen)\b", re.I)
+
+
+def asks_rationale_not_skill(q):
+    """Asks why a technique is preferred, rather than asking the student to use it.
+
+    "Why is the interquartile range often reported instead of the range?" — "this is not
+    a question that would come in the SEHS exam". Same family as teaching_manipulative:
+    it tests whether a student has been told a rationale, not whether they can reason.
+    """
+    stem = " ".join((q.get("stem") or "").split())
+    if not _WHY_NOT_HOW.match(stem):
+        return None
+    return ("asks why a method is preferred rather than asking the student to apply it "
+            "— that tests recall of a rationale, not reasoning")
