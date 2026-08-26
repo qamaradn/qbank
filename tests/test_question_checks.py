@@ -818,3 +818,21 @@ def test_axis_scale_nonlinear_and_grid_checks_exist():
     ticks += "".join(f'<text x="20" y="{40+30*i}" font-size="10">{2-i}</text>' for i in range(5))
     svg = f'<svg><line x1="20" y1="90" x2="200" y2="90"/><line x1="100" y1="10" x2="100" y2="160"/>{ticks}</svg>'
     assert coordinate_figure_without_grid(svg)
+
+
+def test_caret_conversion_never_eats_what_it_does_not_replace():
+    """Two bugs the counts could not show, only reading the output could: "^(4x2)"
+    became a superscript 4 with an orphaned "x2)", and a trailing \\s* welded
+    "(1.00875)^8 = 2000" into "(1.00875)^8= 2000". 284 questions were about to be
+    corrupted."""
+    from tools.repair_caret_powers import convert
+    out, conv, _ = convert("A = 2000 x (1 + 0.035/4)^(4x2) = 2000 x (1.00875)^8 = 2144")
+    assert "^(4x2)" in out, "an exponent with no superscript form must be left intact"
+    assert "⁸ = 2144" in out, "the space after the exponent must survive"
+    assert conv == 1
+
+
+def test_caret_conversion_handles_letters_and_bare_digits():
+    from tools.repair_caret_powers import convert
+    assert convert("x^2 + y^2 = r^2")[0] == "x² + y² = r²"
+    assert convert("(1+r)^n / ((1+r)^n - 1)")[0] == "(1+r)ⁿ / ((1+r)ⁿ - 1)"

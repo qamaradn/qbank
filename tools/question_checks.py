@@ -1467,3 +1467,55 @@ def asks_rationale_not_skill(q):
         return None
     return ("asks why a method is preferred rather than asking the student to apply it "
             "— that tests recall of a rationale, not reasoning")
+
+
+_SUPER = {**{d: c for d, c in zip("0123456789", "\u2070\u00b9\u00b2\u00b3\u2074"
+                                              "\u2075\u2076\u2077\u2078\u2079")},
+          "-": "\u207b", "+": "\u207a", "n": "\u207f", "x": "\u02e3", "a": "\u1d43",
+          "b": "\u1d47", "c": "\u1d9c", "d": "\u1d48", "i": "\u2071", "k": "\u1d4f",
+          "m": "\u1d50", "p": "\u1d56", "t": "\u1d57", "y": "\u02b8"}
+# Two forms, and neither may consume anything it does not replace. The first attempt
+# matched "^(" without requiring the closing paren, so "^(4x2)" became a superscript 4
+# followed by the orphaned "x2)"; and a trailing \s* ate the space after the exponent,
+# welding "(1.00875)^8 = " into "(1.00875)^8=". Both would have corrupted 284 questions.
+_CARET = re.compile(
+    r"\^\((\s*[-+]?[0-9A-Za-z]{1,3}\s*)\)"          # ^(n) — both parens required
+    r"|\^([-+]?[0-9A-Za-z]{1,3})(?![0-9A-Za-z])")     # ^n — nothing trailing consumed
+
+
+def superscript(expr):
+    """Render an exponent as real superscript characters, or None if it cannot be.
+
+    A parenthesised exponent mixing digits and letters -- "(4x2)" -- is a product, not a
+    symbol. Converting it to a superscript tower silently changes the mathematics, so
+    anything mixed is refused: an exponent is all digits, or one letter, or nothing.
+    """
+    body = expr.lstrip("-+")
+    if body and not (body.isdigit() or len(body) == 1):
+        return None
+    out = []
+    for ch in expr:
+        if ch not in _SUPER:
+            return None
+        out.append(_SUPER[ch])
+    return "".join(out)
+
+
+def caret_power_notation(q):
+    """A power written with a caret rather than as a superscript.
+
+    Selectly renders stems as plain text, so "x^2" reaches the student exactly like
+    that. It is readable but it is not how a printed exam writes a power, and next to
+    the questions that DO use superscripts it looks like two different papers.
+    """
+    for field in ("stem", "option_a", "option_b", "option_c", "option_d", "explanation"):
+        text = str(q.get(field) or "")
+        m = _CARET.search(text)
+        if m:
+            sup = superscript((m.group(1) or m.group(2)).strip())
+            how = f"write it as {m.group(1)!r} in superscript" if sup else \
+                  "the exponent is too complex for superscript characters — reword it"
+            return f"{field} writes a power as {m.group(0)!r}; {how}"
+        if "^" in text:
+            return f"{field} contains a caret that is not a simple power: {text[:40]!r}"
+    return None
