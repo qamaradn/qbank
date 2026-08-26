@@ -786,3 +786,131 @@ def plane(points=None, lines=None, polygon=None, xr=(-4, 4), yr=(-4, 4), cell=30
                     dx, dy = 34 * (1 if vx >= 0 else -1), -14 if vy >= 0 else 16
             b.append(txt(cx + dx, cy + dy, name, 13, "middle", ".9"))
     return svg("".join(b), vb=f"0 0 {vw:.0f} {vh:.0f}")
+
+
+# ------------------------------------------------------------------ labelled triangles
+def right_triangle(up_len, base_len, corner="C", up="A", right="B", up_label=None,
+                   base_label=None, hyp_label=None, angle=None, vw=280, pad=42,
+                   max_px=150):
+    """A right triangle drawn to its own side lengths, dimensions outside it.
+
+    Two reviewer rules from VIC round 5 are structural here rather than remembered:
+
+      "For shapes, put the figure's dimension outside the triangle or uniform in every
+      shape." Every side label is placed on the outward normal of its own side, so no
+      dimension can end up inside the outline and none of them disagree about which
+      convention this figure follows.
+
+      "Ensure the angle values are always within the shape and the arc is always present
+      without any overlapping." An angle is drawn as an arc at its vertex with the value
+      on the bisector INSIDE the triangle, at a radius that keeps it clear of both sides.
+
+    It also fixes the reason those two were flagged at all. figure_proportions_disagree
+    exempts triangles -- the longest label is usually a hypotenuse, which spans the
+    bounding box diagonally rather than setting it -- so nothing had been checking their
+    shape, and one flagged figure drew a 7 cm side HALF AGAIN LONGER than its 24 cm one.
+    Here the two legs come from the lengths themselves and cannot disagree with them.
+    """
+    scale = max_px / max(up_len, base_len)
+    uh, bw = up_len * scale, base_len * scale
+    # Rounded ONCE, here. Computing the arc from the unrounded corner while the polygon
+    # prints the rounded one puts the arc 0.25 px off its own vertex -- two opinions
+    # about where a point is, which is the whole defect this round is about.
+    cx, cy = float(round(pad)), float(round(pad + uh))   # right-angle corner
+    ux, uy = cx, float(round(cy - uh))                   # the vertex above it
+    rx, ry = float(round(cx + bw)), cy                   # the vertex to its right
+    vw = max(vw, bw + 2 * pad)
+    vh = uh + 2 * pad
+
+    b = [f'<polygon points="{cx:.0f},{cy:.0f} {ux:.0f},{uy:.0f} {rx:.0f},{ry:.0f}" '
+         f'fill="currentColor" fill-opacity=".07" stroke="currentColor" '
+         f'stroke-width="2" stroke-linejoin="round"/>']
+    m = 13
+    b.append(f'<path d="M{cx:.0f} {cy - m:.0f}H{cx + m:.0f}V{cy:.0f}" fill="none" '
+             f'stroke="currentColor" stroke-width="1.5"/>')
+
+    b.append(txt(cx - 13, cy + 15, corner, 14))
+    b.append(txt(ux - 13, uy - 4, up, 14))
+    b.append(txt(rx + 13, ry + 15, right, 14))
+
+    # Each dimension sits on its side's outward normal: left of the vertical leg, below
+    # the base, and out past the hypotenuse on the side away from the right angle.
+    if up_label:
+        b.append(txt(cx - 20, (cy + uy) / 2 + 4, up_label, 13))
+    if base_label:
+        b.append(txt((cx + rx) / 2, cy + 22, base_label, 13))
+    if hyp_label:
+        mx, my = (ux + rx) / 2, (uy + ry) / 2
+        nx, ny = (ry - uy), -(rx - ux)           # normal, pointing away from the corner
+        n = max((nx * nx + ny * ny) ** 0.5, 1e-9)
+        b.append(txt(mx + 26 * nx / n, my + 26 * ny / n + 4, hyp_label, 13))
+
+    if angle:
+        at, text = angle
+        vx, vy = {corner: (cx, cy), up: (ux, uy), right: (rx, ry)}[at]
+        others = [(a, c) for k, (a, c) in ((corner, (cx, cy)), (up, (ux, uy)),
+                                           (right, (rx, ry))) if k != at]
+        dirs = []
+        for ax, ay in others:
+            dx, dy = ax - vx, ay - vy
+            n = max((dx * dx + dy * dy) ** 0.5, 1e-9)
+            dirs.append((dx / n, dy / n))
+        r = 26
+        (d1x, d1y), (d2x, d2y) = dirs
+        p1 = (vx + r * d1x, vy + r * d1y)
+        p2 = (vx + r * d2x, vy + r * d2y)
+        sweep = 1 if (d1x * d2y - d1y * d2x) > 0 else 0
+        b.append(f'<path d="M{p1[0]:.2f} {p1[1]:.2f} A{r} {r} 0 0 {sweep} '
+                 f'{p2[0]:.2f} {p2[1]:.2f}" fill="none" stroke="currentColor" '
+                 f'stroke-width="1.6"/>')
+        if text:
+            bx, by = d1x + d2x, d1y + d2y
+            n = max((bx * bx + by * by) ** 0.5, 1e-9)
+            # "Ensure the angle values are always within the shape." At a fixed radius a
+            # value written into a NARROW angle spills through both sides -- "30°" is
+            # 24 px wide and a 30° vertex is only 12 px across at r=44. Step out along
+            # the bisector until the wedge is wide enough to hold the text, capped so it
+            # cannot walk off the far side of the triangle.
+            half = math.acos(max(-1.0, min(1.0, d1x * d2x + d1y * d2y))) / 2
+            need = (len(text) * 13 * 0.55) / 2 + 6
+            reach = min(
+                ((a - vx) ** 2 + (c - vy) ** 2) ** 0.5 for a, c in others)
+            rr = max(40.0, min(need / max(math.tan(half), 1e-3), reach * 0.62))
+            b.append(txt(vx + rr * bx / n, vy + rr * by / n + 4, text, 13))
+    return svg("".join(b), vb=f"0 0 {vw:.0f} {vh:.0f}")
+
+
+def trapezium(top, bottom, height, top_label=None, bottom_label=None,
+              height_label=None, vw=300, pad=40, max_px=190):
+    """A trapezium drawn to its stated sides, with the height clear of its own label.
+
+    "the 5 Cm overlaps with the dotted line." The height was dashed straight down the
+    middle of the figure and its label written on top of it. The dashed line now sits
+    off-centre and the label stands beside it, on the side with the room.
+    """
+    # ONE scale for all three dimensions. A 1.6x fudge on the height made a 5 cm height
+    # taller than a 7 cm base, which figure_proportions_disagree cannot see: it exempts
+    # any figure carrying an unknown side, and this one is labelled "b". The exemption
+    # is right and it is exactly why the drawing has to be right by construction.
+    scale = max_px / max(top, bottom)
+    tw, bw, h = top * scale, bottom * scale, height * scale
+    cx = pad + max(tw, bw) / 2
+    ty, by = pad, pad + h
+    tl, tr = cx - tw / 2, cx + tw / 2
+    bl, br = cx - bw / 2, cx + bw / 2
+    vh = h + 2 * pad
+    b = [f'<polygon points="{tl:.0f},{ty:.0f} {tr:.0f},{ty:.0f} {br:.0f},{by:.0f} '
+         f'{bl:.0f},{by:.0f}" fill="currentColor" fill-opacity=".07" '
+         f'stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>']
+    hx = cx + max(tw, bw) * 0.22                 # off-centre, so the label has a side
+    b.append(f'<line x1="{hx:.0f}" y1="{ty:.0f}" x2="{hx:.0f}" y2="{by:.0f}" '
+             f'stroke="currentColor" stroke-width="1.5" stroke-dasharray="5,4"/>')
+    b.append(f'<path d="M{hx:.0f} {by - 12:.0f}H{hx + 12:.0f}V{by:.0f}" fill="none" '
+             f'stroke="currentColor" stroke-width="1.4"/>')
+    if height_label:
+        b.append(txt(hx - 20, (ty + by) / 2 + 4, height_label, 13))
+    if top_label:
+        b.append(txt(cx, ty - 12, top_label, 13))
+    if bottom_label:
+        b.append(txt(cx, by + 22, bottom_label, 13))
+    return svg("".join(b), vb=f"0 0 {max(vw, max(tw, bw) + 2 * pad):.0f} {vh:.0f}")

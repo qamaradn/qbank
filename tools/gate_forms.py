@@ -72,6 +72,12 @@ BLOCKING = [
     # different claims and this round is what it cost to learn the difference.
     ("plotted_geometry_matches_stem", "VIC round 5: figure disagrees with the stem"),
     ("gridlines_off_the_ticks", "VIC round 5: grid drawn off its own tick marks"),
+    # Written in round 4 and left advisory, which is why a reviewer had to say it again:
+    # "If the answer requires approximation or rounding, always mention it in the
+    # question for clarity." Narrowed first -- it fired on 239 rows because it matched
+    # "approximately 14 survivors" anywhere in prose. Requiring the marker to sit against
+    # a number AND the options to be numeric leaves 53, of which 48 nothing else catches.
+    ("rounds_without_saying_so", "VIC round 5: working rounds, stem never asked it to"),
 ]
 
 # EXAM-SPECIFIC — two things genuinely differ, and only two.

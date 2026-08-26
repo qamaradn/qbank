@@ -1463,6 +1463,10 @@ _ROUND_TOLD = re.compile(
     r"\bround(?:ed|ing)?\b|\bnearest\b|\bapproximat|\bto \d+ decimal|\b1 d\.?p\.?|"
     r"\b2 d\.?p\.?|\bestimate", re.I)
 _APPROX_IN_WORKING = re.compile(r"≈|\bapprox|\bclosest\b|\brounds? to\b", re.I)
+# The marker has to sit against a NUMBER. Matching the word anywhere in the prose is
+# what made this fire on every "approximately 14 survivors" in the science bank.
+_APPROX_NUMBER = re.compile(
+    r"(?:≈|\bapprox(?:imately)?|\brounds? to)\s*\$?\s*-?[\d,]+(?:\.\d+)?", re.I)
 
 
 def rounds_without_saying_so(q):
@@ -1477,10 +1481,19 @@ def rounds_without_saying_so(q):
     expl = q.get("explanation") or ""
     if _ROUND_TOLD.search(stem):
         return None
-    if not _APPROX_IN_WORKING.search(expl):
+    m = _APPROX_NUMBER.search(expl)
+    if not m:
         return None
-    return ("the explanation rounds or approximates, but the stem never says to — a "
-            "student working exactly cannot tell which option is intended")
+    # "approximately 14 survivors" in a science extrapolation is prose, not a rounded
+    # calculation: the question asks which value is most likely and no exact answer was
+    # ever on offer. Requiring the options themselves to be numeric drops 64 science and
+    # 24 verbal/reading hits that no student could be misled by, and keeps the ones
+    # where an exactly-worked value really is absent from the choices.
+    opts = [q.get(f"option_{c}") for c in "abcd"]
+    if sum(_numeric_value(o) is not None for o in opts if o) < 3:
+        return None
+    return (f"the explanation rounds to {m.group(0).strip()!r} but the stem never says "
+            f"to — a student working exactly cannot tell which option is intended")
 
 
 _MULTI_VAR = re.compile(r"\b([A-Za-z])_\{?([A-Za-z]{2,})\}?")

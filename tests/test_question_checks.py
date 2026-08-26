@@ -943,3 +943,25 @@ def test_gridlines_on_their_tick_marks_pass():
            "<line x1='80' y1='190' x2='80' y2='193'/>"
            "<line x1='120' y1='190' x2='120' y2='193'/></svg>")
     assert gridlines_off_the_ticks(svg) is None
+
+
+def test_rounding_is_only_flagged_where_a_student_could_be_misled():
+    """"If the answer requires approximation or rounding, always mention it in the
+    question for clarity." Matching the word anywhere in prose fired on 239 rows,
+    including every "approximately 14 survivors" in the science bank -- questions that
+    ask which value is most likely and never offered an exact one. The marker has to sit
+    against a number, and the options have to be numeric."""
+    from tools.question_checks import rounds_without_saying_so
+    misleading = dict(stem="What is the width of the path?", option_a="3", option_b="4",
+                      option_c="3.5", option_d="2.5",
+                      explanation="2w² + 35w − 125 = 0, which solves to w ≈ 3.04 metres")
+    assert "rounds to" in (rounds_without_saying_so(misleading) or "")
+
+    prose = dict(stem="What is the most likely number of survivors?",
+                 option_a="13-15 fish", option_b="two dozen", option_c="none",
+                 option_d="all of them",
+                 explanation="the trend gives approximately 14 survivors")
+    assert rounds_without_saying_so(prose) is None
+
+    told = dict(misleading, stem="What is the width, to the nearest metre?")
+    assert rounds_without_saying_so(told) is None
