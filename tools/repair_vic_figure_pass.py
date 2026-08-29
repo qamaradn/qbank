@@ -133,7 +133,143 @@ def box_plot(lo, q1, med, q3, hi, vw=320, vh=150):
     return fl.svg("".join(b), vb=f"0 0 {vw} {vh}")
 
 
+def curve(fn, xr, yr, xstep, ystep, xlab, ylab, vw=320, vh=230, pad_l=48, pad_b=44):
+    """A smooth curve on a labelled, gridded pair of axes.
+
+    The projectile question asks for the peak of a parabola read OFF the graph, so
+    the graph has to be readable: gridlines on the ticks, both axes named, and the
+    curve sampled from the same function the key comes from.
+    """
+    x0, x1 = xr
+    y0, y1 = yr
+    sx = (vw - pad_l - 16) / (x1 - x0)
+    sy = (vh - pad_b - 18) / (y1 - y0)
+
+    def px(x, y):
+        return pad_l + (x - x0) * sx, vh - pad_b - (y - y0) * sy
+    xt = [v for v in range(int(x0), int(x1) + 1) if v % xstep == 0]
+    yt = [v for v in range(int(y0), int(y1) + 1) if v % ystep == 0]
+    grid = "".join(f"M{px(v, y0)[0]:.0f} {px(0, y1)[1]:.0f}V{px(0, y0)[1]:.0f}"
+                   for v in xt)
+    grid += "".join(f"M{px(x0, 0)[0]:.0f} {px(0, v)[1]:.0f}H{px(x1, 0)[0]:.0f}"
+                    for v in yt)
+    b = [f'<path d="{grid}" stroke="currentColor" stroke-opacity=".16" '
+         f'stroke-width="1" fill="none"/>',
+         f'<path d="M{px(x0, y0)[0]:.0f} {px(0, y1)[1]:.0f}'
+         f'V{px(0, y0)[1]:.0f}H{px(x1, 0)[0]:.0f}" stroke="currentColor" '
+         f'stroke-width="1.8" fill="none"/>']
+    b.append('<path d="' + "".join(f"M{px(v, y0)[0]:.0f} {px(0, y0)[1]:.0f}v5"
+                                   for v in xt) +
+             "".join(f"M{px(x0, 0)[0]:.0f} {px(0, v)[1]:.0f}h-5" for v in yt) +
+             '" stroke="currentColor" stroke-width="1.4"/>')
+    for v in xt:
+        b.append(fl.txt(px(v, y0)[0], px(0, y0)[1] + 17, str(v), 11))
+    for v in yt:
+        b.append(fl.txt(px(x0, 0)[0] - 10, px(0, v)[1] + 4, str(v), 11, "end"))
+    b.append(fl.txt((pad_l + vw - 16) / 2, vh - 8, xlab, 12))
+    mid = (px(0, y1)[1] + px(0, y0)[1]) / 2
+    b.append(f'<text x="14" y="{mid:.0f}" font-family="system-ui,sans-serif" '
+             f'font-size="12" fill="currentColor" text-anchor="middle" '
+             f'transform="rotate(-90 14 {mid:.0f})">{ylab}</text>')
+    pts = []
+    n = 120
+    for i in range(n + 1):
+        x = x0 + (x1 - x0) * i / n
+        y = fn(x)
+        if y0 - 1e-9 <= y <= y1:
+            pts.append(px(x, y))
+    b.append('<path d="M' + "L".join(f"{x:.1f} {y:.1f}" for x, y in pts) +
+             '" fill="none" stroke="currentColor" stroke-width="2.4"/>')
+    return fl.svg("".join(b), vb=f"0 0 {vw} {vh}")
+
+
+def histogram(bins, counts, xlab, ylab, vw=320, vh=210):
+    """A histogram with named bins and both axes titled."""
+    body, _p, _a = fl.bar_chart(bins, counts, vw=vw, h=vh - 60)
+    return body
+
+
+def staircase(vw=260, vh=230, unit=28):
+    """A 6x6 square with a four-step white staircase cut out of one corner.
+
+    White steps 4x1, 3x1, 2x1 and 1x1 stack to 10, and the two whole white rows
+    below them take 10 more, leaving 16 black -- which is the key and what the
+    stored explanation counts.
+    """
+    ox, oy = 40, 24
+    b = [f'<rect x="{ox}" y="{oy}" width="{6*unit}" height="{6*unit}" '
+         f'fill="currentColor" fill-opacity=".82" stroke="currentColor" '
+         f'stroke-width="2"/>']
+    for i, w in enumerate((4, 3, 2, 1)):
+        b.append(f'<rect x="{ox}" y="{oy + i*unit}" width="{w*unit}" '
+                 f'height="{unit}" fill="#ffffff" stroke="currentColor" '
+                 f'stroke-width="1.4"/>')
+    b.append(f'<rect x="{ox}" y="{oy + 4*unit}" width="{5*unit}" '
+             f'height="{2*unit}" fill="#ffffff" stroke="currentColor" '
+             f'stroke-width="1.4"/>')
+    b.append(fl.txt(ox + 3 * unit, oy + 6 * unit + 20, "6 cm", 12))
+    b.append(f'<text x="{ox - 12}" y="{oy + 3*unit}" font-family="system-ui,'
+             f'sans-serif" font-size="12" fill="currentColor" text-anchor="middle" '
+             f'transform="rotate(-90 {ox - 12} {oy + 3*unit})">6 cm</text>')
+    return fl.svg("".join(b), vb=f"0 0 {vw} {vh}")
+
+
+def titled(svg, xlab, ylab):
+    """Add axis titles to a chart that has none, growing the box to fit them."""
+    import re as _re
+    m = _re.search(r'viewBox="0 0 ([\d.]+) ([\d.]+)"', svg)
+    w, h = float(m.group(1)), float(m.group(2))
+    body = svg[svg.index(">") + 1:svg.rindex("</svg>")]
+    body = f'<g transform="translate(16,0)">{body}</g>'
+    body += fl.txt(w / 2 + 16, h + 26, xlab, 12)
+    body += (f'<text x="12" y="{h/2:.0f}" font-family="system-ui,sans-serif" '
+             f'font-size="12" fill="currentColor" text-anchor="middle" '
+             f'transform="rotate(-90 12 {h/2:.0f})">{ylab}</text>')
+    return fl.svg(body, vb=f"0 0 {w + 20:.0f} {h + 36:.0f}")
+
+
 REPAIRS = {
+    # ---- the last six ----
+    "1c897023": ("the ball's path: peak 20 m at 15 m, ground level at 0 and 30",
+                 lambda: dict(figure_svg=curve(
+                     lambda d: 20 - (20 / 225.0) * (d - 15) ** 2,
+                     (0, 30), (0, 25), 5, 5,
+                     "Horizontal distance d (m)", "Height h (m)"))),
+    # bar_chart returns a whole <svg>, not a body -- wrapping it in svg() again
+    # produced nested roots that no renderer would take.
+    "4653b226": ("a histogram of 30 students, five of them in the 0-4 column",
+                 lambda: titled(fl.bar_chart(["0-4", "5-9", "10-14", "15-19"],
+                                             [5, 11, 9, 5], ystep=2),
+                                "Books borrowed", "Number of students")),
+    "e970ae2e": ("cost $25 at 1 hour rising $15 an hour after that",
+                 lambda: dict(figure_svg=line_chart(
+                     "Hours hired", "Cost (AUD)", [1, 2, 3, 4], [25, 50, 75],
+                     [(1, 25), (2, 40), (3, 55), (4, 70)]))),
+    "899f7211": ("a 6 x 6 square with a white staircase, 16 cm2 black",
+                 lambda: dict(figure_svg=staircase())),
+    "d78146d8": ("algebra tiles are a classroom manipulative, not a skill",
+                 lambda: dict(figure_svg=None,
+                              stem="Solve for x:  2x + 3 = 9",
+                              explanation="Take 3 from both sides: 2x = 6. Then "
+                                          "halve both sides: x = 3. 12 solves "
+                                          "2x + 3 = 27, 6 stops at 2x = 6 without "
+                                          "halving, and 4.5 halves 9 without "
+                                          "removing the 3 first.")),
+    "dc9ac553": ("algebra tiles are a classroom manipulative, not a skill",
+                 lambda: dict(figure_svg=None,
+                              stem="Add the two polynomials and give the result in "
+                                   "simplest form:  (x\u00b2 + 3x \u2212 1) + "
+                                   "(2x\u00b2 \u2212 5x)",
+                              explanation="Collect like terms. x\u00b2 + 2x\u00b2 "
+                                          "= 3x\u00b2; 3x \u2212 5x = \u22122x; "
+                                          "the only constant is \u22121. So the sum "
+                                          "is 3x\u00b2 \u2212 2x \u2212 1.")),
+    "4ac5191d": ("a count cannot be negative, so nobody picks that option",
+                 lambda: dict(option_c="18 students",
+                              explanation="Year 8 has 24 players and Year 9 has 18, "
+                                          "a difference of 6. 42 adds the two "
+                                          "instead of subtracting, 24 gives Year 8's "
+                                          "total and 18 gives Year 9's.")),
     # ---- lines and points whose geometry comes from the KEY, not the stem ----
     "653b3f7f": ("the line the question asks the equation of: y = 2x - 3",
                  lambda: fl.plane(lines=[((0, -3), (3, 3))],
@@ -267,10 +403,13 @@ def main() -> int:
         # plane() places every point label outward from the shape's centre, which
         # on a tight plot can put two of them together or one across a drawn line.
         # The nudger already knows how to move a label without touching a tick.
-        built, _moved = denude(build())
-        q["figure_svg"] = built
+        out = build()
+        fields = out if isinstance(out, dict) else {"figure_svg": out}
+        if fields.get("figure_svg"):
+            fields["figure_svg"], _moved = denude(fields["figure_svg"])
+        q.update(fields)
         after = [n for n, _ in gf.BLOCKING if gf.run_check(n, q)]
-        errs = [e for e in (qc.figure_svg_errors(q["figure_svg"]) or [])
+        errs = [e for e in (qc.figure_svg_errors(q["figure_svg"] or "") or [])
                 if "bytes" not in e]
         ok = not after and not errs
         failed += not ok
@@ -278,8 +417,9 @@ def main() -> int:
               f"  {'OK' if ok else 'FAILING'}")
         record.append({"id": row["id"], "why": why, "before": before, "after": after})
         if a.apply and ok:
-            con.execute("UPDATE questions SET figure_svg=?, edited=1 WHERE id=?",
-                        (q["figure_svg"], row["id"]))
+            cols = ", ".join(f"{k}=?" for k in fields)
+            con.execute(f"UPDATE questions SET {cols}, edited=1 WHERE id=?",
+                        (*fields.values(), row["id"]))
     if a.apply:
         con.commit()
         MANIFEST.parent.mkdir(parents=True, exist_ok=True)
