@@ -88,6 +88,8 @@ BLOCKING = [
     ("label_too_faint", "VIC round 6: a needed label drawn at watermark opacity"),
     ("polygon_sides_disagree_with_stem",
      "VIC round 6: an \"octagon\" drawn with ten sides"),
+    ("explanation_is_a_repair_note",
+     "VIC round 6: a note from a repair round left in what the student reads"),
 ]
 
 # EXAM-SPECIFIC — two things genuinely differ, and only two.

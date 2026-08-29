@@ -111,6 +111,8 @@ def per_question(q: dict) -> list[tuple[str, str]]:
                      ("option_wording_errors", qc.option_wording_errors)):
         for e in fn(q) or []:
             hits.append((name, str(e)))
+    if (m := qc.explanation_is_a_repair_note(q)):
+        hits.append(("explanation_is_a_repair_note", m))
     for name, fn in (("leaked_working", qc.leaked_working),
                      ("rewrites_the_question", qc.rewrites_the_question),
                      ("positional_reference", qc.positional_reference)):

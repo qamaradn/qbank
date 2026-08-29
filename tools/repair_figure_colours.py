@@ -116,7 +116,12 @@ def convert(svg: str) -> tuple[str, str]:
         return svg, "already-grounded (svg paints its own white background)"
     if WHITE_STROKE.search(svg):
         # Load-bearing white. Give the figure its own ground instead of converting it.
-        if re.search(r'<rect[^>]*width\s*=\s*[\'"]100%', svg):
+        # The "already grounded?" test used to look only for width="100%", so a figure
+        # this tool had itself grounded with an explicit width="344.0" did not match
+        # and a SECOND identical rect was laid on top of the first. Re-running the
+        # repair has to be a no-op; match what it actually writes.
+        if re.search(r'<rect[^>]*\bwidth\s*=\s*[\'"](?:100%|[\d.]+)[\'"][^>]*'
+                     r'\bfill\s*=\s*[\'"](?:white|#fff+)[\'"]', svg, re.I):
             return svg, "already-grounded"
         m = re.search(r'viewBox\s*=\s*[\'"]([\d.\-\s]+)[\'"]', svg)
         if not m:

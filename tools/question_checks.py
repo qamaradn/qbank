@@ -199,12 +199,33 @@ def positional_reference(text):
 HARDCODED_COLOURS = ("#fff", "#000", "white", "black", "rgb(")
 
 
+# The svg paints its own white ground, either as a style on the tag or a full-bleed
+# rect. Kept in step with tools/repair_figure_colours.GROUNDED.
+_GROUNDED = re.compile(
+    r'<svg[^>]*style\s*=\s*[\'"][^\'"]*background\s*:\s*(?:white|#fff)'
+    r'|<rect[^>]*\bwidth\s*=\s*[\'"](?:100%|[\d.]+)[\'"][^>]*\bfill\s*=\s*[\'"](?:white|#fff+)[\'"]'
+    r'|<rect[^>]*\bfill\s*=\s*[\'"](?:white|#fff+)[\'"][^>]*\bwidth\s*=\s*[\'"](?:100%|[\d.]+)[\'"]',
+    re.I)
+
+
+_PAINT_VALUE = re.compile(r'(?:fill|stroke|stop-color|style)\s*=\s*[\'"]([^\'"]*)[\'"]',
+                          re.I)
+
+
 def figure_svg_errors(svg, max_bytes=3500):
     """Rules an inline `figure_svg` must satisfy to render in both review and Selectly.
 
     The review card is white with `color: #0D1117` while other surfaces are dark, so a
     figure that does not draw in `currentColor` is invisible in one theme or the other.
     A missing viewBox renders at the default 300x150 and clips.
+
+    A figure that paints its OWN white ground is the exception, and it is a real one:
+    it is legible on any surface, which is what the rule is for. `repair_figure_colours`
+    has always treated those as done -- converting their ink to currentColor is what
+    would break them, turning it white-on-white in dark mode. The check did not know,
+    so 169 figures carried an advisory that the repair tool would have refused to act
+    on and nobody could clear. A check and a repair that disagree teach people to
+    ignore the check.
     """
     errs = []
     svg = (svg or "").strip()
@@ -212,14 +233,20 @@ def figure_svg_errors(svg, max_bytes=3500):
         return errs
     if "viewBox" not in svg:
         errs.append("figure_svg has no viewBox")
-    if "currentColor" not in svg:
-        errs.append("figure_svg must draw in currentColor")
+    grounded = bool(_GROUNDED.search(svg))
+    if not grounded:
+        if "currentColor" not in svg:
+            errs.append("figure_svg must draw in currentColor")
+        # Only inside a paint attribute. Matching the whole document as a string put
+        # a Bendigo suburb -- "White Hills", in a table of schools -- on the list of
+        # figures that hard-code a colour.
+        painted = " ".join(m.group(1).lower() for m in _PAINT_VALUE.finditer(svg))
+        for bad in HARDCODED_COLOURS:
+            if re.search(rf"(?<![\w#]){re.escape(bad)}(?![\w])", painted):
+                errs.append(f"figure_svg hard-codes {bad!r}; use currentColor")
     if len(svg) > max_bytes:
         errs.append(f"figure_svg is {len(svg)} bytes — keep under ~{max_bytes / 1000:.1f} KB "
                     f"(use one <path> for repeated rules, not many elements)")
-    for bad in HARDCODED_COLOURS:
-        if bad in svg.lower():
-            errs.append(f"figure_svg hard-codes {bad!r}; use currentColor")
     return errs
 
 
@@ -522,6 +549,45 @@ def leaked_working(text):
     """Return the offending phrase if an explanation shows the model's own working."""
     m = LEAKED_WORKING.search(str(text or ""))
     return m.group(0).strip() if m else None
+
+
+# Meta-commentary ABOUT the stored row, as opposed to reasoning about the question.
+# The distinction matters because "the explanation" is a perfectly good noun in a
+# reading question -- "the background the explanation rests on", "the fact the
+# explanation uses" -- and seven of those were caught by matching the word alone.
+# What is never legitimate is talking about the row's own former contents.
+_REPAIR_NOTE = re.compile(
+    r"\bstored\s+explanation\b"
+    r"|\b(?:was|were|is)\s+keyed\b"
+    r"|\bthe\s+question\s+is\s+keyed\b"
+    r"|\bthe\s+keyed\s+\w+\b"
+    r"|\bthe\s+key\s+say[s]?\b"
+    r"|\brather\s+than\s+the\s+explanation\b"
+    r"|\bthe\s+explanation\s+(?:talks|assumed|assumes|derives|derived|reaches|"
+    r"reached|calls|called|works|worked|states|itself)\b",
+    re.I)
+
+
+def explanation_is_a_repair_note(q):
+    """A note from an earlier repair round, left in the field a student reads.
+
+    Round 5 found one of these on `8139103c` -- "the question is keyed to (3,1)" --
+    and recorded it. It was one of twenty. They are the residue of the key repairs:
+    the working is corrected and correct, and then a sentence explains what the
+    PREVIOUS explanation or the PREVIOUS key got wrong. That sentence is addressed
+    to whoever was fixing the bank, and it reaches a Year 8 student instead, telling
+    them their question used to have a different answer.
+
+    `0ac8b411` is the worst: it opens "Read from the figure rather than the
+    explanation" and then reasons in SVG PIXEL COORDINATES -- "the b label sits at
+    (148,168)" -- which name nothing a student can see.
+    """
+    text = (q.get("explanation") or "") if isinstance(q, dict) else (q or "")
+    m = _REPAIR_NOTE.search(text)
+    if not m:
+        return None
+    return (f"the explanation talks about the stored row rather than the question "
+            f"— {m.group(0)!r} — which is a note to whoever repaired it")
 
 
 def disputes_its_own_key(text):
