@@ -93,9 +93,12 @@ def line_chart(xlab, ylab, xticks, yticks, pts, vw=300, vh=236,
     b.append(f'<text x="14" y="{(top + oy) / 2:.0f}" font-size="12" '
              f'fill="currentColor" text-anchor="middle" '
              f'transform="rotate(-90 14 {(top + oy) / 2:.0f})">{ylab}</text>')
-    (ax, ay), (bx, by) = px(*pts[0]), px(*pts[-1])
-    b.append(f'<line x1="{ax:.0f}" y1="{ay:.0f}" x2="{bx:.0f}" y2="{by:.0f}" '
-             f'stroke="currentColor" stroke-width="2.5" stroke-opacity=".9"/>')
+    # Through EVERY point, not first to last. A five-point series drawn as one
+    # straight line answers "during which hour did it fall the most" with "equally
+    # in all of them", which is not what the numbers say and not what the key says.
+    d = "M" + "L".join(f"{x:.1f} {y:.1f}" for x, y in (px(*q) for q in pts))
+    b.append(f'<path d="{d}" fill="none" stroke="currentColor" stroke-width="2.5" '
+             f'stroke-opacity=".9"/>')
     for (x, y) in pts:
         cx, cy = px(x, y)
         b.append(f'<circle cx="{cx:.0f}" cy="{cy:.0f}" r="4" fill="currentColor"/>')

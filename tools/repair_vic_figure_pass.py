@@ -36,6 +36,7 @@ from tools import figure_lib as fl                       # noqa: E402
 from tools import gate_forms as gf                       # noqa: E402
 from tools import question_checks as qc                  # noqa: E402
 from tools.repair_label_collisions import repair as denude  # noqa: E402
+from tools.repair_vic_round7_release import line_chart, parabola  # noqa: E402
 
 DB = ROOT / "run_data/db/qbank.db"
 MANIFEST = ROOT / "run_data/output/vic_figure_pass_repairs.json"
@@ -74,7 +75,123 @@ def ray_with_angle(px, py, label, xr, yr, cell=26, extra=None):
     return svg.replace("</svg>", body + (extra or "") + "</svg>")
 
 
+
+def transversal(p_lab, q_lab, vw=300, vh=210):
+    """Two parallel lines cut by a transversal, both named angles marked.
+
+    Same shape as the figure a reviewer flagged in round 6, and drawn the same way:
+    the arcs come from the figure's own segments, so each one sits on the angle its
+    label names and cannot drift onto a neighbour.
+    """
+    y1, y2 = 66, 150
+    body = (f'<path d="M28 {y1}H272M28 {y2}H272" stroke="currentColor" '
+            f'stroke-width="2" fill="none"/>'
+            f'<line x1="92" y1="24" x2="212" y2="192" stroke="currentColor" '
+            f'stroke-width="2"/>')
+    # p above the upper line, right of the transversal; q below the lower line's
+    # interior on the same side -- co-interior, which is what the stem says.
+    # BOTH between the parallels and on the SAME side of the transversal -- which
+    # is what co-interior means, and what the explanation reasons from. Drawn with
+    # p above the upper line and q left of the transversal they were neither.
+    body += fl.txt(168, y1 + 22, p_lab, 13)
+    body += fl.txt(196, y2 - 14, q_lab, 13)
+    svg = fl.svg(body, vb=f"0 0 {vw} {vh}")
+    marks = ""
+    for box, _tag in qc.angle_labels(svg, f"angle {p_lab} angle {q_lab}"):
+        found = fl.angle_at_label(svg, box) or fl.interior_angle_at(svg, box)
+        if found:
+            v, a1, a2, reach = found
+            marks += fl.angle_mark(v, a1, a2, fl.arc_radius(reach),
+                                   label=box[4]) or ""
+    return svg.replace("</svg>", marks + "</svg>")
+
+
+def box_plot(lo, q1, med, q3, hi, vw=320, vh=150):
+    """A box plot to one scale, with the axis it is read against."""
+    x0, x1, y = 40, 288, 62
+    s = (x1 - x0) / (hi - lo + 10)
+
+    def px(v):
+        return x0 + (v - (lo - 5)) * s
+    b = [f'<path d="M{px(lo):.0f} {y}H{px(q1):.0f}M{px(q3):.0f} {y}H{px(hi):.0f}" '
+         f'stroke="currentColor" stroke-width="1.6" fill="none"/>',
+         f'<path d="M{px(lo):.0f} {y-10}V{y+10}M{px(hi):.0f} {y-10}V{y+10}" '
+         f'stroke="currentColor" stroke-width="1.6" fill="none"/>',
+         f'<rect x="{px(q1):.0f}" y="{y-20}" width="{px(q3)-px(q1):.0f}" height="40" '
+         f'fill="currentColor" fill-opacity=".10" stroke="currentColor" '
+         f'stroke-width="1.8"/>',
+         f'<path d="M{px(med):.0f} {y-20}V{y+20}" stroke="currentColor" '
+         f'stroke-width="2.4" fill="none"/>',
+         f'<path d="M{x0} 104H{x1}" stroke="currentColor" stroke-width="1.6" '
+         f'fill="none"/>']
+    ticks = [v for v in range(0, int(hi) + 11, 10) if x0 <= px(v) <= x1]
+    b.append('<path d="' + "".join(f"M{px(v):.0f} 104v6" for v in ticks) +
+             '" stroke="currentColor" stroke-width="1.4"/>')
+    for v in ticks:
+        b.append(fl.txt(px(v), 126, str(v), 11))
+    b.append(fl.txt((x0 + x1) / 2, 144, "Score", 12))
+    return fl.svg("".join(b), vb=f"0 0 {vw} {vh}")
+
+
 REPAIRS = {
+    # ---- lines and points whose geometry comes from the KEY, not the stem ----
+    "653b3f7f": ("the line the question asks the equation of: y = 2x - 3",
+                 lambda: fl.plane(lines=[((0, -3), (3, 3))],
+                                  xr=(-3, 5), yr=(-5, 5), cell=24)),
+    "42e248db": ("the line y = 2x - 3 the options are tested against",
+                 lambda: fl.plane(lines=[((0, -3), (3, 3))],
+                                  xr=(-2, 5), yr=(-5, 5), cell=24)),
+    "8f08dd5f": ("P and Q on y = 2x - 1",
+                 lambda: fl.plane(points={"P": (0, -1), "Q": (2, 3)},
+                                  lines=[((0, -1), (2, 3))],
+                                  xr=(-3, 5), yr=(-4, 5), cell=24)),
+    "a318b00f": ("A and B whose midpoint is (1, 2)",
+                 lambda: fl.plane(points={"A": (-1, 0), "B": (3, 4)},
+                                  lines=[((-1, 0), (3, 4))],
+                                  xr=(-3, 5), yr=(-2, 6), cell=24)),
+    "5f3d660a": ("five points, Q at (-2, 3)",
+                 lambda: fl.plane(points={"P": (2, 3), "Q": (-2, 3), "R": (-2, -3),
+                                          "S": (3, 2), "T": (-3, 2)},
+                                  xr=(-5, 5), yr=(-5, 5), cell=24)),
+    "c76f4d12": ("triangle DEF with D(-3, 5), and the mirror y = x",
+                 lambda: fl.plane(points={"D": (-3, 5), "E": (-1, 2), "F": (-4, 1)},
+                                  polygon=[(-3, 5), (-1, 2), (-4, 1)],
+                                  lines=[((-6, -6), (6, 6))],
+                                  xr=(-6, 6), yr=(-6, 6), cell=19)),
+    "ff0993a3": ("LMN and its image L'M'N' across y = x, the mirror NOT drawn",
+                 lambda: fl.plane(points={"L": (1, 4), "M": (2, 6), "N": (4, 3),
+                                          "L'": (4, 1), "M'": (6, 2), "N'": (3, 4)},
+                                  xr=(-1, 8), yr=(-1, 8), cell=24)),
+    "de6c3623": ("triangle P(0,5) Q(8,0) R(0,0) with M the midpoint of PQ",
+                 lambda: fl.plane(points={"P": (0, 5), "Q": (8, 0), "R": (0, 0),
+                                          "M": (4, 2.5)},
+                                  polygon=[(0, 5), (8, 0), (0, 0)],
+                                  xr=(-1, 9), yr=(-1, 6), cell=24)),
+    "3d8c31a8": ("triangle P(1,2) Q(4,2) R(4,6)",
+                 lambda: fl.plane(points={"P": (1, 2), "Q": (4, 2), "R": (4, 6)},
+                                  polygon=[(1, 2), (4, 2), (4, 6)],
+                                  xr=(-1, 6), yr=(-1, 7), cell=26)),
+    "965641b2": ("the rectangle whose diagonal PR has slope 3/4",
+                 lambda: fl.plane(points={"P": (0, 0), "Q": (4, 0), "R": (4, 3),
+                                          "S": (0, 3)},
+                                  polygon=[(0, 0), (4, 0), (4, 3), (0, 3)],
+                                  lines=[((0, 0), (4, 3))],
+                                  xr=(-1, 6), yr=(-1, 5), cell=28)),
+    "e6839d84": ("a parabola whose vertex is (1, 5)",
+                 lambda: parabola(-1, 0, (-3, 5), (-4, 6),
+                                  [((1, 5), (34, -12))], vw=300, vh=230)),
+    # ---- charts, redrawn to the numbers their explanations reason about ----
+    "670fbcdd": ("temperatures 22, 28, 30, 24, 26 over five days",
+                 lambda: fl.bar_chart(["Mon", "Tue", "Wed", "Thu", "Fri"],
+                                      [22, 28, 30, 24, 26], ystep=5)),
+    "05cc5a07": ("tank volume 500, 420, 380, 200, 160 over five hours",
+                 lambda: line_chart("Hour", "Volume (L)", [1, 2, 3, 4, 5],
+                                    [100, 200, 300, 400, 500],
+                                    [(1, 500), (2, 420), (3, 380), (4, 200), (5, 160)])),
+    "19031a9c": ("a box plot with median 30 and upper quartile 45",
+                 lambda: box_plot(10, 22, 30, 45, 60)),
+    "2584465b": ("p and q co-interior across a transversal",
+                 lambda: transversal("p°", "q°")),
     "7ef62748": ("phi at the origin; the only polygons were arrowheads",
                  lambda: ray_with_angle(5, 5, "φ", (-1, 6), (-1, 6))),
     "61638577": ("theta at the origin, ray to (3, 3)",

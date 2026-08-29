@@ -50,22 +50,39 @@ def _shift(tag, dx, dy):
 
 
 def _tick_axes(svg):
-    """(x-axis tick texts, y-axis tick texts) as they are printed.
+    """Where each axis's tick labels sit: (the x-row's y, the y-column's x).
 
-    An x-axis tick shares a row with the other x ticks and may only move in y; a
-    y-axis tick shares a column and may only move in x.
+    Deciding by TEXT was wrong. A symmetric plane prints "5" on both axes, so the
+    same string is an x-tick and a y-tick, and whichever test ran first won -- which
+    let a y-axis "-5" be moved DOWNWARD, along its own axis, turning a linear scale
+    into one that advances at 24 px per unit in one place and 40 in another. A tick
+    belongs to the axis whose row or column it actually sits in.
     """
     xs, ys = qc._axis_ticks(svg)
-    fmt = lambda v: (f"{v:g}").replace("-", "")
-    return ({fmt(v) for v, _p in xs}, {fmt(v) for v, _p in ys})
+    row = sorted(p for _v, p in ys)                # y positions of the y ticks
+    xrow = None
+    for m in qc._TEXT.finditer(svg):
+        b = qc._text_box(m)
+        if not b:
+            continue
+    xps = [p for _v, p in xs]
+    return (xps, [p for _v, p in ys])
 
 
-def _allowed(target, xt, yt):
-    """Which offsets this label may use."""
-    bare = target.replace("\u2212", "-").lstrip("-")
-    if bare in xt:                       # an x-axis tick: across the x-axis only
+def _allowed(tag, xps, yps):
+    """Which offsets this label may use, decided by WHERE it is.
+
+    An x-axis tick shares its column with one of the x tick positions and may only
+    move across the axis, in y; a y-axis tick shares its row and may only move in x.
+    """
+    mx = re.search(r"\bx=['\"]([-\d.]+)", tag)
+    my = re.search(r"\by=['\"]([-\d.]+)", tag)
+    if not (mx and my):
+        return OFFSETS
+    x, y = float(mx.group(1)), float(my.group(1))
+    if any(abs(x - p) <= 3 for p in xps):
         return [(0, dy) for dy in (16, -14, 24, -22, 32, -30, 44, -42)]
-    if bare in yt:                       # a y-axis tick: across the y-axis only
+    if any(abs(y - p) <= 5 for p in yps):
         return [(dx, 0) for dx in (18, -18, 28, -28, 40, -40, 54, -54)]
     return OFFSETS
 
@@ -115,7 +132,7 @@ def repair(svg, tries=8):
         # the scale is untouched, and it is what unsticks the commonest collision in
         # the bank: the x-axis "-1" and the y-axis "-1" meeting in the same corner
         # of the origin, where BOTH are ticks and neither could move at all.
-        xt, yt = _tick_axes(svg)
+        xps, yps = _tick_axes(svg)
         annotations = [t for t in names if not is_tick(t)]
         names = annotations + [t for t in names if is_tick(t)]
         # A label is often drawn TWICE at one spot: a thick white stroke behind, the
@@ -142,7 +159,7 @@ def repair(svg, tries=8):
             return s
 
         for target, tags in groups:
-            for dx, dy in _allowed(target, xt, yt):
+            for dx, dy in _allowed(tags[0], xps, yps):
                 cand = shift_group(svg, tags, dx, dy)
                 g2, l2 = clashes(cand)
                 if not g2 and not l2:
@@ -150,7 +167,7 @@ def repair(svg, tries=8):
         target, tags = groups[0]
         # nothing clears everything; take the best partial and continue
         best = None
-        for dx, dy in _allowed(target, xt, yt):
+        for dx, dy in _allowed(tags[0], xps, yps):
             cand = shift_group(svg, tags, dx, dy)
             g2, l2 = clashes(cand)
             score = (g2 is not None) + (l2 is not None)

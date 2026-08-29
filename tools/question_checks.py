@@ -1410,8 +1410,12 @@ def angle_arc_malformed(svg, tol=0.15):
     # corners as candidate vertices, and the nearest of those sat 73 px from a
     # radius-25 arc. Measured against the origin, where the arc is actually centred,
     # both ends are 24.9 from it and the mark is perfect.
-    _lines = [((float(a), float(b)), (float(c), float(d)))
-              for a, b, c, d in (mm.groups() for mm in _LINE_EL.finditer(svg))]
+    # Every drawn segment, not only <line> elements. Two parallel lines drawn as one
+    # <path> with H commands offered no crossings at all, so the transversal's far
+    # ENDPOINT was the nearest candidate and an arc correct to a tenth of a pixel
+    # was reported as 65 px off its vertex.
+    from tools.figure_lib import figure_segments as _segs
+    _lines = _segs(svg)
     for a, b in _lines:
         verts += [a, b]
     for i in range(len(_lines)):
