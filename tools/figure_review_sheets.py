@@ -47,7 +47,8 @@ SCOPES = {
     # Every VIC figure lives in maths+quant; reading and verbal carry none.
     "vic-mq": ("(subject = 'quantitative_reasoning' "
                "OR source_book IN ('year9_maths','ma_vic_stats'))"),
-    "nsw-ma": ("(source_book IN ('year7_nsw_maths','ma_nsw_selective'))"),
+    "nsw": ("(subject = 'logical_reasoning' "
+            "OR source_book IN ('year7_nsw_maths','ma_nsw_selective'))"),
 }
 
 

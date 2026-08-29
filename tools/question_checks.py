@@ -1801,6 +1801,7 @@ def caret_power_notation(q):
 
 
 _DIM_LABEL = re.compile(r"(\d+(?:\.\d+)?)\s*(?:cm|mm|m|km)\b")
+_DIM_WITH_UNIT = re.compile(r"(\d+(?:\.\d+)?)\s*(cm|mm|km|m)\b")
 
 
 def figure_proportions_disagree(q, tol=0.25):
@@ -1820,6 +1821,20 @@ def figure_proportions_disagree(q, tol=0.25):
     stem = q.get("stem") or ""
     if not svg:
         return None
+    # MIXED UNITS mean the figure is showing two different objects at two different
+    # scales -- "one tile, 40 cm wide" against "wall: 3.4 m wide" -- and the bounding
+    # box is not the two of them. Comparing 40 against 3.4 as a ratio said the wall
+    # was drawn twelve times too square when it is drawn correctly and they are the
+    # same direction anyway. Where the units disagree, this cannot judge.
+    units = {u for _v, u in _DIM_WITH_UNIT.findall(svg)} or \
+            {u for _v, u in _DIM_WITH_UNIT.findall(stem)}
+    if len(units) > 1:
+        return None
+    # Two labels that both name the SAME direction are not a width and a height.
+    lowered = svg.lower()
+    for word in ("wide", "tall", "high", "long"):
+        if lowered.count(f"{word}") >= 2:
+            return None
     dims = sorted({float(d) for d in _DIM_LABEL.findall(svg)}, reverse=True)
     if len(dims) < 2:
         dims = sorted({float(d) for d in _DIM_LABEL.findall(stem)}, reverse=True)

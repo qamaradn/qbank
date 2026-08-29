@@ -44,7 +44,11 @@ SCOPES = {
     # Every VIC figure lives in maths+quant; reading and verbal carry none.
     "vic-mq": ("(subject = 'quantitative_reasoning' "
                "OR source_book IN ('year9_maths','ma_vic_stats'))"),
-    "nsw-ma": "(source_book IN ('year7_nsw_maths','ma_nsw_selective'))",
+    # Thinking Skills carries MORE figures than the two maths books do, and lives
+    # under subject='logical_reasoning' rather than a book name -- scoping by book
+    # alone left 171 of the 323 out.
+    "nsw": ("(subject = 'logical_reasoning' "
+            "OR source_book IN ('year7_nsw_maths','ma_nsw_selective'))"),
     "all": "1=1",
 }
 
@@ -294,6 +298,9 @@ def main() -> int:
             for i, q in enumerate(rows)]
 
     a.out.parent.mkdir(parents=True, exist_ok=True)
+    # The localStorage key and the download filename both carry the scope, so a
+    # reviewer can hold a VIC page and an NSW page open at once without one set of
+    # marks overwriting the other.
     a.out.write_text(PAGE % {"scope": a.scope,
                              "data": json.dumps(data, ensure_ascii=False)},
                      encoding="utf-8")
