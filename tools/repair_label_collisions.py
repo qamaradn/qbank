@@ -49,6 +49,27 @@ def _shift(tag, dx, dy):
     return _XY.sub(rep, tag, count=2)
 
 
+def _tick_axes(svg):
+    """(x-axis tick texts, y-axis tick texts) as they are printed.
+
+    An x-axis tick shares a row with the other x ticks and may only move in y; a
+    y-axis tick shares a column and may only move in x.
+    """
+    xs, ys = qc._axis_ticks(svg)
+    fmt = lambda v: (f"{v:g}").replace("-", "")
+    return ({fmt(v) for v, _p in xs}, {fmt(v) for v, _p in ys})
+
+
+def _allowed(target, xt, yt):
+    """Which offsets this label may use."""
+    bare = target.replace("\u2212", "-").lstrip("-")
+    if bare in xt:                       # an x-axis tick: across the x-axis only
+        return [(0, dy) for dy in (16, -14, 24, -22, 32, -30, 44, -42)]
+    if bare in yt:                       # a y-axis tick: across the y-axis only
+        return [(dx, 0) for dx in (18, -18, 28, -28, 40, -40, 54, -54)]
+    return OFFSETS
+
+
 def clashes(svg):
     return (qc.text_overlaps_geometry(svg), qc.overlapping_text_labels(svg))
 
@@ -87,12 +108,16 @@ def repair(svg, tries=8):
         # stuck -- every offset tried was applied to the "-5".
         def is_tick(t):
             return bool(re.fullmatch(r"-?−?\d+(?:\.\d+)?", t.replace("−", "-")))
-        # EXCLUDED, not merely deprioritised. Preferring the annotation still let the
-        # fallback "best partial" path move a tick when nothing else worked, and it
-        # did: three figures came back reading as nonlinear axes because a number had
-        # been slid away from the mark it names. A tick label is part of the figure's
-        # scale, so moving it is not a presentation fix, it is a measurement change.
-        names = [t for t in names if not is_tick(t)] or []
+        # A tick may move ACROSS its own axis but never ALONG it. Sliding a number
+        # away from the mark it names is a measurement change -- three figures came
+        # back reading as nonlinear axes when the fallback did exactly that. Moving
+        # it to the other side of the axis line keeps it level with its own mark, so
+        # the scale is untouched, and it is what unsticks the commonest collision in
+        # the bank: the x-axis "-1" and the y-axis "-1" meeting in the same corner
+        # of the origin, where BOTH are ticks and neither could move at all.
+        xt, yt = _tick_axes(svg)
+        annotations = [t for t in names if not is_tick(t)]
+        names = annotations + [t for t in names if is_tick(t)]
         # A label is often drawn TWICE at one spot: a thick white stroke behind, the
         # real glyphs on top, so it stays readable over a gridline. Moving one of the
         # pair leaves the other where it was and the collision survives every offset
@@ -117,7 +142,7 @@ def repair(svg, tries=8):
             return s
 
         for target, tags in groups:
-            for dx, dy in OFFSETS:
+            for dx, dy in _allowed(target, xt, yt):
                 cand = shift_group(svg, tags, dx, dy)
                 g2, l2 = clashes(cand)
                 if not g2 and not l2:
@@ -125,7 +150,7 @@ def repair(svg, tries=8):
         target, tags = groups[0]
         # nothing clears everything; take the best partial and continue
         best = None
-        for dx, dy in OFFSETS:
+        for dx, dy in _allowed(target, xt, yt):
             cand = shift_group(svg, tags, dx, dy)
             g2, l2 = clashes(cand)
             score = (g2 is not None) + (l2 is not None)

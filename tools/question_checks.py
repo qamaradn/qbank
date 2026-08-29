@@ -1043,18 +1043,36 @@ def doubled_circle_outline(svg):
     """
     if not svg:
         return None
-    stroked = [(float(a), float(b), float(r)) for a, b, r in _CIRCLE.findall(svg)
-               if "stroke=" in svg and float(r) > 12]
+    # DASHED is not doubled. A dashed full circle behind a solid sector is the
+    # standard way of showing "and this is the rest of the circle" -- a different
+    # line saying a different thing, not the same line drawn twice.
+    stroked = []
+    for m in re.finditer(r"<circle[^>]*>", svg):
+        tag = m.group(0)
+        rr = re.search(r"\br=[\'\"]([\d.]+)", tag)
+        if not rr or float(rr.group(1)) <= 12:
+            continue
+        if not re.search(r"stroke=[\'\"](?!none)", tag) or "stroke-dasharray" in tag:
+            continue
+        stroked.append(float(rr.group(1)))
     if not stroked:
         return None
-    for m in _ARC_R.finditer(svg):
-        rx, ry = float(m.group(1)), float(m.group(2))
-        if rx != ry:
+    # Only an arc that is actually INKED can double an outline. An annulus draws its
+    # shaded ring as one unstroked evenodd path whose two subpaths are arcs at the
+    # very radii the boundary circles stroke -- correct drawing, read as a defect.
+    for m in re.finditer(r"<path[^>]*>", svg):
+        tag = m.group(0)
+        if not re.search(r"stroke=[\'\"](?!none)", tag):
             continue
-        for _cx, _cy, r in stroked:
-            if abs(rx - r) < 0.5:
-                return (f"an arc of radius {rx:g} retraces a circle already stroked at "
-                        f"the same radius — the circumference is drawn twice")
+        for am in _ARC_R.finditer(tag):
+            rx, ry = float(am.group(1)), float(am.group(2))
+            if rx != ry:
+                continue
+            for r in stroked:
+                if abs(rx - r) < 0.5:
+                    return (f"an arc of radius {rx:g} retraces a circle already "
+                            f"stroked at the same radius — the circumference is "
+                            f"drawn twice")
     return None
 
 
@@ -1418,13 +1436,21 @@ def _looks_like_a_table(svg):
         if not t:
             continue
         rows.setdefault(round(float(m.group(2)) / 5), []).append(t)
+    paired = 0
     for labels in rows.values():
-        if len(labels) < 3:
-            continue
         worded = [t for t in labels if re.search(r"[A-Za-z]{2,}", t)]
         numeric = [t for t in labels if re.fullmatch(r"-?\d+(?:\.\d+)?", t)]
-        if worded and len(numeric) >= 2:
+        if len(labels) >= 3 and worded and len(numeric) >= 2:
             return True
+        # A TWO-COLUMN table has exactly one number per row -- "Debating only | 14" --
+        # and the >= 2 test above could never see one. Seven figures out of
+        # `figure_lib.table` were being read as charts whose y-axis advanced at
+        # 6, 11, 9, which is not an axis at all but the second column read downward.
+        # Two such rows is a table; one is a chart with a stray annotation.
+        if worded and len(numeric) >= 1:
+            paired += 1
+    if paired >= 2:
+        return True
     return False
 
 
@@ -1484,6 +1510,16 @@ def _axis_ticks(svg):
     shared = {(v, x, y) for (v, x, y) in row} & {(v, x, y) for (v, x, y) in col}
     row = [p for p in row if p not in shared]
     col = [p for p in col if p not in shared]
+
+    # An axis never labels the same value twice. Where it appears to, something that
+    # is not a tick has been swept into the group -- the y-axis "-1" sitting in the
+    # same band as the x-axis numbers, or two diagrams side by side each with their
+    # own 0, 10 and 90. Dropping the repeated value leaves the real axis behind: one
+    # of these read as advancing at two rates and was a perfectly linear axis.
+    def drop_repeats(pts):
+        seen = collections.Counter(v for v, _x, _y in pts)
+        return [p for p in pts if seen[p[0]] == 1]
+    row, col = drop_repeats(row), drop_repeats(col)
     xs = [(v, x) for v, x, _y in row]
     ys = [(v, y) for v, _x, y in col]
     return (xs if len(xs) >= 3 else []), (ys if len(ys) >= 3 else [])
