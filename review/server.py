@@ -12,7 +12,7 @@ from typing import Optional
 
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, HTMLResponse
 from pydantic import BaseModel, field_validator
 
 _DEFAULT_DB = os.getenv("DB_PATH", "/data/db/qbank.db")
@@ -313,6 +313,23 @@ def create_app(db_path: str = _DEFAULT_DB) -> FastAPI:
     def serve_ui():
         ui_path = Path(__file__).parent / "ui" / "index.html"
         return FileResponse(str(ui_path), media_type="text/html")
+
+    @app.get("/figures")
+    def serve_figure_review():
+        """The by-eye figure pass, built by tools/figure_review_page.py.
+
+        Served from the review server rather than opened as a file so it reaches the
+        browser the same way the review UI does — over the VM's IP — and so the SVGs
+        are drawn by the renderer that actually matters. A PNG contact sheet is
+        cairosvg's opinion of a figure, not Chrome's, and the two disagree.
+        """
+        page = Path(__file__).parent / "ui" / "figures.html"
+        if not page.exists():
+            return HTMLResponse(
+                "<h3>No figure review page built yet</h3><p>Run:<br>"
+                "<code>env -u PYTHONPATH .venv/bin/python3.11 -m "
+                "tools.figure_review_page --scope vic-mq</code></p>", status_code=404)
+        return FileResponse(str(page), media_type="text/html")
 
     return app
 

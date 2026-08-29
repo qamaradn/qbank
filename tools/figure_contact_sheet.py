@@ -45,7 +45,7 @@ import sqlite3
 import sys
 
 import cairosvg
-from PIL import Image, ImageDraw
+from PIL import Image, ImageDraw, ImageFont
 
 # The review card: white background, near-black text. Figures use currentColor.
 CARD_BG = "white"
@@ -73,18 +73,67 @@ def render_svg(svg: str) -> Image.Image:
     return Image.open(io.BytesIO(png)).convert("RGB")
 
 
-def tile(label: str, img: Image.Image) -> Image.Image:
-    canvas = Image.new("RGB", (img.width + 2 * PAD, img.height + HEAD + PAD), CARD_BG)
-    canvas.paste(img, (PAD, HEAD))
+def render_or_placeholder(svg: str) -> tuple[Image.Image, str | None]:
+    """Rasterise, or return a marked blank and the reason.
+
+    One figure carries marker-end="url(#arrow)" pointing at a marker that is not in
+    the document, and cairosvg raises rather than skipping it -- which killed a whole
+    458-figure run at the first bad file. A sheet that stops at the first problem is a
+    sheet nobody finishes, so the failure becomes a tile of its own and the run goes on.
+    """
+    try:
+        return render_svg(svg), None
+    except Exception as exc:                       # noqa: BLE001 - any renderer fault
+        img = Image.new("RGB", (260, 120), "#fff4f4")
+        dr = ImageDraw.Draw(img)
+        dr.rectangle([0, 0, 259, 119], outline="#c00")
+        dr.text((10, 46), "figure would not render", fill="#c00")
+        return img, f"{type(exc).__name__}: {exc}"[:120]
+
+
+def _big_font(size: int):
+    """A large font if the box has one, else the bitmap default at whatever size."""
+    for path in ("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
+                 "/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf"):
+        if os.path.exists(path):
+            try:
+                return ImageFont.truetype(path, size)
+            except OSError:
+                pass
+    return ImageFont.load_default()
+
+
+def tile(label: str, img: Image.Image, number: int | None = None) -> Image.Image:
+    """One figure, with a big number if the sheet is being reviewed by eye.
+
+    The label was the question's 8-character id, which is exact and unusable: a
+    reviewer flipping through twenty figures cannot read "7c472f4d" off the page and
+    say it out loud. A sequential number can be called out, and the index printed
+    beside the sheet maps it back to the id.
+    """
+    head = HEAD if number is None else HEAD + 22
+    canvas = Image.new("RGB", (img.width + 2 * PAD, img.height + head + PAD), CARD_BG)
+    canvas.paste(img, (PAD, head))
     dr = ImageDraw.Draw(canvas)
-    dr.text((PAD, 7), label, fill="black")
+    if number is not None:
+        dr.rectangle([PAD, 6, PAD + 42, 40], fill="#1a1a2a")
+        dr.text((PAD + 9, 11), f"{number}", fill="white", font=_big_font(24))
+        dr.text((PAD + 52, 18), label, fill="#555")
+    else:
+        dr.text((PAD, 7), label, fill="black")
     dr.rectangle([0, 0, canvas.width - 1, canvas.height - 1], outline="#999")
     return canvas
 
 
-def build_sheet(items: list[tuple[str, str]], out: pathlib.Path) -> pathlib.Path:
-    """items = [(label, svg), ...]"""
-    tiles = [tile(lab, render_svg(svg)) for lab, svg in items]
+def build_sheet(items: list[tuple[str, str]], out: pathlib.Path,
+                start: int | None = None, failures: list | None = None) -> pathlib.Path:
+    """items = [(label, svg), ...]; `start` numbers the tiles from that value."""
+    tiles = []
+    for i, (lab, svg) in enumerate(items):
+        img, err = render_or_placeholder(svg)
+        if err is not None and failures is not None:
+            failures.append((None if start is None else start + i, lab, err))
+        tiles.append(tile(lab, img, None if start is None else start + i))
     w = max(t.width for t in tiles)
     h = max(t.height for t in tiles)
     rows = (len(tiles) + COLS - 1) // COLS
