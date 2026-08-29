@@ -815,7 +815,20 @@ def plane(points=None, lines=None, polygon=None, xr=(-4, 4), yr=(-4, 4), cell=30
         if dots:
             b.append(f'<circle cx="{cx:.0f}" cy="{cy:.0f}" r="4.5" fill="currentColor"/>')
         if name.strip():
-            if cen is None:
+            if cen is None and drawn:
+                # No polygon to push away from, but there are LINES -- and a point
+                # named on a line has its label sitting along that line if the
+                # offset is a fixed up-and-right. Push perpendicular to the nearest
+                # drawn line instead, on whichever side has more room.
+                near = min(drawn, key=lambda s: _dist_point_seg((cx, cy), *s))
+                (sx1, sy1), (sx2, sy2) = near
+                vx, vy = sx2 - sx1, sy2 - sy1
+                n = max((vx * vx + vy * vy) ** 0.5, 1e-9)
+                nx, ny = -vy / n, vx / n
+                if ox + gw / 2 - cx < 0:
+                    nx, ny = -nx, -ny
+                dx, dy = _label_offset(nx, ny, name)
+            elif cen is None:
                 dx, dy = lx, ly
             else:
                 vx, vy = x - cen[0], y - cen[1]
