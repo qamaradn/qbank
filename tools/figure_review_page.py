@@ -90,15 +90,25 @@ PAGE = """<!doctype html>
  <b>Figure review — %(scope)s</b>
  <span id="count"></span>
  <span class="sp"></span>
+ <input id="who" placeholder="your name" size="12">
  <select id="filter">
    <option value="all">show all</option>
    <option value="todo">not yet looked at</option>
    <option value="flagged">flagged only</option>
  </select>
  <input type="search" id="find" placeholder="filter by book or text">
- <button id="copy" class="primary">Copy flagged list</button>
+ <button id="download" class="primary">Download my comments</button>
+ <button id="copy">Copy as text</button>
  <button id="reset">Clear my marks</button>
 </header>
+<p style="margin:0;padding:10px 16px;background:#fffbe6;border-bottom:1px solid var(--line);
+   font-size:13px">
+ Mark each figure <b>Flag a problem</b> or <b>Looks fine</b>, and write a note if you can.
+ Your marks are saved in this browser as you go, so you can close the file and come back.
+ When you are done press <b>Download my comments</b> and send back the small
+ <code>.json</code> file it saves — not this page.
+ <b>This file contains the answer keys, so please do not forward it.</b>
+</p>
 <main id="grid"></main>
 <dialog id="out"><h3 style="margin:0 0 8px">Paste this back</h3>
  <textarea id="outtext" readonly></textarea>
@@ -107,8 +117,16 @@ PAGE = """<!doctype html>
 <script>
 const DATA = %(data)s;
 const KEY = "figrev:%(scope)s";
-let state = JSON.parse(localStorage.getItem(KEY) || "{}");
-const save = () => localStorage.setItem(KEY, JSON.stringify(state));
+// Opened from a file:// URL, Safari refuses localStorage outright and Chrome can
+// too depending on how it was launched. The page must still work when saving is
+// unavailable -- it just cannot survive a reload, and the reviewer has to be told
+// that plainly rather than losing an afternoon's marks to a refresh.
+let CAN_SAVE = true;
+try { localStorage.setItem(KEY + ":probe", "1"); localStorage.removeItem(KEY + ":probe"); }
+catch (e) { CAN_SAVE = false; }
+let state = {};
+if (CAN_SAVE) { try { state = JSON.parse(localStorage.getItem(KEY) || "{}"); } catch (e) {} }
+const save = () => { if (CAN_SAVE) { try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) {} } };
 const grid = document.getElementById("grid");
 
 function card(q){
@@ -165,6 +183,46 @@ document.getElementById("find").oninput = draw;
 document.getElementById("reset").onclick = () => {
   if (confirm("Clear every mark on this page?")) { state = {}; save(); draw(); }
 };
+try { document.getElementById("who").value = localStorage.getItem(KEY + ":who") || ""; }
+catch (e) {}
+document.getElementById("who").oninput = e => {
+  try { localStorage.setItem(KEY + ":who", e.target.value); } catch (err) {}
+};
+if (!CAN_SAVE) {
+  const w = document.createElement("p");
+  w.style.cssText = "margin:0;padding:10px 16px;background:#ffe8e6;color:#8a1c12;" +
+    "border-bottom:1px solid var(--line);font-size:13px";
+  w.innerHTML = "<b>This browser will not let the page remember your marks.</b> " +
+    "They will be lost if you reload or close the tab, so press " +
+    "<b>Download my comments</b> before you finish, and again whenever you take a break.";
+  document.querySelector("header").after(w);
+}
+
+document.getElementById("download").onclick = () => {
+  // Everything LOOKED AT, not only the flags. "I read it and it is fine" is the
+  // half of the answer that says which figures still have nobody's eyes on them.
+  const seen = DATA.filter(d => {
+    const s = state[d.n] || {}; return s.flag || s.ok || (s.note || "").trim();
+  }).map(d => {
+    const s = state[d.n];
+    return {n: d.n, id: d.id, book: d.book, form: d.form,
+            verdict: s.flag ? "problem" : (s.ok ? "fine" : "note"),
+            note: (s.note || "").trim(),
+            stem: d.stem.slice(0, 120)};
+  });
+  const doc = {kind: "qbank-figure-review", version: 1, scope: "%(scope)s",
+               reviewer: document.getElementById("who").value.trim() || null,
+               reviewed_at: new Date().toISOString(),
+               total_on_page: DATA.length, reviewed: seen.length, items: seen};
+  const blob = new Blob([JSON.stringify(doc, null, 1)], {type: "application/json"});
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = "figure-review-%(scope)s-" +
+               new Date().toISOString().slice(0, 10) + ".json";
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+};
+
 document.getElementById("copy").onclick = () => {
   const lines = DATA.filter(d => (state[d.n]||{}).flag).map(d => {
     const note = (state[d.n].note || "").trim();
