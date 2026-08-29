@@ -39,6 +39,8 @@ import sys
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
+from tools.sweep_checks import withheld_ids  # noqa: E402
+
 DB = ROOT / "run_data/db/qbank.db"
 OUT = ROOT / "run_data/output/figure_review"
 
@@ -65,7 +67,11 @@ def main() -> int:
     con = sqlite3.connect(DB)
     con.row_factory = sqlite3.Row
     items = doc.get("items") or []
-    flagged, fine, unknown, moved = [], [], [], []
+    flagged, fine, unknown, moved, stale = [], [], [], [], []
+    # A reviewer works from the copy of the page they were sent, and the bank moves
+    # on. Anything they marked that has since been withheld or rejected is work
+    # nobody should do -- say so rather than letting it into the list.
+    held = withheld_ids()
 
     for it in items:
         row = con.execute("SELECT * FROM questions WHERE id=?", (it["id"],)).fetchone()
@@ -77,7 +83,10 @@ def main() -> int:
         if it.get("stem") and not stem_of(q).startswith(it["stem"][:80]):
             moved.append((it, stem_of(q)[:100]))
         rec = {**it, "current_status": q["review_status"],
-               "current_form": q["form_id"], "source_book": q["source_book"]}
+               "current_form": q["form_id"], "source_book": q["source_book"],
+               "withheld": q["id"] in held}
+        if q["id"] in held or q["review_status"] == "rejected":
+            stale.append(rec)
         (flagged if it.get("verdict") == "problem" else fine).append(rec)
 
     reviewer = re.sub(r"[^a-z0-9]+", "-",
@@ -91,7 +100,8 @@ def main() -> int:
          "reviewer": doc.get("reviewer"), "reviewed_at": doc.get("reviewed_at"),
          "scope": doc.get("scope"), "total_on_page": doc.get("total_on_page"),
          "flagged": flagged, "fine": fine,
-         "unknown_ids": unknown, "stem_changed_since": [m[0] for m in moved]},
+         "unknown_ids": unknown, "stem_changed_since": [m[0] for m in moved],
+         "no_longer_served": stale},
         indent=1, ensure_ascii=False), encoding="utf-8")
 
     total = doc.get("total_on_page") or 0
@@ -104,6 +114,12 @@ def main() -> int:
     print(f"  not reached      {max(total - len(items), 0)}")
     if unknown:
         print(f"  !! {len(unknown)} id(s) are not in the bank at all")
+    if stale:
+        print(f"  !! {len(stale)} marked question(s) are no longer served "
+              f"(withheld or rejected since the page was built) — nothing to do on them:")
+        for it in stale[:6]:
+            why = "withheld" if it["withheld"] else it["current_status"]
+            print(f"       #{it['n']} {it['id'][:8]}  {why}")
     if moved:
         print(f"  !! {len(moved)} question(s) CHANGED since the page was built — "
               f"the note may not describe what is there now:")

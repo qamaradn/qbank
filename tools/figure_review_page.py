@@ -35,6 +35,7 @@ ROOT = pathlib.Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
 from tools import gate_forms as gf                       # noqa: E402
+from tools.sweep_checks import withheld_ids              # noqa: E402
 
 DB = ROOT / "run_data/db/qbank.db"
 OUT = ROOT / "review/ui/figures.html"
@@ -264,6 +265,15 @@ def main() -> int:
         args.append(a.book)
     rows = [dict(r) for r in con.execute(sql, args)]
 
+    # A withheld question is one no student will ever see: the 98 beyond Year 8 and
+    # the VIC banned types are held back by the pusher, and `assign_forms` never
+    # dealt them into a form. Eleven of them are figures, and putting them in front
+    # of a reviewer spends their attention on work that cannot matter -- the first
+    # card on the page was one, a circle tangent to both axes, which is conics.
+    held = withheld_ids()
+    withheld_here = [q for q in rows if q["id"] in held]
+    rows = [q for q in rows if q["id"] not in held]
+
     flagged = {q["id"] for q in rows
                if any(gf.run_check(n, q) for n, _ in gf.BLOCKING)}
     if not a.include_flagged:
@@ -289,6 +299,9 @@ def main() -> int:
                      encoding="utf-8")
     kb = a.out.stat().st_size / 1024
     print(f"{len(rows)} figures -> {a.out}  ({kb:.0f} KB)")
+    if withheld_here:
+        print(f"{len(withheld_here)} left out — withheld from serving (beyond Year 8 "
+              f"or a banned type), so a reviewer's time on them is spent for nothing")
     if not a.include_flagged:
         print(f"{len(flagged)} left out — a BLOCKING check already names their fault")
     print("\nServe it with the review server already running:")
