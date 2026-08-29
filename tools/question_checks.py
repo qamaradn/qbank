@@ -1372,6 +1372,20 @@ def _arc_centre(x1, y1, x2, y2, r, f_large, f_sweep):
 _POLY = re.compile(r"<polygon[^>]*\bpoints=[\'\"]([^\'\"]+)[\'\"]")
 
 
+def _seg_intersection(s1, s2):
+    """Where two drawn segments cross, if they do."""
+    (x1, y1), (x2, y2) = s1
+    (x3, y3), (x4, y4) = s2
+    den = (x1 - x2) * (y3 - y4) - (y1 - y2) * (x3 - x4)
+    if abs(den) < 1e-9:
+        return None
+    t = ((x1 - x3) * (y3 - y4) - (y1 - y3) * (x3 - x4)) / den
+    u = ((x1 - x3) * (y1 - y2) - (y1 - y3) * (x1 - x2)) / den
+    if -0.02 <= t <= 1.02 and -0.02 <= u <= 1.02:
+        return (x1 + t * (x2 - x1), y1 + t * (y2 - y1))
+    return None
+
+
 def angle_arc_malformed(svg, tol=0.15):
     """An angle mark whose two ends are not the same distance from their vertex.
 
@@ -1391,6 +1405,20 @@ def angle_arc_malformed(svg, tol=0.15):
         except ValueError:
             continue          # a points list we cannot read is not one to judge
         verts += list(zip(nums[0::2], nums[1::2]))
+    # Lines and their crossings too. A figure whose only polygons are ARROWHEADS --
+    # a ray drawn from the origin on a pair of axes -- offered nothing but arrowhead
+    # corners as candidate vertices, and the nearest of those sat 73 px from a
+    # radius-25 arc. Measured against the origin, where the arc is actually centred,
+    # both ends are 24.9 from it and the mark is perfect.
+    _lines = [((float(a), float(b)), (float(c), float(d)))
+              for a, b, c, d in (mm.groups() for mm in _LINE_EL.finditer(svg))]
+    for a, b in _lines:
+        verts += [a, b]
+    for i in range(len(_lines)):
+        for j in range(i + 1, len(_lines)):
+            p = _seg_intersection(_lines[i], _lines[j])
+            if p:
+                verts.append(p)
     if not verts:
         return None
     for m in _ARC.finditer(svg):
@@ -1398,7 +1426,24 @@ def angle_arc_malformed(svg, tol=0.15):
             float(g) if i not in (4, 5) else int(g) for i, g in enumerate(m.groups()))
         if abs(rx - ry) > 0.01:
             continue
-        v = min(verts, key=lambda p: max(math.dist(p, (x1, y1)), math.dist(p, (x2, y2))))
+        # An angle MARK is a small minor arc. A chord of 2r is a semicircle and a
+        # chord near r is a sixty-degree sweep -- both are the shape itself, a
+        # half-disc or a sector, and measuring them against a "vertex" is
+        # meaningless. Three of the four figures this could not repair were
+        # semicircles being judged as bad angle marks.
+        chord = math.dist((x1, y1), (x2, y2))
+        if rx <= 0 or chord >= 1.55 * rx:
+            continue
+        vb = re.search(r'viewBox=["\'][\d.\- ]*?([\d.]+)\s+([\d.]+)["\']', svg)
+        if vb and rx > 0.28 * min(float(vb.group(1)), float(vb.group(2))):
+            continue                       # too big to be an angle mark
+        # The vertex the arc is CENTRED on, not merely nearest to: equal distances,
+        # both near the declared radius. That is what being an arc's centre means,
+        # and picking by nearness alone chose an arrowhead over the origin.
+        def _centredness(p, _x1=x1, _y1=y1, _x2=x2, _y2=y2, _r=rx):
+            e1, e2 = math.dist(p, (_x1, _y1)), math.dist(p, (_x2, _y2))
+            return abs(e1 - e2) + abs((e1 + e2) / 2 - _r)
+        v = min(verts, key=_centredness)
         d1, d2 = math.dist(v, (x1, y1)), math.dist(v, (x2, y2))
         if max(d1, d2) > 4 * rx:
             continue                       # not an angle mark at this vertex
