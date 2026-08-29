@@ -876,7 +876,36 @@ CREATE INDEX IF NOT EXISTS idx_wp_review_status ON writing_prompts(review_status
 
 ## CURRENT STATUS
 
-**Last worked on:** 2026-08-29 — VIC review round 6 closed.
+**Last worked on:** 2026-08-29 — VIC review round 6 closed AND PUSHED.
+
+**SELECTLY ADDRESSABILITY IS LIVE — the entry below that calls it "written and undeployed"
+was stale and is corrected here (verified 2026-08-29).** `c52ffa9` is on `origin/main`
+(tip 2026-08-24), local main is level with origin, and migration
+`0001_add_questions_qbank_id.sql` is applied in production: a read of
+`/api/admin/questions-dump?category=quantitative_reasoning` returns 150 live rows, **150
+of them carrying a `qbank_id` and 0 unaddressable.** Blocker 1 in "Two things needing
+attention" is CLOSED. The clean-reload plan of 2026-08-12 was never needed — the upsert
+path repairs rows in place.
+
+**Round 6's ten corrections are live (2026-08-29).** `push_to_selectly` upserted 10
+changed rows, 0 new, `inserted=10 skipped=0 errors=0`, tracked total unchanged at 546.
+Both flagged questions verified live by reading production back: key, explanation and
+figure all match the local row, `active=true`. Tracking now stores a payload HASH per
+row, so a repaired question re-sends and an untouched one does not — `--dry-run` reports
+0 to push afterwards.
+
+**Reviewer flags for round 6 are recorded but NOT cleared** in
+`run_data/output/review_flags/round_vic6.json`. Clearing needs
+`push_to_selectly --clear-flags vic6`, which deletes the two flags from the reviewer's
+admin board; left for the owner to run once the reviewer has seen the fixes.
+
+**`vic-drill-mq-004` still fails the gate on two questions that were NOT in this push and
+are already live:** pos 7 `33b467f9` (120 → +15% → −10% = 124.2 passengers, key 124, the
+stem never says to round — `repair_rounding_unstated` deliberately declines, since a
+passenger count should not carry a rounding instruction; the round-5 precedent is to
+re-cut the numbers exact, e.g. +25% then −10% = 135) and pos 21 `1da2cb04` (two "−1" tick
+labels overlapping 9×5 px). Bank-wide those two checks stand at `rounds_without_saying_so`
+7 and `overlapping_text_labels` 34.
 
 **ROUND 6 IS CLOSED (2026-08-29).** Two reviewer flags, both on figures round 5 had
 already redrawn and cleared: the "?" on `25bbe5a8` sat nearer (−2, 0) than the vertex it
