@@ -88,6 +88,8 @@ BLOCKING = [
     ("label_too_faint", "VIC round 6: a needed label drawn at watermark opacity"),
     ("polygon_sides_disagree_with_stem",
      "VIC round 6: an \"octagon\" drawn with ten sides"),
+    ("undefined_marker_reference",
+     "VIC figure pass: an arrowhead referenced and never defined, so never drawn"),
     ("explanation_is_a_repair_note",
      "VIC round 6: a note from a repair round left in what the student reads"),
 ]
@@ -142,6 +144,7 @@ _TEXT_FIELD = {
     "plotted_points_inconsistent": "figure_svg",
     "unknown_marker_far_from_point": "figure_svg",
     "label_too_faint": "figure_svg",
+    "undefined_marker_reference": "figure_svg",
     "positional_reference": "stem",
     "leaked_working": "explanation",
     "rewrites_the_question": "explanation",

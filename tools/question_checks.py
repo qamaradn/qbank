@@ -2329,6 +2329,30 @@ def label_too_faint(svg, floor=0.4):
     return None
 
 
+_MARKER_REF = re.compile(r'marker-(?:end|start|mid)\s*=\s*[\'"]url\(#([^)]+)\)')
+_MARKER_DEF = re.compile(r'<marker[^>]*\bid\s*=\s*[\'"]([^\'"]+)')
+
+
+def undefined_marker_reference(svg, ids_only=False):
+    """An arrowhead a line asks for and the document never defines.
+
+    Three figures carry marker-end="url(#arr)" with no <marker id="arr"> anywhere.
+    A browser resolves the reference to nothing and draws the line WITHOUT its
+    head, silently, so an arrow that meant "this direction" or "this measurement"
+    is simply not there. Every other check reads the SVG as text and sees a
+    well-formed reference; only resolving it shows there is nothing on the far end.
+    """
+    if not svg:
+        return [] if ids_only else None
+    missing = sorted(set(_MARKER_REF.findall(svg)) - set(_MARKER_DEF.findall(svg)))
+    if ids_only:
+        return missing
+    if not missing:
+        return None
+    return (f"references marker(s) {', '.join(missing)} that the figure never "
+            f"defines — the arrowhead is silently not drawn")
+
+
 def _pie_sectors(svg):
     """A pie chart's slices. Its "90°" is a slice SIZE, already shown by the slice.
 
