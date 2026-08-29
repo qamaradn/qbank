@@ -1434,21 +1434,58 @@ def _axis_ticks(svg):
     Returns (xs, ys) as lists of (value, pixel). A tick label's OTHER coordinate is
     roughly constant along an axis, which is how the two are told apart.
     """
+    # A number printed INSIDE a drawn cell is that cell's contents, not a tick. A dice
+    # net numbers six squares 1 to 6; three of them share a column, which read as a
+    # y-axis advancing at two different rates, and `axis_scale_nonlinear` blocked a
+    # question that has no axis in it at all. Same idea as _looks_like_a_table, applied
+    # to cells that hold nothing but digits.
+    cells = [(x, y, x + w, y + h) for x, y, w, h in
+             ((float(a), float(b), float(c), float(d))
+              for a, b, c, d in _RECT.findall(svg))
+             if 8 < w < 120 and 8 < h < 120]
+
+    def in_a_cell(x, y):
+        return any(cx0 <= x <= cx1 and cy0 <= y <= cy1
+                   for cx0, cy0, cx1, cy1 in cells)
+
     pts = []
     for m in _TEXT.finditer(svg):
         t = (m.group(4) or "").strip().replace("\u2212", "-")
         if not re.fullmatch(r"-?\d+(?:\.\d+)?", t):
             continue
-        pts.append((float(t), float(m.group(1)), float(m.group(2))))
+        x, y = float(m.group(1)), float(m.group(2))
+        if in_a_cell(x, y):
+            continue
+        pts.append((float(t), x, y))
     if len(pts) < 4:
         return [], []
-    ys_const = {}
-    xs_const = {}
-    for v, x, y in pts:
-        ys_const.setdefault(round(y / 6), []).append((v, x))
-        xs_const.setdefault(round(x / 6), []).append((v, y))
-    xs = max(ys_const.values(), key=len) if ys_const else []
-    ys = max(xs_const.values(), key=len) if xs_const else []
+
+    def cluster(key, tol=9.0):
+        """Group labels whose shared coordinate is within tol, largest group wins.
+
+        Fixed-width buckets split a column that straddles a boundary: one figure
+        right-aligns its y numbers at x=124 for "1" and "2" and x=120 for the wider
+        "-1" and "-2", which `round(x/6)` put in two buckets of two. Neither reached
+        the three a fit needs, so the figure read as having NO y-axis and the
+        stem-vs-figure check could not judge it at all.
+        """
+        best = []
+        for anchor in sorted({key(p) for p in pts}):
+            grp = [p for p in pts if abs(key(p) - anchor) <= tol]
+            if len(grp) > len(best):
+                best = grp
+        return best
+
+    row = cluster(lambda p: p[2])          # shares a y: the x-axis
+    col = cluster(lambda p: p[1])          # shares an x: the y-axis
+    # A label in BOTH is the origin's "0", which names a position on each axis and
+    # therefore fixes the scale of neither. Counted into the y group it made "0, 1, 2"
+    # read as 38 px then 25 px per unit, and a linear axis was reported nonlinear.
+    shared = {(v, x, y) for (v, x, y) in row} & {(v, x, y) for (v, x, y) in col}
+    row = [p for p in row if p not in shared]
+    col = [p for p in col if p not in shared]
+    xs = [(v, x) for v, x, _y in row]
+    ys = [(v, y) for v, _x, y in col]
     return (xs if len(xs) >= 3 else []), (ys if len(ys) >= 3 else [])
 
 
@@ -2370,8 +2407,11 @@ def angle_named_without_arc(q, tol=42.0):
     marks = _angle_markers(svg)
     for box, _tag in angle_labels(svg, stem):
         label = box[4].strip()
-        cx, cy = (box[0] + box[2]) / 2, (box[1] + box[3]) / 2
-        if any(math.dist((cx, cy), p) <= tol for p in marks):
+        # From the label's EDGE, not its centre. "(3x + 15)°" is 66 px wide and its
+        # sector is 51 degrees, so the box only fits some way out from the vertex --
+        # measured centre-to-arc it can never be within any fixed tolerance, however
+        # correctly it is placed. The edge is what a reader's eye travels.
+        if any(_box_gap(box, *p) <= tol for p in marks):
             continue
         return (f"angle {label!r} is named but nothing marks it on the figure — "
                 f"no arc or right-angle square within {tol:.0f} px")

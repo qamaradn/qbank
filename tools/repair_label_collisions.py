@@ -26,13 +26,19 @@ DB = ROOT / "run_data/db/qbank.db"
 RECORD = ROOT / "run_data/output/label_collision_repairs.json"
 
 _TEXT_TAG = re.compile(r"<text\b[^>]*>[^<]*</text>")
-_XY = re.compile(r"\bx=([\'\"])([-\d.]+)\1|\by=([\'\"])([-\d.]+)\1")
+# The y alternative used to close on \1 -- the QUOTE group of the x alternative, which
+# never participates when the y branch is taken, so the backreference could not match
+# and y= was never found. Every vertical offset in OFFSETS was therefore a silent
+# no-op, and this tool has only ever been able to move a label sideways. It is why the
+# P(4, 4) label "took three attempts" in round 2, and why three labels here looked
+# unfixable. Each alternative must close on its own group.
+_XY = re.compile(r"\bx=([\'\"])([-\d.]+)\1|\by=([\'\"])([-\d.]+)\3")
 
 # outward first, then further; sideways before diagonal, since a diagonal offset near a
 # diagonal line tends to stay on it
-OFFSETS = [(0, dy) for dy in (16, -14, 24, -22, 32, -30)] + \
-          [(dx, 0) for dx in (18, -18, 28, -28, 40, -40)] + \
-          [(dx, dy) for d in (20, 30, 42) for dx in (d, -d) for dy in (d, -d)]
+OFFSETS = [(0, dy) for dy in (16, -14, 24, -22, 32, -30, 44, -42)] + \
+          [(dx, 0) for dx in (18, -18, 28, -28, 40, -40, 54, -54)] + \
+          [(dx, dy) for d in (20, 30, 42, 56) for dx in (d, -d) for dy in (d, -d)]
 
 
 def _shift(tag, dx, dy):
@@ -47,38 +53,77 @@ def clashes(svg):
     return (qc.text_overlaps_geometry(svg), qc.overlapping_text_labels(svg))
 
 
-def repair(svg, tries=6):
+def repair(svg, tries=8):
     """Nudge one label at a time until the figure is clean, or give up honestly."""
     moved = []
+    seen = set()
     for _ in range(tries):
         geo, lab = clashes(svg)
         if not geo and not lab:
             return svg, moved
         msg = geo or lab
-        m = re.search(r"labels? '([^']+)'", msg)
-        if not m:
+        # Every quoted name in the message. "labels 'A' and 'B' overlap" names TWO,
+        # and a pattern anchored on the word "label" saw only the first -- so the
+        # only candidate ever tried was the one it happened to mention first, which
+        # for an axis tick is the one that must not move.
+        names = re.findall(r"'([^']+)'", msg)
+        if not names:
             return svg, moved
-        target = m.group(1)
-        tag = next((t for t in _TEXT_TAG.findall(svg)
-                    if (re.search(r">([^<]*)<", t) or [""]) and
-                    re.search(r">([^<]*)<", t).group(1).strip() == target), None)
-        if tag is None:
+        # An AXIS TICK may not move: it names the mark it sits against, and shifting
+        # it is how a figure comes to disagree with its own scale. So when two labels
+        # collide, move the annotation. Moving the tick was why "-5" and "P" stayed
+        # stuck -- every offset tried was applied to the "-5".
+        def is_tick(t):
+            return bool(re.fullmatch(r"-?−?\d+(?:\.\d+)?", t.replace("−", "-")))
+        names.sort(key=is_tick)
+        # A label is often drawn TWICE at one spot: a thick white stroke behind, the
+        # real glyphs on top, so it stays readable over a gridline. Moving one of the
+        # pair leaves the other where it was and the collision survives every offset
+        # -- which is why all three of these looked unfixable. Move the whole group.
+        groups = []
+        for target in names:
+            byxy = {}
+            for t in _TEXT_TAG.findall(svg):
+                body = re.search(r">([^<]*)<", t)
+                if not body or body.group(1).strip() != target:
+                    continue
+                xy = tuple(m.group(2) or m.group(4) for m in _XY.finditer(t))
+                byxy.setdefault(xy, []).append(t)
+            for tags in byxy.values():
+                groups.append((target, tags))
+        if not groups:
             return svg, moved
-        for dx, dy in OFFSETS:
-            cand = svg.replace(tag, _shift(tag, dx, dy), 1)
-            g2, l2 = clashes(cand)
-            if not g2 and not l2:
-                return cand, moved + [(target, dx, dy)]
+
+        def shift_group(s, tags, dx, dy):
+            for t in tags:
+                s = s.replace(t, _shift(t, dx, dy), 1)
+            return s
+
+        for target, tags in groups:
+            for dx, dy in OFFSETS:
+                cand = shift_group(svg, tags, dx, dy)
+                g2, l2 = clashes(cand)
+                if not g2 and not l2:
+                    return cand, moved + [(target, dx, dy)]
+        target, tags = groups[0]
         # nothing clears everything; take the best partial and continue
         best = None
         for dx, dy in OFFSETS:
-            cand = svg.replace(tag, _shift(tag, dx, dy), 1)
+            cand = shift_group(svg, tags, dx, dy)
             g2, l2 = clashes(cand)
             score = (g2 is not None) + (l2 is not None)
             if best is None or score < best[0]:
                 best = (score, cand, (target, dx, dy))
-        if best is None or best[0] >= (geo is not None) + (lab is not None):
+        # Accept a move that does not lower the count but UNCOVERS a different
+        # collision -- moving P off the "-5" revealed a "-1"/"-1" pair underneath, and
+        # refusing an equal score meant neither ever got fixed. `seen` stops it
+        # cycling between two states forever.
+        if best is None:
             return svg, moved
+        after = tuple(x for x in clashes(best[1]) if x)
+        if best[0] > (geo is not None) + (lab is not None) or after in seen:
+            return svg, moved
+        seen.add(after)
         svg = best[1]
         moved.append(best[2])
     return svg, moved
