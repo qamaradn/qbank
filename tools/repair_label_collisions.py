@@ -53,6 +53,18 @@ def clashes(svg):
     return (qc.text_overlaps_geometry(svg), qc.overlapping_text_labels(svg))
 
 
+# Round 5's rule, which this tool never had: re-run the checks on your own output and
+# roll back anything that comes back worse. Moving a label cannot fix a collision at
+# the cost of a scale, a grid or a plotted point.
+GUARD = ("axis_scale_nonlinear", "gridlines_off_the_ticks", "axes_unlabelled",
+         "plotted_points_inconsistent", "coordinate_figure_without_grid",
+         "angle_arc_malformed", "doubled_circle_outline")
+
+
+def guard_state(svg):
+    return {n for n in GUARD if getattr(qc, n)(svg)}
+
+
 def repair(svg, tries=8):
     """Nudge one label at a time until the figure is clean, or give up honestly."""
     moved = []
@@ -75,7 +87,12 @@ def repair(svg, tries=8):
         # stuck -- every offset tried was applied to the "-5".
         def is_tick(t):
             return bool(re.fullmatch(r"-?−?\d+(?:\.\d+)?", t.replace("−", "-")))
-        names.sort(key=is_tick)
+        # EXCLUDED, not merely deprioritised. Preferring the annotation still let the
+        # fallback "best partial" path move a tick when nothing else worked, and it
+        # did: three figures came back reading as nonlinear axes because a number had
+        # been slid away from the mark it names. A tick label is part of the figure's
+        # scale, so moving it is not a presentation fix, it is a measurement change.
+        names = [t for t in names if not is_tick(t)] or []
         # A label is often drawn TWICE at one spot: a thick white stroke behind, the
         # real glyphs on top, so it stays readable over a gridline. Moving one of the
         # pair leaves the other where it was and the collision survives every offset
@@ -145,6 +162,11 @@ def main():
         if not any(clashes(r["figure_svg"])):
             continue
         fixed, moved = repair(r["figure_svg"])
+        regressed = sorted(guard_state(fixed) - guard_state(r["figure_svg"]))
+        if regressed:
+            print(f"  [{r['form_id']} pos {r['form_position']}] ROLLED BACK — "
+                  f"the move would have caused {regressed}")
+            continue
         left = [m for m in clashes(fixed) if m]
         tag = "clean" if not left else f"STILL: {left[0][:58]}"
         print(f"  [{r['form_id']} pos {r['form_position']}] "
