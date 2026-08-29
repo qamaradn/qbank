@@ -78,6 +78,16 @@ BLOCKING = [
     # "approximately 14 survivors" anywhere in prose. Requiring the marker to sit against
     # a number AND the options to be numeric leaves 53, of which 48 nothing else catches.
     ("rounds_without_saying_so", "VIC round 5: working rounds, stem never asked it to"),
+    # Round 6. Round 5 asked whether a figure AGREES with the stem. These ask
+    # whether a reader can tell WHICH THING a mark refers to -- a "?" parked on the
+    # neighbouring lattice point, an angle named with nothing on it, a label printed
+    # as a watermark, a shape drawn with the wrong number of sides. All four make a
+    # correct figure unreadable, and the last two hand out a wrong answer.
+    ("unknown_marker_far_from_point", "VIC round 6: the \"?\" marks the wrong point"),
+    ("angle_named_without_arc", "VIC round 6: an angle named with nothing marking it"),
+    ("label_too_faint", "VIC round 6: a needed label drawn at watermark opacity"),
+    ("polygon_sides_disagree_with_stem",
+     "VIC round 6: an \"octagon\" drawn with ten sides"),
 ]
 
 # EXAM-SPECIFIC — two things genuinely differ, and only two.
@@ -128,6 +138,8 @@ _TEXT_FIELD = {
     "doubled_circle_outline": "figure_svg",
     "overlapping_text_labels": "figure_svg",
     "plotted_points_inconsistent": "figure_svg",
+    "unknown_marker_far_from_point": "figure_svg",
+    "label_too_faint": "figure_svg",
     "positional_reference": "stem",
     "leaked_working": "explanation",
     "rewrites_the_question": "explanation",

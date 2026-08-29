@@ -1996,3 +1996,317 @@ def gridlines_off_the_ticks(svg):
                     f"{max(gaps):.0f} px — a point read off the grid is read off the "
                     f"wrong value")
     return None
+
+
+# ---------------------------------------------------------------------------
+# VIC review round 6 (2026-08-27). Two flags, both on figures round 5 had already
+# been through. Neither is about whether the figure is TIDY or whether it agrees
+# with the stem's numbers -- round 5 built both of those. They are about whether a
+# reader can tell WHICH THING a mark refers to:
+#
+#   "the question mark should be closer to the fourth vertex because right now it
+#    looks like its sat on -2,0"
+#   "For all of the angle-related questions, make sure there is a small angle arc
+#    to signal this is the angle being mentioned."
+#
+# A label that names the wrong point, and an angle named with no mark on it, are
+# the same defect: the figure is drawn correctly and still cannot be read.
+# ---------------------------------------------------------------------------
+
+def _box_gap(box, x, y):
+    """Distance from a point to a text box, 0 inside it."""
+    bx0, by0, bx1, by1 = box[:4]
+    dx = max(bx0 - x, 0.0, x - bx1)
+    dy = max(by0 - y, 0.0, y - by1)
+    return math.hypot(dx, dy)
+
+
+_RECT = re.compile(r"<rect[^>]*\bx=[\'\"]([-\d.]+)[\'\"][^>]*\by=[\'\"]([-\d.]+)[\'\"]"
+                   r"[^>]*\bwidth=[\'\"]([\d.]+)[\'\"][^>]*\bheight=[\'\"]([\d.]+)")
+
+
+def _drawn_points(svg):
+    """Every position the figure actually draws a POINT at.
+
+    Not just dots. A rectangle's corners are named A B C D with no dot on them, and
+    a chord's ends are named where the line stops -- both read as false "the label
+    is nowhere near a point" if only <circle> counts. Gridline and tick paths are
+    deliberately NOT in here: their endpoints tile the whole plane, so including
+    them puts an anchor within a few px of anywhere a label could possibly go, and
+    the check silently stops being able to fail.
+    """
+    pts = [(float(a), float(b)) for a, b, r in _DOT.findall(svg) if float(r) <= 7]
+    for m in _LINE_EL.finditer(svg):
+        x1, y1, x2, y2 = (float(g) for g in m.groups())
+        pts += [(x1, y1), (x2, y2)]
+    for m in _RECT.finditer(svg):
+        x, y, w, h = (float(g) for g in m.groups())
+        if w > 2 and h > 2:
+            pts += [(x, y), (x + w, y), (x, y + h), (x + w, y + h)]
+    for m in _POLY.finditer(svg):
+        raw = m.group(1).replace(",", " ").replace("−", "-")
+        try:
+            nums = [float(n) for n in raw.split()]
+        except ValueError:
+            continue
+        pts += list(zip(nums[0::2], nums[1::2]))
+    return pts
+
+
+def unknown_marker_far_from_point(svg, frac=0.62):
+    """A "?" marking the point in question, parked nearer some other lattice point.
+
+    "the question mark should be closer to the fourth vertex because right now it
+    looks like its sat on -2,0." The "?" was placed by pushing its CENTRE a fixed
+    30 px out from the shape -- a rule written for the six-character "(3, 0)",
+    whose near edge then lands 8 px from its dot. A one-character label pushed the
+    same 30 px lands a whole grid cell away, squarely on the neighbouring point.
+
+    So the offset has to be measured from the label's EDGE, and so does this check:
+    comparing anchor points would flag every long coordinate label in the bank and
+    clear the short ones that are actually wrong.
+
+    SCOPE, and why it is this narrow. On a coordinate plane a "?" always marks the
+    point the question asks for. A LETTER does not: swept over the bank, every
+    letter this fired on was naming a LINE at the end it runs out to (year9_maths
+    G9, G13, Y1, KK8) or a shape corner it sits correctly outside, so the letter
+    case is judged by eye, once, and is not in here. Outside a coordinate plane a
+    lone "?" is a DIMENSION and belongs beside an edge rather than at a vertex, so
+    the same measurement there is noise -- hence the axis map is required.
+    """
+    if not svg or _looks_like_a_table(svg):
+        return None
+    amap = _figure_axis_map(svg)
+    if not amap:
+        return None
+    cell = min(abs(amap[0]), abs(amap[2]))
+    # A floor, because the fraction alone over-fires on tight grids: a label 9 px
+    # from its dot reads as attached to it whatever the cell measures, and there is
+    # nowhere else within 9 px for the eye to send it.
+    tol = max(14.0, frac * cell)
+    dots = _drawn_points(svg)
+    if not dots:
+        return None
+    for m in _TEXT.finditer(svg):
+        box = _text_box(m)
+        if not box or box[4].strip() != "?":
+            continue
+        d, near = min((_box_gap(box, *p), p) for p in dots)
+        if d <= tol:
+            continue
+        u = (near[0] - amap[1]) / amap[0]
+        v = (near[1] - amap[3]) / amap[2]
+        return (f"the \"?\" sits {d:.0f} px — {d / cell:.1f} grid cells — from "
+                f"({u:.0f}, {v:.0f}), the nearest point drawn; at that distance it "
+                f"reads as marking a different point")
+    return None
+
+
+_ANGLE_TEXT = re.compile(r"^[^<]{0,12}°$")
+_POLYLINE = re.compile(r"<(?:polyline|polygon)[^>]*\bpoints=[\'\"]([^\'\"]+)[\'\"]")
+_PATH_D = re.compile(r"<path[^>]*\bd=[\'\"]([^\'\"]+)[\'\"]")
+
+
+def _angle_markers(svg):
+    """Every mark that says "the angle is here": arcs, and right-angle squares.
+
+    A right angle is conventionally a square, not an arc, and treating it as a
+    missing arc would flag correct figures — so both count.
+    """
+    marks = []
+    for m in _ARC.finditer(svg):
+        x1, y1, _rx, _ry, _fl, _fs, x2, y2 = (
+            float(g) for g in m.groups())
+        marks += [(x1, y1), (x2, y2), ((x1 + x2) / 2, (y1 + y2) / 2)]
+    # A right-angle square is two short perpendicular segments -- drawn as an open
+    # polyline, or as an "M..L..L.." path. Either way its corner is the vertex.
+    runs = [p for p in _POLYLINE.findall(svg)]
+    for d in _PATH_D.findall(svg):
+        if "A" in d.upper():
+            continue
+        runs.append(re.sub(r"[MLml]", " ", d))
+    for raw in runs:
+        try:
+            nums = [float(n) for n in
+                    raw.replace(",", " ").replace("−", "-").split()]
+        except ValueError:
+            continue
+        pts = list(zip(nums[0::2], nums[1::2]))
+        if not 3 <= len(pts) <= 4:
+            continue
+        legs = [math.dist(pts[i], pts[i + 1]) for i in range(len(pts) - 1)]
+        if not legs or max(legs) > 18 or min(legs) < 3:
+            continue
+        marks += pts
+    return marks
+
+
+_SIDES = {"triangle": 3, "quadrilateral": 4, "pentagon": 5, "hexagon": 6,
+          "heptagon": 7, "octagon": 8, "nonagon": 9, "decagon": 10}
+
+
+def polygon_sides_disagree_with_stem(q):
+    """The stem names a shape and the figure draws a different number of sides.
+
+    "In the figure below, a regular octagon is shown. What is the measure of one
+    interior angle?" -- drawn with TEN sides. The key is 135°, which is right for
+    the octagon the words describe; a student who counts the sides in front of
+    them gets 144°, which is sitting there as option A. The figure does not merely
+    fail to help, it hands out a distractor.
+
+    Only fires when the figure draws exactly one closed polygon, so a shape inside
+    a larger diagram is left alone.
+    """
+    svg = q.get("figure_svg") or ""
+    stem = (q.get("stem") or "").lower()
+    if not svg:
+        return None
+    named = [(w, n) for w, n in _SIDES.items() if re.search(rf"\b{w}\b", stem)]
+    # Only when the shape named IS the figure. "a rectangle ABCD, the diagonal AC
+    # drawn ... the area of triangle ABC" names a triangle that is half of the one
+    # polygon on the page, and counting that polygon's sides against the word
+    # "triangle" is meaningless. Six of the first seven hits were this.
+    if len(named) != 1 or re.search(
+            r"\b(rectangle|square|rhombus|parallelogram|trapezium|trapezoid|circle|"
+            r"semicircle|kite|polygon|sector|prism|cube)\b", stem):
+        return None
+    polys = re.findall(r"<polygon[^>]*\bpoints=[\'\"]([^\'\"]+)[\'\"]", svg)
+    if len(polys) != 1:
+        return None
+    try:
+        nums = [float(n) for n in polys[0].replace(",", " ").replace("−", "-").split()]
+    except ValueError:
+        return None
+    pts = list(zip(nums[0::2], nums[1::2]))
+    if len(pts) > 2 and math.dist(pts[0], pts[-1]) < 1:
+        pts.pop()                              # explicitly closed
+    word, want = named[0]
+    if len(pts) != want:
+        return (f"the stem says {word} ({want} sides) and the figure draws a polygon "
+                f"with {len(pts)}")
+    return None
+
+
+_FAINT_TEXT = re.compile(r"<text[^>]*?fill-opacity=[\'\"]([\d.]+)[\'\"][^>]*>([^<]*)<")
+_ANY_CIRCLE = re.compile(r"<circle[^>]*>")
+
+
+def label_too_faint(svg, floor=0.4):
+    """A label or a plotted point a student needs, drawn at watermark opacity.
+
+    Found while marking the angles on `e5a59579`: its three interior angles are
+    "(3y−10)°", "(2y−5)°" and "(y−15)°" and all three are drawn at fill-opacity
+    .18 -- a pale grey that reads as a watermark on the white review card. The
+    question cannot be answered without them.
+
+    One generator's habit, one value, 28 figures: coordinates, angle sizes, side
+    lengths, the names on a bar chart. `figure_lib` uses .75 for tick numbers and
+    .9 for everything else, so text below .4 is never deliberate.
+
+    The DOTS go the same way. Brightening the labels on those coordinate figures
+    left "X(−2, 4)" in black beside a point the reader still cannot see: the same
+    .18 on the <circle>. A shape's FILL is legitimately pale -- that is shading --
+    so only small filled markers count.
+    """
+    if not svg:
+        return None
+    for m in _FAINT_TEXT.finditer(svg):
+        op, label = float(m.group(1)), m.group(2).strip()
+        if op < floor and label:
+            return (f"label {label!r} is drawn at fill-opacity {op:g} — it is a "
+                    f"watermark, and the question needs it read")
+    for m in _ANY_CIRCLE.finditer(svg):
+        tag = m.group(0)
+        rr = re.search(r"\br=[\'\"]([\d.]+)", tag)
+        fo = re.search(r"fill-opacity=[\'\"]([\d.]+)", tag)
+        if rr and fo and float(rr.group(1)) <= 7 and float(fo.group(1)) < floor \
+                and 'fill="none"' not in tag and "fill='none'" not in tag:
+            return (f"a plotted point of radius {rr.group(1)} is drawn at "
+                    f"fill-opacity {fo.group(1)} — the reader cannot see it")
+    return None
+
+
+def _pie_sectors(svg):
+    """A pie chart's slices. Its "90°" is a slice SIZE, already shown by the slice.
+
+    Marking it with an arc would draw a second, smaller arc inside a wedge that is
+    the angle -- so a pie chart is not an angle figure, and this is what tells the
+    two apart: a filled path that runs out from a point, round, and closes.
+    """
+    return [d for d in _PATH_D.findall(svg)
+            if "A" in d.upper() and d.strip().upper().endswith("Z")]
+
+
+def text_xy_for_centre(tag, cx, cy):
+    """The x/y a <text> needs so its box centres on (cx, cy).
+
+    The inverse of _text_box: y is a BASELINE and x is an anchor that may be the
+    left edge, the centre or the right edge. Moving a label by writing the centre
+    straight into x/y would shift every end-anchored one by its own width.
+    """
+    size = float((re.search(r"font-size=[\'\"]([\d.]+)", tag) or [0, 12])[1])
+    label = (re.search(r">([^<]*)<", tag) or [0, ""])[1].strip()
+    w = len(label) * size * 0.55
+    anch = re.search(r"text-anchor=[\'\"](\w+)", tag)
+    a = anch.group(1) if anch else "start"
+    x = cx if a == "middle" else (cx + w / 2 if a == "end" else cx - w / 2)
+    return x, cy + 0.275 * size
+
+
+def angle_labels(svg, stem=""):
+    """Every text in the figure that names an angle, as (box, tag).
+
+    Shared by the check and the repair so they cannot disagree about what counts:
+    a check that marks fewer angles than the repair draws would clear a figure the
+    repair had half-finished.
+    """
+    out = []
+    if _pie_sectors(svg):
+        return out
+    for m in _TEXT.finditer(svg):
+        box = _text_box(m)
+        if not box:
+            continue
+        label = box[4].strip()
+        if "°C" in label or "°F" in label:
+            continue                      # a temperature axis is not an angle
+        named = bool(_ANGLE_TEXT.match(label))
+        # A BARE letter, only when the stem names it as an angle immediately -- and
+        # only a lowercase one. Uppercase letters are vertices in every one of these
+        # figures, and "angle A = 42°" names the angle AT vertex A, which the 42°
+        # beside it already labels. Letting the stem's whole sentence qualify
+        # (`angle .* \bQ\b`) pulled in side lengths and point names and took this
+        # from 46 figures to 109.
+        if not named and re.fullmatch(r"[a-z]", label):
+            named = bool(re.search(rf"angles?\s+(?:marked\s+|labelled\s+)?"
+                                   rf"{re.escape(label)}\b", stem))
+        if named:
+            out.append((box, m.group(0)))
+    return out
+
+
+def angle_named_without_arc(q, tol=42.0):
+    """An angle the question asks about, with nothing on the figure marking it.
+
+    "For all of the angle-related questions, make sure there is a small angle arc
+    to signal this is the angle being mentioned." The parallel-lines figure drew a
+    bare "65°" and a bare "b" beside a transversal crossing two lines: eight angles
+    at those two vertices and no way to tell which two the labels mean. The stem
+    said "as shown", and nothing was shown.
+
+    A label is an angle label if it ends in a degree sign, or if it is a bare
+    letter the STEM calls an angle. Both must have a marker within reach.
+    """
+    svg = (q.get("figure_svg") or "") if isinstance(q, dict) else (q or "")
+    if not svg or _looks_like_a_table(svg):
+        return None
+    stem = (q.get("stem") or "") if isinstance(q, dict) else ""
+    marks = _angle_markers(svg)
+    for box, _tag in angle_labels(svg, stem):
+        label = box[4].strip()
+        cx, cy = (box[0] + box[2]) / 2, (box[1] + box[3]) / 2
+        if any(math.dist((cx, cy), p) <= tol for p in marks):
+            continue
+        return (f"angle {label!r} is named but nothing marks it on the figure — "
+                f"no arc or right-angle square within {tol:.0f} px")
+    return None

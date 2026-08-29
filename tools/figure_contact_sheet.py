@@ -113,12 +113,19 @@ def from_json(path: pathlib.Path) -> list[tuple[str, str]]:
 
 
 def from_db(db: str, subject: str | None, book: str | None,
-            page: int | None, limit: int | None) -> list[tuple[str, str]]:
+            page: int | None, limit: int | None,
+            ids: list[str] | None = None) -> list[tuple[str, str]]:
     where, args = ["figure_svg IS NOT NULL", "review_status != 'rejected'"], []
     for col, val in (("subject", subject), ("source_book", book), ("source_page", page)):
         if val is not None:
             where.append(f"{col} = ?")
             args.append(val)
+    # A check's hit list is a set of ids scattered across books and pages, and it is
+    # exactly the set worth looking at. Prefixes are accepted because that is what a
+    # sweep report prints.
+    if ids:
+        where.append("(" + " OR ".join("id LIKE ?" for _ in ids) + ")")
+        args += [i + "%" for i in ids]
     sql = ("SELECT source_page, source_page_description, id, figure_svg FROM questions "
            f"WHERE {' AND '.join(where)}")
     if limit:
@@ -141,17 +148,19 @@ def main() -> int:
     p.add_argument("--book", help="source_book")
     p.add_argument("--page", type=int, help="source_page (one batch)")
     p.add_argument("--limit", type=int)
+    p.add_argument("--ids", help="comma-separated question ids or id prefixes")
     p.add_argument("-o", "--out", type=pathlib.Path, help="output PNG path")
     a = p.parse_args()
 
+    ids = [s.strip() for s in a.ids.split(",") if s.strip()] if a.ids else None
     if a.json:
         items = from_json(a.json)
         default_out = a.json.with_suffix(".sheet.png")
     else:
-        if not any((a.subject, a.book, a.page)):
-            p.error("give --json, or at least one of --subject / --book / --page")
-        items = from_db(a.db, a.subject, a.book, a.page, a.limit)
-        stem = "_".join(str(x) for x in (a.subject, a.book, a.page) if x)
+        if not any((a.subject, a.book, a.page, ids)):
+            p.error("give --json, or at least one of --subject / --book / --page / --ids")
+        items = from_db(a.db, a.subject, a.book, a.page, a.limit, ids)
+        stem = "_".join(str(x) for x in (a.subject, a.book, a.page) if x) or "ids"
         default_out = pathlib.Path(f"run_data/figure_sheets/{stem}.png")
 
     if not items:

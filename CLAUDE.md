@@ -876,7 +876,45 @@ CREATE INDEX IF NOT EXISTS idx_wp_review_status ON writing_prompts(review_status
 
 ## CURRENT STATUS
 
-**Last worked on:** 2026-08-26 — VIC review round 5 closed, both exams.
+**Last worked on:** 2026-08-29 — VIC review round 6 closed.
+
+**ROUND 6 IS CLOSED (2026-08-29).** Two reviewer flags, both on figures round 5 had
+already redrawn and cleared: the "?" on `25bbe5a8` sat nearer (−2, 0) than the vertex it
+names, and `0ac8b411` printed "65°" and "b" beside a crossing that makes eight angles and
+marked none of them. Record in `pdfs/figure_correctness_TASK.md` (ROUND 6).
+
+**The round's finding: "the gate is clean", "the figure agrees with the stem" and "a
+reader can use it" are three claims.** Round 5 separated the first two. Both round-6
+figures pass every hygiene check AND `plotted_geometry_matches_stem` — the geometry is
+right and the picture is unreadable anyway. Four new BLOCKING checks:
+`unknown_marker_far_from_point` (1 hit — the flagged one), `angle_named_without_arc`
+(42 across 36 forms), `label_too_faint` (41), `polygon_sides_disagree_with_stem` (1).
+
+**86 figures repaired; bank-wide figure findings 238 → 143 with nothing newly firing.**
+Arcs are DERIVED, never placed: `figure_lib` reads the figure's own segments, finds the
+vertex nearest the label and the sector the label already sits in, and draws between the
+two rays bounding it — so an arc cannot land on an angle other than the one named.
+`tools/repair_angle_arcs.py` 42 marked / 0 declined / 0 rolled back,
+`tools/repair_faint_labels.py` 41, `tools/repair_vic_round6_figures.py` 3 redrawn.
+
+**Three defects nobody had reported, found by reading the figures rather than by the
+flags.** 41 figures print what the student needs at `fill-opacity` .18 — one of them asks
+for y from three interior angles all drawn as watermarks, so it is unanswerable as
+rendered. A "regular octagon" is drawn with TEN sides, and 144° — the answer for a
+decagon — is sitting there as option A. And `dad3322d` draws the apex whose angle the
+question asks for at y = −23 in a viewBox 190 tall, off the canvas entirely.
+
+**A right-angle square is drawn only where the LABEL says 90.** The first pass took it
+from the drawn geometry, and these figures are not to scale: it marked a 110° corner
+square, and marked the unknown "?°" corner of the same quadrilateral square when the
+answer is 70°. A convention that carries information can also carry a wrong answer.
+
+**Measured and NOT actioned: 45 figures have a text box past the viewBox edge**
+(`year9_maths` 17). `_text_box` estimates width from a character count and runs about a
+quarter narrow, so at the edge it cannot tell a clipped label from a tight one. Fix the
+width model before building that check.
+
+**Previously:** 2026-08-26 — VIC review round 5 closed, both exams.
 
 **ROUND 5 IS CLOSED (2026-08-26).** All twelve reviewer flags repaired: ten VIC
 quantitative figures and two NSW Thinking Skills taxonomy calls. Record and reasoning in

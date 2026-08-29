@@ -621,6 +621,34 @@ def _seg_box_gap(seg, bx0, by0, bx1, by1):
     return best
 
 
+def _label_offset(ux, uy, text, size=13, gap=10.0):
+    """Push a label out until its NEAREST EDGE clears the point by `gap`.
+
+    "the question mark should be closer to the fourth vertex because right now it
+    looks like its sat on -2,0." The offset used to be a fixed 30 px measured to the
+    label's CENTRE -- right for the six-character "(3, 0)", whose near edge then
+    lands 8 px from its dot, and a whole grid cell too far for a one-character "?",
+    which landed squarely on the neighbouring lattice point.
+
+    A label's distance from its point is a property of its EDGE, so that is what is
+    held constant. "(3, 0)" barely moves; "?" comes in by half a cell.
+    """
+    n = max((ux * ux + uy * uy) ** 0.5, 1e-9)
+    ux, uy = ux / n, uy / n
+    hw, top, bot = len(text) * size * 0.55 / 2, size * 0.8, size * 0.25
+    lo, hi = 0.0, 120.0
+    for _ in range(40):
+        t = (lo + hi) / 2
+        cx, cy = ux * t, uy * t
+        dx = max(cx - hw, 0.0, -(cx + hw))
+        dy = max(cy - top, 0.0, -(cy + bot))
+        if (dx * dx + dy * dy) ** 0.5 < gap:
+            lo = t
+        else:
+            hi = t
+    return ux * hi, uy * hi
+
+
 def plane(points=None, lines=None, polygon=None, xr=(-4, 4), yr=(-4, 4), cell=30,
           pad=22, dots=True, label_off=(11, -8)):
     """A four-quadrant coordinate plane where everything derives from one mapping.
@@ -771,7 +799,7 @@ def plane(points=None, lines=None, polygon=None, xr=(-4, 4), yr=(-4, 4), cell=30
     # inside the square -- the "?" naming the answer printed over the very edge that
     # leads to it -- which is the same fault the reviewer raised against a triangle:
     # "put the figure's dimension outside the triangle". Push each label away from the
-    # polygon's centre instead.
+    # polygon's centre instead, by its own WIDTH: see _label_offset.
     cen = None
     if polygon:
         cen = (sum(q[0] for q in polygon) / len(polygon),
@@ -792,14 +820,15 @@ def plane(points=None, lines=None, polygon=None, xr=(-4, 4), yr=(-4, 4), cell=30
             else:
                 vx, vy = x - cen[0], y - cen[1]
                 n = max((vx * vx + vy * vy) ** 0.5, 1e-9)
-                dx, dy = 26 * vx / n, -18 * vy / n + 4
+                ux, uy = vx / n, -vy / n
                 # A vertex sitting ON an axis has the axis's own numbers directly
                 # outward of it, so "outward" collides with the tick row: (3, 0) landed
                 # on the "3" beneath it. Send those labels along the axis instead.
                 if y == 0:
-                    dx, dy = 30 * (1 if vx >= 0 else -1), -12
+                    ux, uy = (1 if vx >= 0 else -1), -0.4
                 elif x == 0:
-                    dx, dy = 34 * (1 if vx >= 0 else -1), -14 if vy >= 0 else 16
+                    ux, uy = (1 if vx >= 0 else -1), (-0.4 if vy >= 0 else 0.5)
+                dx, dy = _label_offset(ux, uy, name)
             plab.append(f'<text x="{cx + dx:.0f}" y="{cy + dy:.0f}" font-size="13" '
                         f'text-anchor="middle">{name}</text>')
     if plab:
@@ -946,3 +975,344 @@ def trapezium(top, bottom, height, top_label=None, bottom_label=None,
     if bottom_label:
         b.append(txt(cx, by + 22, bottom_label, 13))
     return svg("".join(b), vb=f"0 0 {max(vw, max(tw, bw) + 2 * pad):.0f} {vh:.0f}")
+
+
+# ------------------------------------------------------------------ angle marks
+# "For all of the angle-related questions, make sure there is a small angle arc to
+# signal this is the angle being mentioned." (VIC review round 6, 2026-08-27.)
+#
+# Eight angles meet at the two vertices of a transversal crossing two parallel lines.
+# A figure that prints a bare "65°" beside one of them and a bare "b" beside another
+# has named neither. The stem says "as shown"; nothing is shown.
+#
+# These derive the mark from the figure's OWN segments -- which lines meet at which
+# vertex, and which sector the label is sitting in -- so an arc cannot be drawn on an
+# angle other than the one the label already names. That is the same principle as
+# `plane` and `right_triangle`: one source for the picture and the words.
+
+_SEG_LINE = re.compile(r"<line[^>]*\bx1=[\'\"]([-\d.]+)[\'\"][^>]*\by1=[\'\"]([-\d.]+)"
+                       r"[\'\"][^>]*\bx2=[\'\"]([-\d.]+)[\'\"][^>]*\by2=[\'\"]([-\d.]+)")
+_SEG_POLY = re.compile(r"<(polygon|polyline)[^>]*\bpoints=[\'\"]([^\'\"]+)[\'\"]")
+_SEG_PATH = re.compile(r"<path[^>]*\bd=[\'\"]([^\'\"]+)[\'\"]")
+
+
+def figure_segments(svg_text):
+    """Every straight segment the figure draws, as ((x1,y1),(x2,y2)).
+
+    Gridline and tick paths are included and then filtered by the caller through the
+    vertex-distance limit -- excluding them here would drop the axes of a coordinate
+    figure, which are exactly the rays some angles are measured from.
+    """
+    segs = []
+    for m in _SEG_LINE.finditer(svg_text):
+        a, b, c, d = (float(g) for g in m.groups())
+        segs.append(((a, b), (c, d)))
+    for kind, raw in _SEG_POLY.findall(svg_text):
+        try:
+            nums = [float(n) for n in raw.replace(",", " ").replace("−", "-").split()]
+        except ValueError:
+            continue
+        pts = list(zip(nums[0::2], nums[1::2]))
+        if len(pts) < 2:
+            continue
+        if kind == "polygon":
+            pts = pts + [pts[0]]
+        segs += [(pts[i], pts[i + 1]) for i in range(len(pts) - 1)]
+    for d in _SEG_PATH.findall(svg_text):
+        if "A" in d.upper():
+            continue                       # an arc is a mark, not a ray
+        cur = start = None
+        # Z closes the path. Dropping it cost the third side of every triangle drawn
+        # as "M.. L.. L.. Z", which left its first vertex with a single ray -- so the
+        # corner the question asked about had no angle to measure and went unmarked.
+        for mm in re.finditer(r"([MLHVZmlhvz])\s*([-\d., ]*)", d):
+            cmd, args = mm.group(1), [float(n) for n in
+                                      re.findall(r"-?\d+(?:\.\d+)?", mm.group(2))]
+            if cmd in "Zz":
+                if cur and start and math.dist(cur, start) > 2:
+                    segs.append((cur, start))
+                cur = start
+            elif cmd in "Mm" and len(args) >= 2:
+                cur = start = (args[0], args[1])
+            elif cmd in "Ll" and len(args) >= 2 and cur:
+                segs.append((cur, (args[0], args[1])))
+                cur = (args[0], args[1])
+            elif cmd in "Hh" and args and cur:
+                segs.append((cur, (args[0], cur[1])))
+                cur = (args[0], cur[1])
+            elif cmd in "Vv" and args and cur:
+                segs.append((cur, (cur[0], args[0])))
+                cur = (cur[0], args[0])
+    return [s for s in segs if math.dist(*s) > 2]
+
+
+def _intersect(s1, s2):
+    (x1, y1), (x2, y2) = s1
+    (x3, y3), (x4, y4) = s2
+    den = (x1 - x2) * (y3 - y4) - (y1 - y2) * (x3 - x4)
+    if abs(den) < 1e-9:
+        return None
+    t = ((x1 - x3) * (y3 - y4) - (y1 - y3) * (x3 - x4)) / den
+    u = ((x1 - x3) * (y1 - y2) - (y1 - y3) * (x1 - x2)) / den
+    if -0.02 <= t <= 1.02 and -0.02 <= u <= 1.02:
+        return (x1 + t * (x2 - x1), y1 + t * (y2 - y1))
+    return None
+
+
+def _rays_at(segs, v, eps=2.0):
+    """Directions running out of v along the segments that touch it.
+
+    A segment PASSING THROUGH v contributes two rays, which is the whole reason a
+    transversal makes four angles at each crossing rather than one.
+    """
+    out = []
+    for (a, b) in segs:
+        for end, other in ((a, b), (b, a)):
+            if math.dist(end, v) <= eps and math.dist(other, v) > eps:
+                out.append((math.atan2(other[1] - v[1], other[0] - v[0]),
+                            math.dist(other, v)))
+        # interior point
+        d = _dist_point_seg(v, a, b)
+        if d <= eps and math.dist(a, v) > eps and math.dist(b, v) > eps:
+            for other in (a, b):
+                out.append((math.atan2(other[1] - v[1], other[0] - v[0]),
+                            math.dist(other, v)))
+    uniq = []
+    for ang, ln in sorted(out):
+        if not any(abs((ang - a2 + math.pi) % (2 * math.pi) - math.pi) < 0.05
+                   for a2, _ in uniq):
+            uniq.append((ang, ln))
+    return uniq
+
+
+def _dist_point_seg(p, a, b):
+    ax, ay = a
+    bx, by = b
+    dx, dy = bx - ax, by - ay
+    n = dx * dx + dy * dy
+    if n < 1e-9:
+        return math.dist(p, a)
+    t = max(0.0, min(1.0, ((p[0] - ax) * dx + (p[1] - ay) * dy) / n))
+    return math.dist(p, (ax + t * dx, ay + t * dy))
+
+
+def angle_at_label(svg_text, box, reach=72.0):
+    """Which angle a label names: (vertex, ray_a, ray_b, radius_room) or None.
+
+    `box` is a `question_checks._text_box`. Returns None -- NEEDS A HUMAN, never a
+    silent pass -- when the label is not inside exactly one sector of one vertex.
+    An octagon's "?°" printed at its centre is the case that matters: it names an
+    interior angle without saying which, and no amount of geometry decides that.
+    """
+    segs = figure_segments(svg_text)
+    if not segs:
+        return None
+    lx, ly = (box[0] + box[2]) / 2, (box[1] + box[3]) / 2
+    verts = []
+    for (a, b) in segs:
+        verts += [a, b]
+    for i in range(len(segs)):
+        for j in range(i + 1, len(segs)):
+            p = _intersect(segs[i], segs[j])
+            if p:
+                verts.append(p)
+    cand = [v for v in verts if math.dist((lx, ly), v) <= reach]
+    if not cand:
+        return None
+    for v in sorted(cand, key=lambda p: math.dist((lx, ly), p)):
+        rays = _rays_at(segs, v)
+        if len(rays) < 2:
+            continue
+        want = math.atan2(ly - v[1], lx - v[0])
+        angs = sorted(a for a, _ in rays)
+        for i, a1 in enumerate(angs):
+            a2 = angs[(i + 1) % len(angs)]
+            span = (a2 - a1) % (2 * math.pi)
+            if span < 0.05 or span > math.pi + 0.05:
+                continue
+            if (want - a1) % (2 * math.pi) < span:
+                # Reach is the shorter of the two rays BOUNDING this sector, not the
+                # shortest ray at the vertex. A dimension tick or a right-angle
+                # square ending near the vertex is not one of the angle's arms, and
+                # letting it set the radius drew a 9 px arc on a full-page triangle.
+                arms = [l for a, l in rays if abs((a - a1 + math.pi) % (2 * math.pi)
+                                                  - math.pi) < 0.02
+                        or abs((a - a2 + math.pi) % (2 * math.pi) - math.pi) < 0.02]
+                return (v, a1, a2, min(arms) if arms else min(l for _, l in rays))
+    return None
+
+
+def interior_angle_at(svg_text, box, reach=90.0):
+    """The angle a label MEANT, when the label was drawn outside the shape.
+
+    Round 5 recorded the convention -- "angle values always within the shape, arc
+    always present" -- into `figure_lib`, but the Gemini-era books never went
+    through it, and a quarter of the figures that name an angle print the number
+    just OUTSIDE the corner it belongs to. `angle_at_label` correctly declines
+    those: no sector of that vertex contains the label, so nothing says which angle
+    is meant.
+
+    Here the shape decides instead. At the vertex nearest the label, the interior
+    sector is the one whose bisector points back toward the middle of the figure --
+    which is the angle a reader reads the number as naming anyway. Returns
+    (vertex, ray_a, ray_b, reach) like `angle_at_label`.
+    """
+    segs = figure_segments(svg_text)
+    if not segs:
+        return None
+    lx, ly = (box[0] + box[2]) / 2, (box[1] + box[3]) / 2
+    verts = [p for s in segs for p in s]
+    for i in range(len(segs)):
+        for j in range(i + 1, len(segs)):
+            p = _intersect(segs[i], segs[j])
+            if p:
+                verts.append(p)
+    if not verts:
+        return None
+    shapes = []
+    for _kind, raw in _SEG_POLY.findall(svg_text):
+        try:
+            nums = [float(n) for n in raw.replace(",", " ").replace("−", "-").split()]
+        except ValueError:
+            continue
+        pts = list(zip(nums[0::2], nums[1::2]))
+        if len(pts) >= 3:
+            shapes.append(pts)
+
+    def middle(v):
+        """Inward is toward the middle of the SHAPE this vertex belongs to.
+
+        Two triangles sharing a side put the figure's overall centroid outside
+        both of them, so p and s -- the apexes -- had no sector facing it and
+        went unmarked. A vertex belongs to its own polygon.
+        """
+        for pts in shapes:
+            if any(math.dist(v, p) < 2 for p in pts):
+                return (sum(p[0] for p in pts) / len(pts),
+                        sum(p[1] for p in pts) / len(pts))
+        return (sum(p[0] for p in verts) / len(verts),
+                sum(p[1] for p in verts) / len(verts))
+
+    for v in sorted(verts, key=lambda p: math.dist((lx, ly), p)):
+        if math.dist((lx, ly), v) > reach:
+            break
+        rays = _rays_at(segs, v)
+        if len(rays) < 2:
+            continue
+        mid = middle(v)
+        inward = math.atan2(mid[1] - v[1], mid[0] - v[0])
+        angs = sorted(a for a, _ in rays)
+        for i, a1 in enumerate(angs):
+            a2 = angs[(i + 1) % len(angs)]
+            span = (a2 - a1) % (2 * math.pi)
+            if span < 0.05 or span > math.pi + 0.05:
+                continue
+            if (inward - a1) % (2 * math.pi) < span:
+                arms = [l for a, l in rays
+                        if abs((a - a1 + math.pi) % (2 * math.pi) - math.pi) < 0.02
+                        or abs((a - a2 + math.pi) % (2 * math.pi) - math.pi) < 0.02]
+                return (v, a1, a2, min(arms) if arms else min(l for _, l in rays))
+    return None
+
+
+def label_on_bisector(v, a1, a2, box, r, clear=9.0, pad=3.0):
+    """Put a label on the sector's bisector, just beyond the arc.
+
+    Used when the label has to MOVE rather than merely make room -- it was outside
+    the shape and is being brought in.
+    """
+    box = (box[0] - pad, box[1] - pad, box[2] + pad, box[3] + pad)
+    span = (a2 - a1) % (2 * math.pi)
+    bis = a1 + span / 2
+    hw, hh = (box[2] - box[0]) / 2, (box[3] - box[1]) / 2
+    lo, hi = 0.0, 240.0
+    for _ in range(44):
+        t = (lo + hi) / 2
+        cx, cy = v[0] + t * math.cos(bis), v[1] + t * math.sin(bis)
+        if box_gap((cx - hw, cy - hh, cx + hw, cy + hh), *v) < r + clear:
+            lo = t
+        else:
+            hi = t
+    return (v[0] + hi * math.cos(bis), v[1] + hi * math.sin(bis))
+
+
+def box_gap(box, x, y):
+    """Distance from a point to a text box, 0 inside it."""
+    bx0, by0, bx1, by1 = box[:4]
+    dx = max(bx0 - x, 0.0, x - bx1)
+    dy = max(by0 - y, 0.0, y - by1)
+    return math.hypot(dx, dy)
+
+
+def arc_radius(reach):
+    """One radius rule, so the label placement and the arc cannot disagree."""
+    return max(9.0, min(20.0, 0.30 * reach))
+
+
+def label_clear_of_arc(v, a1, a2, box, r, clear=9.0, pad=3.0):
+    """Where the label has to move to so the arc does not strike through it.
+
+    First cut sized the ARC to miss the label, with a floor under the radius --
+    which meant that for a label sitting 12 px from its vertex the floor won and
+    the arc was drawn straight through the text. Three of the thirty-two came back
+    with "50°" and "a°" struck out. The label is the thing that moves: an angle
+    label belongs OUTSIDE its arc, on the bisector, which is where a textbook puts
+    it anyway.
+    """
+    # The box is estimated from a character count, which runs about a quarter narrow
+    # on digits and a degree sign -- so "52 deg" cleared the arc on paper and the
+    # rendered glyphs still crossed it. Pad before deciding, and again when placing.
+    box = (box[0] - pad, box[1] - pad, box[2] + pad, box[3] + pad)
+    if box_gap(box, *v) >= r + clear:
+        return None
+    span = (a2 - a1) % (2 * math.pi)
+    bis = a1 + span / 2
+    hw, hh = (box[2] - box[0]) / 2, (box[3] - box[1]) / 2
+    lo, hi = 0.0, 200.0
+    for _ in range(40):
+        t = (lo + hi) / 2
+        cx, cy = v[0] + t * math.cos(bis), v[1] + t * math.sin(bis)
+        shifted = (cx - hw, cy - hh, cx + hw, cy + hh)
+        if box_gap(shifted, *v) < r + clear:
+            lo = t
+        else:
+            hi = t
+    t = hi
+    return (v[0] + t * math.cos(bis), v[1] + t * math.sin(bis))
+
+
+def angle_mark(v, a1, a2, r, colour="currentColor", square_tol=0.035, label=""):
+    """The SVG for one angle mark: a square if it is a right angle, else an arc.
+
+    A right angle is drawn as a square by every textbook the students use, so an arc
+    there would read as "not 90°" -- the convention carries information. Which is
+    exactly why the DRAWN angle cannot decide it. A quadrilateral captioned 85, 95,
+    110 and ? was drawn with two corners within two degrees of square, and marking
+    those got a right-angle symbol printed on the 110 degree corner -- the figure
+    asserting something the question denies. A square is drawn only where the label
+    says 90, or where there is no number to contradict it.
+    """
+    span = (a2 - a1) % (2 * math.pi)
+    if r < 8.0:
+        return None
+    # A square where the label says 90, or where there is no label to contradict it.
+    # NOT merely "no digits": the unknown corner of that quadrilateral is labelled
+    # "?°", is drawn square, and is 70 degrees -- a square there hands the student a
+    # wrong answer off the picture.
+    says_90 = re.fullmatch(r"\s*90\s*°?\s*", label or "") is not None
+    if abs(span - math.pi / 2) < square_tol and (says_90 or not (label or "").strip()):
+        s = min(r, 13.0)
+        p1 = (v[0] + s * math.cos(a1), v[1] + s * math.sin(a1))
+        p2 = (v[0] + s * math.cos(a2), v[1] + s * math.sin(a2))
+        cx = p1[0] + p2[0] - v[0]
+        cy = p1[1] + p2[1] - v[1]
+        return (f'<path d="M{p1[0]:.1f} {p1[1]:.1f}L{cx:.1f} {cy:.1f}'
+                f'L{p2[0]:.1f} {p2[1]:.1f}" fill="none" stroke="{colour}" '
+                f'stroke-width="1.3"/>')
+    x1, y1 = v[0] + r * math.cos(a1), v[1] + r * math.sin(a1)
+    x2, y2 = v[0] + r * math.cos(a2), v[1] + r * math.sin(a2)
+    # Endpoints are placed from ONE radius and the sweep flag is chosen from the
+    # sector's own direction, which is what `angle_arc_malformed` measures: an arc
+    # whose ends are a fifth of a pixel apart in radius bulges through the edge.
+    return (f'<path d="M{x1:.1f} {y1:.1f}A{r:.1f} {r:.1f} 0 0 1 {x2:.1f} {y2:.1f}" '
+            f'fill="none" stroke="{colour}" stroke-width="1.3"/>')

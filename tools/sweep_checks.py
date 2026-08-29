@@ -93,14 +93,18 @@ def per_question(q: dict) -> list[tuple[str, str]]:
     for _name in ("negative_count", "no_question_asked", "compounding_needs_calculator",
                   "rounds_without_saying_so", "multi_letter_variable",
                   "asks_rationale_not_skill", "caret_power_notation",
-                  "figure_proportions_disagree"):
+                  "figure_proportions_disagree", "plotted_geometry_matches_stem",
+                  "rounds_without_saying_so", "angle_named_without_arc",
+                  "polygon_sides_disagree_with_stem"):
         if (m := getattr(qc, _name)(q)):
             hits.append((_name, m))
     if q.get("figure_svg"):
         for _name in ("doubled_circle_outline", "overlapping_text_labels",
                       "plotted_points_inconsistent", "text_overlaps_geometry",
                       "axes_unlabelled", "angle_arc_malformed",
-                      "axis_scale_nonlinear", "coordinate_figure_without_grid"):
+                      "axis_scale_nonlinear", "coordinate_figure_without_grid",
+                      "gridlines_off_the_ticks", "unknown_marker_far_from_point",
+                      "label_too_faint"):
             if (m := getattr(qc, _name)(q["figure_svg"])):
                 hits.append((_name, m))
     for name, fn in (("doubled_token_errors", qc.doubled_token_errors),
