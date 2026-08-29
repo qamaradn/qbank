@@ -293,3 +293,93 @@ lines they had been printed over. Nothing regressed.
 **Still open from round 5, unchanged by this round:** `plotted_geometry_matches_stem`
 16 and `rounds_without_saying_so` 14 over the whole bank. Both are BLOCKING and both
 still gate the next push.
+
+---
+
+# RELEASE GATE — 2026-08-29: THE TOOLS WERE THE PROBLEM
+
+Fifty drill forms were selected for the first reviewer release, ten per component.
+`gate_forms` refused them on sixteen questions. Only six were figure defects the
+existing repair tools could not have fixed. The other ten were blocked because the
+tools meant to fix them **did not work**, and had not for months.
+
+## THREE LATENT BUGS, EACH SILENT
+
+**`repair_label_collisions` could not move a label vertically.** Its coordinate
+pattern was
+
+    \bx=(['"])([-\d.]+)\1|\by=(['"])([-\d.]+)\1
+
+The y alternative closes on `\1` — the *quote* group of the **x** alternative, which
+never participates when the y branch is taken, so the backreference could not match
+and `y=` was never found. Every vertical offset in its candidate list was a no-op.
+The tool has only ever been able to slide a label sideways. This is why the P(4, 4)
+label "took three attempts" in round 2, and why three labels here looked unfixable.
+
+Two more faults in the same function: it read only the FIRST quoted name out of
+"labels 'A' and 'B' overlap", so the only candidate it ever tried was whichever the
+message named first — and for a label-vs-tick collision that is the tick, the one
+thing that must not move. And most labels in these books are drawn TWICE, a thick
+white stroke behind the glyphs so they stay readable over a gridline; moving one of
+the pair left the other in place and the collision survived every offset.
+
+**`repair_add_gridlines` created the defect it exists to prevent.** It placed the
+grid on the tick LABELS. A label's x is its anchor and its y is a baseline ~5 px
+off the mark it names, so every line landed beside the tick it was supposed to
+index — `gridlines_off_the_ticks`, written in round 5 for exactly this. Running the
+tool on three figures introduced three new gate failures. It now reads the tick
+MARKS, refuses a figure whose axis is not to a constant scale (a grid from a broken
+mapping is confidently wrong everywhere), and spaces lines at the tick interval
+rather than one unit of the mapping — which had drawn a line every kilogram on an
+axis labelled every five.
+
+**`_axis_ticks` lost whole axes and invented others.** Bucketing by `round(x/6)`
+split a y column right-aligned at x=124 and x=120 into two groups of two; neither
+reached the three a fit needs, so a figure with a perfectly good y-axis read as
+having none and `plotted_geometry_matches_stem` could not judge it. The origin's
+"0" was counted into BOTH axes, so a linear axis read as advancing 38 px then 25 px
+per unit. And numbers printed inside drawn CELLS were taken for ticks — a dice net
+numbered 1 to 6 was blocked as a nonlinear y-axis.
+
+`angle_named_without_arc` had the same shape of fault: measured from the label's
+CENTRE, so a 66 px label in a 51° sector could never be within any fixed tolerance
+however correctly it was placed. It measures from the edge now.
+
+## THE RULE
+
+**A repair tool needs the same evidence as a question.** Each of these ran, printed
+a plausible line, recorded a manifest and changed nothing that mattered — or made
+things worse. Nothing checked that the nudge moved the label, that the grid landed
+on the ticks, or that the axis it read was the axis on the page. Round 5 said a
+repair script must re-run the checks on its own output and roll back; that catches
+a bad *write*, and it did not catch a tool whose writes were empty or whose fault
+the checks shared.
+
+## THE TEN QUESTIONS
+
+Each re-verified against its own key before its explanation or figure changed.
+
+| id | what was wrong |
+|---|---|
+| `57c749c2` | y ticks read 0, 5, 15 against marks 50 px apart |
+| `c9b7e9f0` | y ticks 40, 80, 110, 120 for marks 40, 40 and 20 px apart; the line ends at 140 km when stem and key both say 120 |
+| `7c472f4d` | grid drawn on the labels, 5 px off its own marks |
+| `d6b5e934` | "a number line represents the dial of a linear scale", drawn 0,5,10,15,17,20,30,40 all one tick apart — and reading the scale IS the question |
+| `de533ba1` | a Bézier curve standing in for the parabola, (0, −3) drawn ABOVE the x-axis |
+| `c06d73c2` | the (3x + 15)° label sitting on the line whose angle it names |
+| `33b467f9` | 120 passengers, +15%, −10% = 124.2 people. Re-cut to +25% then −10% = 135, exact |
+| `58913efa` | 96 apartments, 65% remaining = 62.4. Re-cut to 25% sold |
+| `537e27da` | counters and "zero pairs" — a classroom manipulative. Re-cut to a temperature context; all four options and the key unchanged |
+| `79ea44bf` | "Consider the following: '…'" and four options. The stem never asks anything |
+
+## RESULT
+
+| | |
+|---|---:|
+| forms released | 50 (10 per component) |
+| questions live | 1,325 |
+| push | `inserted=785 skipped=0 errors=0` |
+| confirmed live by reading production back | 1,325 / 1,325 |
+| unaddressable rows in those categories | 0 |
+| both gates | all clear |
+| tests | 275 passing |

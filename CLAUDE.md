@@ -876,7 +876,51 @@ CREATE INDEX IF NOT EXISTS idx_wp_review_status ON writing_prompts(review_status
 
 ## CURRENT STATUS
 
-**Last worked on:** 2026-08-29 — VIC review round 6 closed AND PUSHED.
+**Last worked on:** 2026-08-29 — FIFTY DRILL FORMS RELEASED TO THE REVIEWER.
+
+**1,325 questions across 50 forms are live and verified (2026-08-29).** Ten forms per
+component: `vic-drill-mq-001..010`, `vic-drill-rv-001..010`, `nsw-drill-math-001..010`,
+`nsw-drill-read-001..010`, `nsw-drill-ts-001..010`. Push was `inserted=785 skipped=0
+errors=0` over 20 batches (779 new, 6 changed), tracked total 546 → 1,325. Verified by
+reading production back per category: **1,325 of 1,325 confirmed live, 0 unaddressable.**
+The one extra live mathematics row is a rejected "zero pairs" question already
+`active=false` — the withdrawal pass had done its job.
+
+`tools/approve_forms.py` set those 1,325 to `approved`; the other 6,306 form-carrying
+questions stay `pending`. **Approval here means "reachable by the reviewer", not
+"reviewed"** — that is what the tool is for and it is revertible via `--revert`.
+
+**Both gates read "all clear — safe to push" before the release.** They did not at the
+start: 16 blocking failures. Clearing them found more in the TOOLING than in the
+questions, recorded in `pdfs/figure_correctness_TASK.md` (RELEASE GATE):
+
+- `repair_label_collisions` **could not move a label vertically at all.** Its x/y pattern
+  closed the y alternative on `\1`, the *quote* group of the x alternative, which never
+  participates when the y branch is taken — so `y=` never matched and every vertical
+  offset was a silent no-op. It also read only the first quoted name from "labels 'A' and
+  'B' overlap", so the only candidate ever tried was the one named first, which for an
+  axis tick is the one that must NOT move; and it moved one of the halo/glyph pair most
+  labels are drawn as, leaving the other behind.
+- `repair_add_gridlines` **drew grids onto tick LABELS**, which sit ~5 px off the marks
+  they name — creating `gridlines_off_the_ticks`, the exact defect round 5 wrote that
+  check to catch. It now uses tick MARKS, refuses a figure whose axis is not to a constant
+  scale, and spaces lines at the tick interval rather than one mapping unit.
+- `_axis_ticks` bucketed by `round(x/6)`, so a y column right-aligned at x=124 and x=120
+  split into two groups of two and a figure with a good y-axis read as having none. The
+  origin's "0" was counted into BOTH axes, making a linear axis read as nonlinear. Numbers
+  inside drawn CELLS are excluded now — a dice net numbered 1 to 6 was being read as a
+  y-axis.
+- `angle_named_without_arc` measured from the label's CENTRE, so a 66 px label in a 51°
+  sector could never be within any fixed tolerance however correctly placed. Edge now.
+
+**Ten questions repaired in `tools/repair_vic_round7_release.py`**, each re-verified
+against its own key: two charts whose y ticks did not advance with their pixels (one drew
+its line to 140 km when the stem says 120), a "linear scale" numbered 0,5,10,15,17,20,30,40
+all one tick apart, a Bézier curve standing in for a parabola with (0,−3) drawn ABOVE the
+x-axis, two questions whose answers were 124.2 people and 62.4 apartments, a question
+about counters and "zero pairs", and a stem that never asked anything.
+
+**Previously:** 2026-08-29 — VIC review round 6 closed AND PUSHED.
 
 **SELECTLY ADDRESSABILITY IS LIVE — the entry below that calls it "written and undeployed"
 was stale and is corrected here (verified 2026-08-29).** `c52ffa9` is on `origin/main`
