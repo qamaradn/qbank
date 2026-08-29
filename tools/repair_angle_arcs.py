@@ -69,7 +69,12 @@ def figure_state(svg: str) -> set[str]:
         except Exception as exc:                      # a check that dies is news
             out.add(f"{name}:crashed:{exc}")
     for e in qc.figure_svg_errors(svg) or []:
-        out.add(f"figure_svg_errors:{e}")
+        # The size warning carries the exact byte count, so ANY edit changes the
+        # string and the guard reads it as a brand-new finding. Seventeen correct
+        # repairs were refused on that alone. Compare the KIND of finding, not its
+        # measurement.
+        out.add("figure_svg_errors:oversize" if "bytes" in e
+                else f"figure_svg_errors:{e}")
     return out
 
 

@@ -2379,6 +2379,42 @@ _FAINT_TEXT = re.compile(r"<text[^>]*?fill-opacity=[\'\"]([\d.]+)[\'\"][^>]*>([^
 _ANY_CIRCLE = re.compile(r"<circle[^>]*>")
 
 
+def text_outside_the_canvas(svg, tol=0.5):
+    """A label drawn past the top or bottom of the viewBox, so it is cut off.
+
+    "Hexagon (9 diagonals)" and "Octagon (? diagonals)" both sit 8 px below the
+    bottom edge of their figure. A browser does not draw what is outside the
+    viewBox, so the reader gets two headless captions and no way to tell the two
+    polygons apart.
+
+    TOP AND BOTTOM ONLY, deliberately. `_text_box` estimates a label's WIDTH from
+    its character count and runs about a quarter narrow, so at the left or right
+    edge it cannot separate a clipped label from a tight one -- round 6 measured
+    that and declined to act, correctly. But it applied the doubt to both
+    directions when it only belongs to one: a box's vertical extent is the
+    baseline plus the font size, with no character count in it anywhere.
+    """
+    if not svg:
+        return None
+    m = re.search(r'viewBox\s*=\s*[\'"]([^\'"]+)[\'"]', svg)
+    if not m:
+        return None
+    try:
+        _x0, y0, _w, h = (float(v) for v in m.group(1).split())
+    except ValueError:
+        return None
+    for tm in _TEXT.finditer(svg):
+        b = _text_box(tm)
+        if not b:
+            continue
+        over = max(b[3] - (y0 + h), y0 - b[1])
+        if over > tol:
+            where = "below the bottom" if b[3] > y0 + h else "above the top"
+            return (f"label {b[4]!r} is drawn {over:.0f} px {where} of the "
+                    f"viewBox, so it is cut off")
+    return None
+
+
 def label_too_faint(svg, floor=0.4):
     """A label or a plotted point a student needs, drawn at watermark opacity.
 

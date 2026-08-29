@@ -104,7 +104,8 @@ def per_question(q: dict) -> list[tuple[str, str]]:
                       "axes_unlabelled", "angle_arc_malformed",
                       "axis_scale_nonlinear", "coordinate_figure_without_grid",
                       "gridlines_off_the_ticks", "unknown_marker_far_from_point",
-                      "label_too_faint", "undefined_marker_reference"):
+                      "label_too_faint", "undefined_marker_reference",
+                      "text_outside_the_canvas"):
             if (m := getattr(qc, _name)(q["figure_svg"])):
                 hits.append((_name, m))
     for name, fn in (("doubled_token_errors", qc.doubled_token_errors),
