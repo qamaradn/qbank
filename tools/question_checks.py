@@ -216,6 +216,35 @@ _PAINT_VALUE = re.compile(r'(?:fill|stroke|stop-color|style)\s*=\s*[\'"]([^\'"]*
 _HALO_LAYER = re.compile(r"<g[^>]*\baria-hidden=['\"]true['\"][^>]*>.*?</g>", re.S)
 
 
+_LATEX = re.compile(
+    r"\\[()\[\]]"                                   # \( \) \[ \]
+    r"|\\(?:dfrac|frac|sqrt|text|times|div|cdot|pi|circ|angle|neq|leq|geq|le|ge"
+    r"|left|right|begin|end|overline|mathrm|displaystyle)\b"
+    # $...$ only where something inside it is a LaTeX command. A stem about a
+    # $180 phone that later mentions $18 of GST is not maths markup, and matching
+    # bare dollar signs put 388 perfectly good money questions on the list.
+    r"|\$[^$\n]*\\[a-zA-Z]+[^$\n]*\$")
+
+
+def latex_markup_in_text(q):
+    """LaTeX left in a field that is rendered as plain text.
+
+    "Why are the answer options all having like strange symbol things on them?" and
+    "Again weird $ signs on the answers." A student is offered
+    `$42 \text{ cm}²$` and `\(\dfrac{12}{13}\)` and has to read through the markup
+    to the number. Nothing in the pipeline renders maths: the review UI prints the
+    string and so does Selectly, so whatever the model typed is what the student sees.
+
+    The stem, the four options and the explanation are all plain-text fields.
+    """
+    for f in ("stem", "option_a", "option_b", "option_c", "option_d", "explanation"):
+        v = q.get(f)
+        if v and (m := _LATEX.search(v)):
+            return (f"{f} carries raw LaTeX ({m.group(0)!r}) — nothing renders maths, "
+                    f"so the student reads the markup")
+    return None
+
+
 def figure_svg_errors(svg, max_bytes=3500):
     """Rules an inline `figure_svg` must satisfy to render in both review and Selectly.
 
