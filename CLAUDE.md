@@ -609,24 +609,63 @@ git push git@github-personal:qamaradn/qbank.git main
 8. Never commit to main directly — feature branches only
 9. Never commit `.env` or any API key — ever
 10. Use `.venv/bin/python3.11` on VM, never bare `python` or `python3`
-11. **A gatable reviewer flag is a sweep, not a repair.** When a flag turns out to be
-    expressible as a check, run that check over the WHOLE bank — including questions no
-    reviewer has seen — and fix every instance. Every question is reviewed eventually,
-    when its form's turn comes; it should already be correct by then. Fixing ahead is
-    the job, not scope creep.
-12. **Fix quietly. Do not escalate.** The sweep's results are not a discovery to be
-    reported with a proposed action plan. They are part of closing the flag. Do not
-    raise counts as blockers, do not create out-of-band work items, do not ask which of
-    them to do. Work is sequenced BY FORM and continues in that sequence — a defect
-    found outside the current form is fixed and left; it does not reorder anything.
+11. **MEASURE WIDE, REPAIR NARROW.** (Revised 2026-08-30, replacing "a gatable flag is
+    a sweep". The old rule cost three sets of correct figures — see below.)
+
+    a. **Fix the question the reviewer flagged, exactly as described.** That is the job.
+
+    b. If the flag is expressible as a check, write it and run it over the whole bank
+       **to COUNT ONLY.** Measuring is read-only and cannot break anything. Report the
+       number — it is the only thing that distinguishes one bad figure from a broken
+       generator, and a generator fault will keep producing them in whatever is
+       authored next.
+
+    c. **Repair beyond the flagged question ONLY when the repair is ADDITIVE** — one
+       that can only add and cannot destroy a correct state: growing a canvas, adding
+       an arc where none exists, adding a missing arrowhead, raising opacity. Those are
+       safe to sweep.
+
+    d. **A repair that MOVES or REPLACES anything** — a label, a grid, an arc, a tick,
+       a number — runs on the FLAGGED QUESTION ONLY. List the other hits and let the
+       owner decide.
+
+    The split is not theoretical. On 2026-08-29/30 the additive sweeps ran over 214
+    figures with zero damage (canvas 128, angle arcs 42, faint labels 41, markers 3).
+    Every mutative sweep broke correct figures: the label nudger moved a y-tick ALONG
+    its own axis and made a linear scale nonlinear (3), the gridline tool drew onto
+    tick labels 5 px off their marks (3), and the arc repair stripped the mark off a
+    phi and an alpha and put nothing back (4). All were caught and reverted, but only
+    because the before/after diff and the rendered look were run every time.
+
+    e. Whatever the scope: diff the whole check state before and after and require
+       **"newly firing: none"**, and RENDER AND LOOK before applying. Three of that
+       session's defects were found only by looking and by no check at all.
+
+    f. **The human eye is the ground truth for whether a figure is right.** Every
+       figure question goes in front of a reviewer before it serves a student, so a
+       measurement is a triage signal, never a verdict.
+12. **Fix quietly. Do not escalate.** Closing a flag is not a discovery to be reported
+    with a proposed action plan. Do not raise a count as a blocker, do not create
+    out-of-band work items, do not ask which of several repairs to start. Work is
+    sequenced BY FORM and continues in that sequence — a defect found outside the
+    current form is fixed, or listed under 11d, and does not reorder anything.
+    Reporting a COUNT under 11b is not escalation: it is one line of fact, with no
+    plan attached.
 
 ### What this looks like in practice
 
-Round 5 flagged `a00cb43b` as needing algebra rather than reasoning. That is gatable:
-the test is whether two-unknown coefficients are symmetric. Sweeping found two more
-(`c99bf947`, `c61a9369`) in forms nobody has reached yet. Correct handling: re-cut all
-three, commit, say it is done. Incorrect handling: re-cut the flagged one, report the
-other two as a finding, and ask what to do about them.
+**Additive, so sweep it.** Round 6 flagged one figure for naming an angle with nothing
+marking it. Adding an arc cannot destroy a correct figure, so all 42 were marked and
+the flag closed in one pass.
+
+**Mutative, so don't.** A reviewer flags one label sitting on a line. Moving labels is
+how three correct figures got a nonlinear axis. Move the flagged one, report "31 others
+match this pattern", and stop there.
+
+**A re-cut of a question is mutative.** Round 5 flagged `a00cb43b` as needing algebra
+rather than reasoning, and two more (`c99bf947`, `c61a9369`) matched. Under the old
+rule all three were re-cut unasked. Under this one: re-cut the flagged one, say the
+other two match, and let the owner call it.
 
 ---
 
