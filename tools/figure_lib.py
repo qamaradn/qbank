@@ -1059,6 +1059,318 @@ def figure_segments(svg_text):
     return [s for s in segs if math.dist(*s) > 2]
 
 
+_OUT_RECT = re.compile(r"<rect\b[^>]*>")
+_OUT_CIRCLE = re.compile(r"<circle\b[^>]*>")
+_OUT_ELLIPSE = re.compile(r"<ellipse\b[^>]*>")
+_ATTR = re.compile(r"\b([\w-]+)\s*=\s*['\"]([^'\"]*)['\"]")
+
+
+def _attrs(tag):
+    return dict(_ATTR.findall(tag))
+
+
+def _num(d, k, default=0.0):
+    try:
+        return float(d.get(k, default))
+    except (TypeError, ValueError):
+        return default
+
+
+def _arc_points(x1, y1, rx, ry, phi, large, sweep, x2, y2, n=24):
+    """Flatten an SVG elliptical arc to a polyline. Endpoint -> centre parameterisation,
+    straight out of the SVG 1.1 implementation notes (F.6.5)."""
+    if rx == 0 or ry == 0:
+        return [(x1, y1), (x2, y2)]
+    rx, ry = abs(rx), abs(ry)
+    cosp, sinp = math.cos(phi), math.sin(phi)
+    dx2, dy2 = (x1 - x2) / 2.0, (y1 - y2) / 2.0
+    x1p = cosp * dx2 + sinp * dy2
+    y1p = -sinp * dx2 + cosp * dy2
+    lam = (x1p * x1p) / (rx * rx) + (y1p * y1p) / (ry * ry)
+    if lam > 1:
+        rx *= math.sqrt(lam)
+        ry *= math.sqrt(lam)
+    num = rx * rx * ry * ry - rx * rx * y1p * y1p - ry * ry * x1p * x1p
+    den = rx * rx * y1p * y1p + ry * ry * x1p * x1p
+    if den == 0:
+        return [(x1, y1), (x2, y2)]
+    co = math.sqrt(max(0.0, num / den))
+    if large == sweep:
+        co = -co
+    cxp = co * rx * y1p / ry
+    cyp = -co * ry * x1p / rx
+    cx = cosp * cxp - sinp * cyp + (x1 + x2) / 2.0
+    cy = sinp * cxp + cosp * cyp + (y1 + y2) / 2.0
+
+    def ang(ux, uy, vx, vy):
+        dot = ux * vx + uy * vy
+        n1 = math.hypot(ux, uy) * math.hypot(vx, vy)
+        if n1 == 0:
+            return 0.0
+        a = math.acos(max(-1.0, min(1.0, dot / n1)))
+        return -a if ux * vy - uy * vx < 0 else a
+
+    th1 = ang(1, 0, (x1p - cxp) / rx, (y1p - cyp) / ry)
+    dth = ang((x1p - cxp) / rx, (y1p - cyp) / ry,
+              (-x1p - cxp) / rx, (-y1p - cyp) / ry)
+    if not sweep and dth > 0:
+        dth -= 2 * math.pi
+    elif sweep and dth < 0:
+        dth += 2 * math.pi
+    pts = []
+    for i in range(n + 1):
+        t = th1 + dth * i / n
+        pts.append((cx + rx * math.cos(t) * cosp - ry * math.sin(t) * sinp,
+                    cy + rx * math.cos(t) * sinp + ry * math.sin(t) * cosp))
+    return pts
+
+
+def _bezier_points(p0, ctrl, n=16):
+    """Flatten a quadratic (1 control) or cubic (2 controls) Bezier to a polyline."""
+    pts = []
+    for i in range(n + 1):
+        t = i / n
+        u = 1 - t
+        if len(ctrl) == 2:
+            c, e = ctrl
+            pts.append((u * u * p0[0] + 2 * u * t * c[0] + t * t * e[0],
+                        u * u * p0[1] + 2 * u * t * c[1] + t * t * e[1]))
+        else:
+            c1, c2, e = ctrl
+            pts.append((u ** 3 * p0[0] + 3 * u * u * t * c1[0]
+                        + 3 * u * t * t * c2[0] + t ** 3 * e[0],
+                        u ** 3 * p0[1] + 3 * u * u * t * c1[1]
+                        + 3 * u * t * t * c2[1] + t ** 3 * e[1]))
+    return pts
+
+
+def _path_polyline(d):
+    """Every point a path travels through, arcs and curves flattened. Absolute and
+    relative commands both, because generated figures use whichever the author typed."""
+    segs = []
+    toks = re.findall(r"([MmLlHhVvZzAaCcQqSsTt])([^MmLlHhVvZzAaCcQqSsTt]*)", d)
+    cur = start = None
+    for cmd, raw in toks:
+        args = [float(v) for v in re.findall(r"-?\d*\.?\d+(?:[eE][-+]?\d+)?", raw)]
+        up = cmd.upper()
+        rel = cmd.islower()
+        if up == "Z":
+            if cur and start and math.dist(cur, start) > 1e-9:
+                segs.append((cur, start))
+            cur = start
+            continue
+        i = 0
+        while True:
+            if up == "M":
+                if i + 2 > len(args):
+                    break
+                pt = (args[i] + (cur[0] if rel and cur else 0),
+                      args[i + 1] + (cur[1] if rel and cur else 0))
+                if i == 0:
+                    cur = start = pt
+                else:
+                    segs.append((cur, pt))
+                    cur = pt
+                i += 2
+            elif up == "L":
+                if i + 2 > len(args) or cur is None:
+                    break
+                pt = (args[i] + (cur[0] if rel else 0), args[i + 1] + (cur[1] if rel else 0))
+                segs.append((cur, pt))
+                cur = pt
+                i += 2
+            elif up in "HV":
+                if i + 1 > len(args) or cur is None:
+                    break
+                v = args[i]
+                pt = ((v + (cur[0] if rel else 0), cur[1]) if up == "H"
+                      else (cur[0], v + (cur[1] if rel else 0)))
+                segs.append((cur, pt))
+                cur = pt
+                i += 1
+            elif up == "A":
+                if i + 7 > len(args) or cur is None:
+                    break
+                rx, ry, rot, la, sw, ex, ey = args[i:i + 7]
+                end = (ex + (cur[0] if rel else 0), ey + (cur[1] if rel else 0))
+                pts = _arc_points(cur[0], cur[1], rx, ry, math.radians(rot),
+                                  int(la), int(sw), end[0], end[1])
+                segs += [(pts[k], pts[k + 1]) for k in range(len(pts) - 1)]
+                cur = end
+                i += 7
+            elif up in "CQ":
+                k = 6 if up == "C" else 4
+                if i + k > len(args) or cur is None:
+                    break
+                raw_pts = [(args[i + j] + (cur[0] if rel else 0),
+                            args[i + j + 1] + (cur[1] if rel else 0))
+                           for j in range(0, k, 2)]
+                pts = _bezier_points(cur, raw_pts)
+                segs += [(pts[q], pts[q + 1]) for q in range(len(pts) - 1)]
+                cur = raw_pts[-1]
+                i += k
+            else:                                  # S/T -- rare; treat as a line to end
+                if len(args) < 2 or cur is None:
+                    break
+                pt = (args[-2] + (cur[0] if rel else 0), args[-1] + (cur[1] if rel else 0))
+                segs.append((cur, pt))
+                cur = pt
+                break
+            if i >= len(args):
+                break
+    return segs
+
+
+_GEOM_TAG = re.compile(r"<(/?)(\w+)((?:[^>\"']|\"[^\"]*\"|'[^']*')*?)(/?)>")
+
+
+def _xform(spec):
+    """A transform attribute as a callable point -> point. translate and rotate only,
+    which is every transform these figures use on anything but a <text>."""
+    ops = []
+    for name, raw in re.findall(r"(translate|rotate|scale)\s*\(([^)]*)\)", spec or ""):
+        n = [float(v) for v in re.findall(r"-?\d*\.?\d+", raw)]
+        if name == "translate" and n:
+            tx, ty = n[0], (n[1] if len(n) > 1 else 0.0)
+            ops.append(lambda p, tx=tx, ty=ty: (p[0] + tx, p[1] + ty))
+        elif name == "rotate" and n:
+            a = math.radians(n[0])
+            cx, cy = (n[1], n[2]) if len(n) > 2 else (0.0, 0.0)
+            ca, sa = math.cos(a), math.sin(a)
+            ops.append(lambda p, ca=ca, sa=sa, cx=cx, cy=cy: (
+                cx + (p[0] - cx) * ca - (p[1] - cy) * sa,
+                cy + (p[0] - cx) * sa + (p[1] - cy) * ca))
+        elif name == "scale" and n:
+            sx, sy = n[0], (n[1] if len(n) > 1 else n[0])
+            ops.append(lambda p, sx=sx, sy=sy: (p[0] * sx, p[1] * sy))
+    if not ops:
+        return None
+
+    def apply(pt):
+        for op in ops:
+            pt = op(pt)
+        return pt
+    return apply
+
+
+def _is_inked(a):
+    """Does this element put anything on the page?
+
+    Nearly every figure in the bank opens with
+    `<rect width="300" height="220" fill="none"/>` -- a sizing frame with no fill and
+    no stroke, which draws NOTHING. Counting its four sides as geometry put an
+    invisible rectangle around the whole canvas and flagged every label that came
+    near the edge, including an axis title sitting exactly where an axis title goes.
+    """
+    fill = (a.get("fill") or "").strip().lower()
+    stroke = (a.get("stroke") or "").strip().lower()
+    style = (a.get("style") or "").lower()
+    if "fill:" in style and "fill:none" in style.replace(" ", ""):
+        fill = "none"
+    if "stroke:" in style and "stroke:none" not in style.replace(" ", ""):
+        stroke = stroke or "set"
+    if stroke and stroke != "none":
+        return True
+    if fill and fill != "none":
+        return True
+    # No fill attribute at all means the SVG default, which is black -- inked.
+    return not fill
+
+
+def figure_outlines(svg_text, curve_n=32):
+    """EVERY inked boundary the figure draws, flattened to straight segments.
+
+    `figure_segments` answers a different question -- which RAYS meet at a vertex, so
+    an angle can be measured -- and deliberately drops arcs and never looked at
+    <rect>, <circle> or <ellipse>, none of which contributes a ray. Reusing it to ask
+    "is this label sitting on top of something drawn?" is what left
+    `text_overlaps_geometry` blind to 94 defects a reviewer found in one sitting:
+    a rectangle's own sides are not <line> elements, and neither is a circle, and
+    neither is the angle arc that half the geometry figures print a number beside.
+
+    So this returns the drawn EDGES of everything: line, polygon, polyline, rect,
+    circle, ellipse, and path with its arcs and Beziers flattened. A shape whose
+    fill is its only ink still bounds itself, so an unstroked polygon counts too.
+
+    TRANSFORMS ARE APPLIED. Three of the VIC figures draw a pie chart inside
+    `<g transform="translate(110,108)">`, and reading their sector paths at face
+    value put every arc 110 px left and 108 px up of where the browser draws it --
+    which is not a near miss, it is a different picture. A check that reads
+    coordinates has to read them the way the renderer does.
+    """
+    segs = []
+    stack = [None]
+
+    def place(pts, tf):
+        if tf:
+            pts = [tf(p) for p in pts]
+        return pts
+
+    def emit(pts, tf, close=False):
+        pts = place(list(pts), tf)
+        if close and len(pts) > 2:
+            pts = pts + [pts[0]]
+        segs.extend((pts[i], pts[i + 1]) for i in range(len(pts) - 1))
+
+    def compose(outer, own):
+        if outer is None:
+            return own
+        if own is None:
+            return outer
+        return lambda p: outer(own(p))
+
+    for m in _GEOM_TAG.finditer(svg_text):
+        closing, name, attrs, selfclose = m.group(1), m.group(2), m.group(3), m.group(4)
+        if closing:
+            if name in ("g", "svg") and len(stack) > 1:
+                stack.pop()
+            continue
+        own = _xform(_attrs(attrs + ">").get("transform"))
+        cur = compose(stack[-1], own)
+        if name == "g" and not selfclose:
+            stack.append(cur)
+            continue
+        if name not in ("line", "rect", "circle", "ellipse",
+                        "polygon", "polyline", "path"):
+            continue
+        a = _attrs(attrs + ">")
+        if not _is_inked(a):
+            continue
+        if name == "line":
+            emit([(_num(a, "x1"), _num(a, "y1")), (_num(a, "x2"), _num(a, "y2"))], cur)
+        elif name == "rect":
+            x, y = _num(a, "x"), _num(a, "y")
+            w, h = _num(a, "width"), _num(a, "height")
+            if w > 0 and h > 0:
+                emit([(x, y), (x + w, y), (x + w, y + h), (x, y + h)], cur, close=True)
+        elif name in ("circle", "ellipse"):
+            cx, cy = _num(a, "cx"), _num(a, "cy")
+            rx = _num(a, "r") or _num(a, "rx")
+            ry = _num(a, "r") or _num(a, "ry")
+            # A plotted point is a filled dot a few pixels across, not an outline. It
+            # has its own checks (`unknown_marker_far_from_point`), and treating every
+            # dot as geometry would flag the label that names it -- the one label that
+            # BELONGS beside it.
+            if rx >= 6 and ry >= 6:
+                emit([(cx + rx * math.cos(2 * math.pi * i / curve_n),
+                       cy + ry * math.sin(2 * math.pi * i / curve_n))
+                      for i in range(curve_n)], cur, close=True)
+        elif name in ("polygon", "polyline"):
+            try:
+                nums = [float(v) for v in
+                        (a.get("points", "").replace(",", " ")
+                         .replace("\u2212", "-").split())]
+            except ValueError:
+                continue
+            pts = list(zip(nums[0::2], nums[1::2]))
+            if len(pts) >= 2:
+                emit(pts, cur, close=(name == "polygon"))
+        elif name == "path":
+            for s1, s2 in _path_polyline(a.get("d", "")):
+                emit([s1, s2], cur)
+    return [s for s in segs if math.dist(*s) > 1e-9]
+
+
 def _intersect(s1, s2):
     (x1, y1), (x2, y2) = s1
     (x3, y3), (x4, y4) = s2
@@ -1272,9 +1584,11 @@ def label_clear_of_arc(v, a1, a2, box, r, clear=9.0, pad=3.0):
     label belongs OUTSIDE its arc, on the bisector, which is where a textbook puts
     it anyway.
     """
-    # The box is estimated from a character count, which runs about a quarter narrow
-    # on digits and a degree sign -- so "52 deg" cleared the arc on paper and the
-    # rendered glyphs still crossed it. Pad before deciding, and again when placing.
+    # The box used to be estimated from a character count -- right on average and
+    # wrong per label -- so "52 deg" cleared the arc on paper and the rendered
+    # glyphs still crossed it. `_text_box` measures with Arial's real advance
+    # widths now, but keep the pad: an arc grazing a glyph still reads as struck
+    # through, so decide with room to spare and place with room to spare.
     box = (box[0] - pad, box[1] - pad, box[2] + pad, box[3] + pad)
     if box_gap(box, *v) >= r + clear:
         return None

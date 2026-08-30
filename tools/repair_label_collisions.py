@@ -20,6 +20,7 @@ import sys
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
+from tools import figure_lib as fl  # noqa: E402
 from tools import question_checks as qc  # noqa: E402
 
 DB = ROOT / "run_data/db/qbank.db"
@@ -80,11 +81,70 @@ def _allowed(tag, xps, yps):
     if not (mx and my):
         return OFFSETS
     x, y = float(mx.group(1)), float(my.group(1))
+    # A TICK MOVES A LITTLE OR NOT AT ALL. Crossing its own axis keeps it level with
+    # the mark it names, so the scale is safe -- but only for as far as it takes to
+    # clear the line. Given the full ring, the nudger sent an x-axis "0" forty-four
+    # pixels down the page, where it sat a whole unit below the origin it names and
+    # read as a stray number. A tick that cannot be freed within one label-height of
+    # its axis is one a human should look at, not one to fling.
     if any(abs(x - p) <= 3 for p in xps):
-        return [(0, dy) for dy in (16, -14, 24, -22, 32, -30, 44, -42)]
+        return [(0, dy) for dy in (16, -14, 22, -20)]
     if any(abs(y - p) <= 5 for p in yps):
-        return [(dx, 0) for dx in (18, -18, 28, -28, 40, -40, 54, -54)]
+        return [(dx, 0) for dx in (18, -18, 26, -26)]
     return OFFSETS
+
+
+def _clearance(svg, tags):
+    """Smallest gap between the moved label's box and any ink in the figure.
+
+    THE OFFSET RING IS BLIND. It returns the FIRST offset that stops the boxes
+    intersecting, and (0, +16) is first in the list -- so the commonest outcome was a
+    label pushed sixteen pixels DOWN onto whatever was underneath it. A "10 cm"
+    dimension sitting between its bracket and the shape's top edge moved off the
+    bracket and onto the edge; an x-axis "−1" moved off its tick and onto the axis.
+    Both cleared the check and both read worse.
+
+    So: among the offsets that clear, take the one that leaves the label in the most
+    open space, and refuse to move at all if the best of them is no better than where
+    the label already sits.
+    """
+    boxes = []
+    for t in tags:
+        m = qc._TEXT.search(t)
+        if m:
+            b = qc._text_box(m)
+            if b:
+                boxes.append(b[:4])
+    if not boxes:
+        return 0.0
+    segs = fl.figure_outlines(svg)
+    best = 1e9
+    for x0, y0, x1, y1 in boxes:
+        cx, cy = (x0 + x1) / 2, (y0 + y1) / 2
+        hw, hh = (x1 - x0) / 2, (y1 - y0) / 2
+        for (a, b), (c, d) in segs:
+            for t in range(9):
+                px = a + (c - a) * t / 8
+                py = b + (d - b) * t / 8
+                best = min(best, max(abs(px - cx) - hw, abs(py - cy) - hh))
+    return best
+
+
+def _sector_map(svg):
+    """{label text: the vertex whose sector it sits in} for every angle-ish label.
+
+    `figure_lib.angle_at_label` returns None -- needs a human -- when a label is not
+    inside exactly one sector, so a label that moves from a sector to nowhere shows up
+    here as a vertex that disappears.
+    """
+    out = {}
+    for m in qc._TEXT.finditer(svg):
+        b = qc._text_box(m)
+        if not b or "\u00b0" not in b[4] and "&#176;" not in (m.group(4) or ""):
+            continue
+        got = fl.angle_at_label(svg, b)
+        out[b[4]] = None if not got else (round(got[0][0], 1), round(got[0][1], 1))
+    return out
 
 
 def clashes(svg):
@@ -94,19 +154,44 @@ def clashes(svg):
 # Round 5's rule, which this tool never had: re-run the checks on your own output and
 # roll back anything that comes back worse. Moving a label cannot fix a collision at
 # the cost of a scale, a grid or a plotted point.
+# Every figure check except the two this tool exists to clear. A nudge of 40 px can
+# push a label off the canvas, out of the sector its angle arc marks, or away from the
+# point its "?" names -- and until 2026-08-30 none of those three was watched, because
+# the guard listed only the checks that existed when it was written.
 GUARD = ("axis_scale_nonlinear", "gridlines_off_the_ticks", "axes_unlabelled",
          "plotted_points_inconsistent", "coordinate_figure_without_grid",
-         "angle_arc_malformed", "doubled_circle_outline")
+         "angle_arc_malformed", "doubled_circle_outline",
+         "text_outside_the_canvas", "unknown_marker_far_from_point",
+         "angle_named_without_arc", "label_too_faint", "axis_shorter_than_the_data",
+         "gridlines_stop_short_of_the_axes", "plotted_geometry_matches_stem",
+         "undefined_marker_reference")
 
 
-def guard_state(svg):
-    return {n for n in GUARD if getattr(qc, n)(svg)}
+# These read the whole question, not just the SVG: they compare the figure with what
+# the stem says. Moving a TICK label changes the mapping the figure is read through,
+# so they belong in the guard, but they have to be handed the row.
+_GUARD_NEEDS_Q = ("plotted_geometry_matches_stem",)
+
+
+def guard_state(svg, q=None):
+    out = {n for n in GUARD if n not in _GUARD_NEEDS_Q and getattr(qc, n)(svg)}
+    if q is not None:
+        row = dict(q)
+        row["figure_svg"] = svg
+        out |= {n for n in _GUARD_NEEDS_Q if getattr(qc, n)(row)}
+    return out
 
 
 def repair(svg, tries=8):
     """Nudge one label at a time until the figure is clean, or give up honestly."""
     moved = []
     seen = set()
+    # A label gets ONE move. The loop is here to work through DIFFERENT labels, and
+    # letting it come back to the same one compounds offsets it was never allowed to
+    # make in one step -- an x-axis "0" went down 16 on the first pass and right 18 on
+    # the second, ending a whole unit from the origin it names by two moves each of
+    # which was individually within the tick budget.
+    already = set()
     for _ in range(tries):
         geo, lab = clashes(svg)
         if not geo and not lab:
@@ -158,17 +243,58 @@ def repair(svg, tries=8):
                 s = s.replace(t, _shift(t, dx, dy), 1)
             return s
 
+        # An offset that pushes the label off the canvas is not a candidate at all.
+        # Leaving it to the guard meant the whole figure was rolled back and the
+        # collision left standing, when the next offset in the ring would have done.
+        clipped0 = qc.text_outside_the_canvas(svg)
+        # AN ANGLE LABEL MAY NOT LEAVE ITS SECTOR. "30°" sat inside the corner it
+        # names, touching one side; nudged 16 px down it cleared the side and landed
+        # OUTSIDE the triangle, naming nothing. `angle_named_without_arc` passed it,
+        # because the arc was still within tolerance of the label -- the arc had not
+        # moved. Only a rendered look caught it, which is the third time a label move
+        # has been caught that way and nowhere else.
+        before_sectors = _sector_map(svg)
+
+        def ok(cand):
+            if not clipped0 and qc.text_outside_the_canvas(cand):
+                return False
+            after = _sector_map(cand)
+            for label, v in before_sectors.items():
+                if label in after and after[label] != v:
+                    return False
+            return True
+
+        groups = [g for g in groups if g[0] not in already]
+        if not groups:
+            return svg, moved
         for target, tags in groups:
+            here = _clearance(svg, tags)
+            options = []
             for dx, dy in _allowed(tags[0], xps, yps):
                 cand = shift_group(svg, tags, dx, dy)
+                if not ok(cand):
+                    continue
                 g2, l2 = clashes(cand)
-                if not g2 and not l2:
-                    return cand, moved + [(target, dx, dy)]
+                if g2 or l2:
+                    continue
+                shifted = [_shift(t, dx, dy) for t in tags]
+                options.append((_clearance(cand, shifted), -abs(dx) - abs(dy),
+                                cand, (target, dx, dy)))
+            # NEAREST FIRST, not roomiest. Maximising clearance sent a point label
+            # 56 px diagonally into the empty corner of its own plot, which clears
+            # everything and names nothing. What a label needs is to stop touching --
+            # a few pixels of daylight -- as close to where the author put it as that
+            # allows.
+            for gap, near, cand, mv in sorted(options, key=lambda o: -o[1]):
+                if gap >= max(here, 3.0):
+                    return cand, moved + [mv]
         target, tags = groups[0]
         # nothing clears everything; take the best partial and continue
         best = None
         for dx, dy in _allowed(tags[0], xps, yps):
             cand = shift_group(svg, tags, dx, dy)
+            if not ok(cand):
+                continue
             g2, l2 = clashes(cand)
             score = (g2 is not None) + (l2 is not None)
             if best is None or score < best[0]:
@@ -185,32 +311,53 @@ def repair(svg, tries=8):
         seen.add(after)
         svg = best[1]
         moved.append(best[2])
+        already.add(best[2][0])
     return svg, moved
 
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--forms", required=True)
+    ap.add_argument("--forms")
+    ap.add_argument("--ids", help="comma-separated question ids or id prefixes")
     ap.add_argument("--apply", action="store_true")
     args = ap.parse_args()
-    forms = [f.strip() for f in args.forms.split(",") if f.strip()]
+    if not (args.forms or args.ids):
+        ap.error("give --forms or --ids")
     con = sqlite3.connect(DB)
     con.row_factory = sqlite3.Row
-    rows = [dict(r) for r in con.execute(
-        f"SELECT * FROM questions WHERE form_id IN ({','.join('?' * len(forms))}) "
-        f"AND review_status!='rejected' AND figure_svg IS NOT NULL", forms)]
+    if args.forms:
+        forms = [f.strip() for f in args.forms.split(",") if f.strip()]
+        rows = [dict(r) for r in con.execute(
+            f"SELECT * FROM questions WHERE form_id IN ({','.join('?' * len(forms))}) "
+            f"AND review_status!='rejected' AND figure_svg IS NOT NULL", forms)]
+    else:
+        want = tuple(i.strip() for i in args.ids.split(",") if i.strip())
+        rows = [dict(r) for r in con.execute(
+            "SELECT * FROM questions WHERE review_status!='rejected' "
+            "AND figure_svg IS NOT NULL AND figure_svg != ''")
+            if r["id"].startswith(want)]
     record = []
     for r in rows:
         if not any(clashes(r["figure_svg"])):
             continue
         fixed, moved = repair(r["figure_svg"])
-        regressed = sorted(guard_state(fixed) - guard_state(r["figure_svg"]))
+        regressed = sorted(guard_state(fixed, r) - guard_state(r["figure_svg"], r))
         if regressed:
             print(f"  [{r['form_id']} pos {r['form_position']}] ROLLED BACK — "
                   f"the move would have caused {regressed}")
             continue
         left = [m for m in clashes(fixed) if m]
-        tag = "clean" if not left else f"STILL: {left[0][:58]}"
+        # A PARTIAL FIX IS NOT A FIX. The best-effort fallback accepts a move that
+        # keeps the collision count the same while uncovering a different one, which
+        # is right while the loop is still working and wrong as a final answer:
+        # "120°" came off a radius and landed inside "Shaded sector", scoring equal
+        # and reading worse. If the figure is not clean at the end, leave it exactly
+        # as the author drew it and let the reviewer see the original.
+        if left:
+            print(f"  [{r['form_id']} pos {r['form_position']}] left alone — "
+                  f"no offset clears it: {left[0][:60]}")
+            continue
+        tag = "clean" 
         print(f"  [{r['form_id']} pos {r['form_position']}] "
               + ", ".join(f"{l!r} by ({dx:+g},{dy:+g})" for l, dx, dy in moved)
               + f"  -> {tag}")

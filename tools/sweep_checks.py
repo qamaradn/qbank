@@ -104,6 +104,7 @@ def per_question(q: dict) -> list[tuple[str, str]]:
                       "axes_unlabelled", "angle_arc_malformed",
                       "axis_scale_nonlinear", "coordinate_figure_without_grid",
                       "gridlines_off_the_ticks", "unknown_marker_far_from_point",
+                      "gridlines_stop_short_of_the_axes", "axis_shorter_than_the_data",
                       "label_too_faint", "undefined_marker_reference",
                       "text_outside_the_canvas"):
             if (m := getattr(qc, _name)(q["figure_svg"])):

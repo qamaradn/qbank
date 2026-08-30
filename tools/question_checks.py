@@ -27,6 +27,7 @@ per-category — a bank can be balanced overall while one category is entirely p
 Returning None from `group_of` excludes that question from the group checks.
 """
 import collections
+import html as _html
 import math
 import re
 from fractions import Fraction
@@ -1080,6 +1081,46 @@ _TEXT = re.compile(r"<text[^>]*\bx=[\'\"]([-\d.]+)[\'\"][^>]*\by=[\'\"]([-\d.]+)
                    r"[^>]*?(?:font-size=[\'\"]([\d.]+)[\'\"])?[^>]*>([^<]*)<")
 
 
+# Advance widths in 1/1000 em for Arial, which is the font these figures declare
+# (1,241 of the VIC figures name it outright, and the rest inherit the browser's
+# sans-serif, which is Arial or a metric clone of it on every platform a reviewer
+# has used). Helvetica's core metrics; Arial and Liberation Sans match them.
+#
+# WHY A TABLE AND NOT A CONSTANT. Every box here used to be `len(label) * size *
+# 0.55`, and three separate comments in this codebase claimed that ran "about a
+# quarter narrow". Measured, it does not: against the 4,317 labels the VIC figures
+# actually draw, a flat 0.55 is within a few percent of Arial ON AVERAGE. The fault
+# was never the average, it was the SPREAD -- 0.55 is right for a digit (0.556) and
+# wrong by a factor of four either way at the ends, since "W" is 0.944 em and "l" is
+# 0.222. A width that is right on average and wrong per label is exactly the wrong
+# shape of error for a check that asks "does THIS label touch THAT line".
+_CHAR_W = {c: 556 for c in "0123456789"}
+_CHAR_W.update({
+    " ": 278, "!": 278, '"': 355, "#": 556, "$": 556, "%": 889, "&": 667, "'": 191,
+    "(": 333, ")": 333, "*": 389, "+": 584, ",": 278, "-": 333, ".": 278, "/": 278,
+    ":": 278, ";": 278, "<": 584, "=": 584, ">": 584, "?": 556, "@": 1015,
+    "A": 667, "B": 667, "C": 722, "D": 722, "E": 667, "F": 611, "G": 778, "H": 722,
+    "I": 278, "J": 500, "K": 667, "L": 556, "M": 833, "N": 722, "O": 778, "P": 667,
+    "Q": 778, "R": 722, "S": 667, "T": 611, "U": 722, "V": 667, "W": 944, "X": 667,
+    "Y": 667, "Z": 611, "[": 278, "\\": 278, "]": 278, "^": 469, "_": 556, "`": 333,
+    "a": 556, "b": 556, "c": 500, "d": 556, "e": 556, "f": 278, "g": 556, "h": 556,
+    "i": 222, "j": 222, "k": 500, "l": 222, "m": 833, "n": 556, "o": 556, "p": 556,
+    "q": 556, "r": 333, "s": 500, "t": 278, "u": 556, "v": 500, "w": 722, "x": 500,
+    "y": 500, "z": 500, "{": 334, "|": 260, "}": 334, "~": 584,
+    "\u00b0": 400, "\u2212": 584, "\u00d7": 584, "\u00f7": 584, "\u221a": 549,
+    "\u2220": 700, "\u00b2": 333, "\u00b3": 333, "\u00bd": 834, "\u2013": 556,
+    "\u2014": 1000, "\u2264": 584, "\u2265": 584, "\u2260": 584, "\u00b1": 584,
+})
+# A Greek letter or a symbol with no entry: Arial's Greek sits in the 550-700 band
+# and a wide guess only makes the check more willing to look, never less.
+_CHAR_W_DEFAULT = 600
+
+
+def text_width(label, size):
+    """Rendered width of `label` at `size` px, in px."""
+    return sum(_CHAR_W.get(c, _CHAR_W_DEFAULT) for c in label) / 1000.0 * size
+
+
 def _text_box(m, pad=0.0):
     """Bounding box for one <text>, honouring a rotate(±90) transform.
 
@@ -1090,10 +1131,13 @@ def _text_box(m, pad=0.0):
     """
     x, y = float(m.group(1)), float(m.group(2))
     size = float(m.group(3) or 12)
-    label = (m.group(4) or "").strip()
+    # "(2x + 10)&#176;" is eleven characters of markup and one glyph of degree sign.
+    # Measured raw it read 40% wider than it draws, which reported collisions that are
+    # not there and sent the label nudger chasing them.
+    label = _html.unescape((m.group(4) or "")).strip()
     if not label:
         return None
-    w = len(label) * size * 0.55
+    w = text_width(label, size)
     tag = m.group(0)
     rot = re.search(r"rotate\s*\(\s*(-?\d+(?:\.\d+)?)", tag)
     if rot and abs(abs(float(rot.group(1))) - 90) < 1:
@@ -1251,32 +1295,77 @@ def _seg_hits_box(x1, y1, x2, y2, bx0, by0, bx1, by1):
     return t0 <= t1
 
 
-def text_overlaps_geometry(svg, pad=1.5):
-    """A label sitting on top of a drawn line.
+def _viewbox(svg):
+    m = re.search(r"viewBox\s*=\s*['\"]([^'\"]+)", svg or "")
+    if not m:
+        return None
+    try:
+        v = [float(n) for n in m.group(1).replace(",", " ").split()]
+    except ValueError:
+        return None
+    return v if len(v) == 4 else None
+
+
+def text_overlaps_geometry(svg, pad=0.5, axis_frac=0.85, axis_erode=0.35):
+    """A label sitting on top of something the figure draws.
 
     "fix the graph as the 0,5 is overlapping the line". The point label was placed at the
     plotted line's own coordinates, so it printed straight through it. Distinct from
     overlapping_text_labels, which only compares text with text.
 
-    Axis titles and tick labels are exempt: they sit alongside the axes by design and a
-    strict reading would flag every chart ever drawn.
+    WHY THIS WAS REWRITTEN (2026-08-30). A reviewer went through 445 VIC figures and
+    flagged 94 of them for exactly this defect -- "Number/text overlapping with sides"
+    over and over. This check caught NONE of the 94, and both reasons were in the
+    check, not the figures:
+
+      * it read only <line> elements. A rectangle's sides are not <line>s, and neither
+        is a polygon's, a circle's, a pie sector's or an angle arc's -- which is where
+        shape figures do all their drawing. It was looking at the one element type that
+        geometry figures barely use.
+      * it skipped every horizontal and vertical segment by design, to spare axis tick
+        labels. A label over the vertical side of a cube was therefore invisible twice.
+
+    It now reads `figure_lib.figure_outlines`, which returns every inked edge with
+    arcs and curves flattened and transforms applied, and it spares only a genuinely
+    long axis rule -- and even then only where the rule grazes the EDGE of the label
+    box rather than running through the middle of it, which is the difference between
+    a tick number sitting under its axis and a number printed across it.
     """
     if not svg:
         return None
-    lines = [tuple(map(float, m.groups())) for m in _LINE_EL.finditer(svg)]
-    if not lines:
+    from tools import figure_lib as _fl                 # local: figure_lib imports none
+    segs = _fl.figure_outlines(svg)
+    if not segs:
         return None
+    vb = _viewbox(svg)
+    width = vb[2] if vb else 300.0
+    height = vb[3] if vb else 220.0
+    kind = []
+    for (a, b), (c, d) in segs:
+        if abs(b - d) < 1 and abs(a - c) >= axis_frac * width:
+            kind.append("h")
+        elif abs(a - c) < 1 and abs(b - d) >= axis_frac * height:
+            kind.append("v")
+        else:
+            kind.append(None)
     for m in _TEXT.finditer(svg):
-        b = _text_box(m, pad)
-        if not b or len(b[4]) < 2:
+        bx = _text_box(m, pad)
+        if not bx:
             continue
-        box = b[:4]
-        if box[2] <= box[0] or box[3] <= box[1]:
+        x0, y0, x1, y1, label = bx
+        if not label or x1 <= x0 or y1 <= y0:
             continue
-        label = b[4]
-        for (a, b, c, d) in lines:
-            # an axis is a long horizontal or vertical rule; labels belong beside those
-            if abs(a - c) < 1 or abs(b - d) < 1:
+        for i, ((a, b), (c, d)) in enumerate(segs):
+            k = kind[i]
+            if k == "h":
+                ey = (y1 - y0) * axis_erode
+                box = (x0, y0 + ey, x1, y1 - ey)
+            elif k == "v":
+                ex = (x1 - x0) * axis_erode
+                box = (x0 + ex, y0, x1 - ex, y1)
+            else:
+                box = (x0, y0, x1, y1)
+            if box[2] <= box[0] or box[3] <= box[1]:
                 continue
             if _seg_hits_box(a, b, c, d, *box):
                 return (f"label {label!r} is drawn on top of the line from "
@@ -1604,6 +1693,187 @@ def axis_scale_nonlinear(svg, tol=0.2):
     return None
 
 
+def _bare_axes_plane(svg):
+    """Two long rules that CROSS, labelled x and y: a coordinate plane with no ticks."""
+    rules = [tuple(map(float, m.groups())) for m in _LINE_EL.finditer(svg)]
+    horiz = [r for r in rules if abs(r[1] - r[3]) < 1 and abs(r[0] - r[2]) > 80]
+    vert = [r for r in rules if abs(r[0] - r[2]) < 1 and abs(r[1] - r[3]) > 60]
+    if not horiz or not vert:
+        return False
+    crosses = any(min(h[0], h[2]) - 2 <= v[0] <= max(h[0], h[2]) + 2
+                  and min(v[1], v[3]) - 2 <= h[1] <= max(v[1], v[3]) + 2
+                  for h in horiz for v in vert)
+    if not crosses:
+        return False
+    singles = {(m.group(4) or "").strip() for m in _TEXT.finditer(svg)}
+    return {"x", "y"} <= singles
+
+
+_FAINT_TAG = re.compile(r"<(line|path)\b[^>]*>")
+
+
+def _grid_and_axes(svg):
+    """(gridline segments, x-axis y, y-axis x) or None.
+
+    A gridline is drawn faint on purpose -- every generator in this bank uses
+    `stroke-opacity=".16"` or a pale grey -- and an axis is drawn solid. That is
+    what separates them, not their length: a full-width gridline is exactly as
+    long as the axis it runs beside.
+    """
+    from tools import figure_lib as _fl
+    faint, solid = [], []
+    for m in _FAINT_TAG.finditer(svg):
+        tag = m.group(0)
+        op = re.search(r"stroke-opacity=[\'\"]([\d.]+)", tag)
+        col = re.search(r"stroke=[\'\"]([^\'\"]+)", tag)
+        pale = bool(col and re.fullmatch(r"#(?:[cdef]{3}|(?:[c-f][0-9a-f]){3})",
+                                         col.group(1).strip().lower()))
+        is_faint = (op and float(op.group(1)) <= 0.35) or pale
+        segs = _fl.figure_outlines(tag if tag.endswith("/>") else tag + "</%s>" % m.group(1))
+        (faint if is_faint else solid).extend(segs)
+    if not faint:
+        return None
+    horiz = [r for r in solid if abs(r[0][1] - r[1][1]) < 1
+             and abs(r[0][0] - r[1][0]) > 60]
+    vert = [r for r in solid if abs(r[0][0] - r[1][0]) < 1
+            and abs(r[0][1] - r[1][1]) > 60]
+    if not horiz or not vert:
+        return None
+    xaxis_y = max(r[0][1] for r in horiz)          # the x-axis is the lowest long rule
+    yaxis_x = min(r[0][0] for r in vert)           # the y-axis is the leftmost
+    return faint, xaxis_y, yaxis_x
+
+
+def axis_shorter_than_the_data(svg, tol=4.0):
+    """An axis rule that ends before the thing it is supposed to measure.
+
+    "x-axis doesn't fully reach the end of the art bar." The baseline of a bar chart
+    stopped at the fifth bar's LEFT edge, so the last bar stood on nothing and its
+    height had no line to be measured from. Same fault the other way up: a y-axis
+    drawn to 20 beside a bar that reaches 22.
+
+    Only bars are judged -- a <rect> standing on the baseline. A plotted line or a
+    curve may legitimately run past the end of an axis that carries an arrowhead,
+    and the arrowhead is itself drawn past the rule.
+    """
+    if not svg:
+        return None
+    from tools import figure_lib as _fl
+    ax = _axis_span(svg)
+    if not ax:
+        return None
+    (hx0, hx1), (vy0, vy1) = ax
+    bars = []
+    for m in re.finditer(r"<rect\b[^>]*>", svg):
+        a = dict(_fl._ATTR.findall(m.group(0)))
+        try:
+            x, y = float(a.get("x", 0)), float(a.get("y", 0))
+            w, h = float(a.get("width", 0)), float(a.get("height", 0))
+        except ValueError:
+            continue
+        if w <= 0 or h <= 0 or not _fl._is_inked(a):
+            continue
+        # a bar stands ON the x-axis; the background frame does not
+        if abs((y + h) - vy1) < 3 or abs((y + h) - _AXIS_BASE(svg, vy1)) < 3:
+            bars.append((x, y, x + w, y + h))
+    if len(bars) < 2:
+        return None
+    right = max(b[2] for b in bars)
+    left = min(b[0] for b in bars)
+    top = min(b[1] for b in bars)
+    if right - hx1 > tol:
+        return (f"the x-axis ends {right - hx1:.0f} px before the last bar does, so the "
+                f"bar stands past the end of the line its height is read against")
+    if hx0 - left > tol:
+        return (f"the x-axis starts {hx0 - left:.0f} px after the first bar, so the bar "
+                f"stands past the end of the line its height is read against")
+    if vy0 - top > tol:
+        return (f"the y-axis stops {vy0 - top:.0f} px below the tallest bar, so the bar "
+                f"rises past the top of the scale it is measured on")
+    return None
+
+
+def _AXIS_BASE(svg, default):
+    """The y of the lowest long horizontal solid rule -- a bar chart's baseline."""
+    got = _axis_span(svg)
+    return got[1][1] if got else default
+
+
+def gridlines_stop_short_of_the_axes(svg, tol=6.0):
+    """A grid drawn as a floating rectangle that never reaches its own axes.
+
+    Asked twelve separate times in one review pass -- "Why do the grid lines stop
+    before touching the axes?", "The x and y axis fall short of the grid lines",
+    "Why do grid lines on y axis stop after y=4" -- and no check saw any of them.
+
+    The cause is one line of arithmetic in whatever drew them: the grid is laid out
+    from the FIRST TICK rather than from the ORIGIN, so it starts one whole interval
+    in on both axes and hangs in the middle of the plot with a gutter around two
+    sides. A reader tracing a gridline back to the axis to read a value finds it
+    stops before it gets there.
+    """
+    if not svg:
+        return None
+    got = _grid_and_axes(svg)
+    if not got:
+        return None
+    faint, xaxis_y, yaxis_x = got
+    rows = [g for g in faint if abs(g[0][1] - g[1][1]) < 1 and abs(g[0][0] - g[1][0]) > 20]
+    cols = [g for g in faint if abs(g[0][0] - g[1][0]) < 1 and abs(g[0][1] - g[1][1]) > 20]
+    if len(rows) < 2 or len(cols) < 2:
+        return None
+    left = min(min(g[0][0], g[1][0]) for g in rows)
+    bottom = max(max(g[0][1], g[1][1]) for g in cols)
+    if left - yaxis_x > tol:
+        return (f"the gridlines stop {left - yaxis_x:.0f} px short of the y-axis — the "
+                f"grid is laid out from the first tick instead of the origin, so it "
+                f"floats clear of the axis a reader traces it back to")
+    if xaxis_y - bottom > tol:
+        return (f"the gridlines stop {xaxis_y - bottom:.0f} px short of the x-axis — the "
+                f"grid is laid out from the first tick instead of the origin, so it "
+                f"floats clear of the axis a reader traces it back to")
+    # THE OTHER HALF OF THE SAME COMPLAINT. "why are the thin grid lines only there for
+    # a small part of the plane", "Why do grid lines on y axis stop after y=4". Here the
+    # grid does meet its axes but covers a patch in the middle and leaves the rest of
+    # the plane bare, so half the plotted area still has to be read by eye.
+    gx0 = min(min(g[0][0], g[1][0]) for g in rows)
+    gx1 = max(max(g[0][0], g[1][0]) for g in rows)
+    gy0 = min(min(g[0][1], g[1][1]) for g in cols)
+    gy1 = max(max(g[0][1], g[1][1]) for g in cols)
+    ax = _axis_span(svg)
+    if ax:
+        (hx0, hx1), (vy0, vy1) = ax
+        for got, want, name in (((gx1 - gx0), (hx1 - hx0), "across the x-axis"),
+                                ((gy1 - gy0), (vy1 - vy0), "up the y-axis")):
+            if want > 0 and got < 0.6 * want:
+                return (f"the grid covers only {got / want:.0%} of the plot {name} — "
+                        f"the rest of the plane has no lines to read a point against")
+    return None
+
+
+def _axis_span(svg):
+    """((x0, x1), (y0, y1)) of the longest horizontal and vertical solid rules."""
+    from tools import figure_lib as _fl
+    solid = []
+    for m in _FAINT_TAG.finditer(svg):
+        tag = m.group(0)
+        op = re.search(r"stroke-opacity=[\'\"]([\d.]+)", tag)
+        if op and float(op.group(1)) <= 0.35:
+            continue
+        solid += _fl.figure_outlines(tag if tag.endswith("/>")
+                                     else tag + "</%s>" % m.group(1))
+    horiz = [r for r in solid if abs(r[0][1] - r[1][1]) < 1
+             and abs(r[0][0] - r[1][0]) > 60]
+    vert = [r for r in solid if abs(r[0][0] - r[1][0]) < 1
+            and abs(r[0][1] - r[1][1]) > 60]
+    if not horiz or not vert:
+        return None
+    h = max(horiz, key=lambda r: abs(r[0][0] - r[1][0]))
+    v = max(vert, key=lambda r: abs(r[0][1] - r[1][1]))
+    return ((min(h[0][0], h[1][0]), max(h[0][0], h[1][0])),
+            (min(v[0][1], v[1][1]), max(v[0][1], v[1][1])))
+
+
 def coordinate_figure_without_grid(svg, want=4):
     """A coordinate plane with no gridlines, so points can only be estimated.
 
@@ -1634,7 +1904,16 @@ def coordinate_figure_without_grid(svg, want=4):
             return None
     xs, ys = _axis_ticks(svg)
     if len(xs) < 3 or len(ys) < 3:
-        return None                     # not a two-axis plot
+        # THE WORST CASE USED TO EXIT HERE. Requiring three tick numbers per axis
+        # meant a plane with no ticks AT ALL -- two bare rules, an "x", a "y" and two
+        # plotted points -- was not recognised as a plane and so could not be reported
+        # as having no grid. That is the figure a reader can do least with: nothing
+        # says where the units are, so A(−2, 3) is wherever the dot happens to sit.
+        # The reviewer asked for "grid lines and subdivisions/scale lines" on eighteen
+        # of them in one pass. A plane is now also recognised by its SHAPE: two long
+        # rules that cross, named x and y.
+        if not _bare_axes_plane(svg):
+            return None
     rules = 0
     for a, b, c, d in (tuple(map(float, m.groups())) for m in _LINE_EL.finditer(svg)):
         if (abs(a - c) < 1 or abs(b - d) < 1) and max(abs(a - c), abs(b - d)) > 30:
@@ -2402,29 +2681,36 @@ def text_outside_the_canvas(svg, tol=0.5):
     viewBox, so the reader gets two headless captions and no way to tell the two
     polygons apart.
 
-    TOP AND BOTTOM ONLY, deliberately. `_text_box` estimates a label's WIDTH from
-    its character count and runs about a quarter narrow, so at the left or right
-    edge it cannot separate a clipped label from a tight one -- round 6 measured
-    that and declined to act, correctly. But it applied the doubt to both
-    directions when it only belongs to one: a box's vertical extent is the
-    baseline plus the font size, with no character count in it anywhere.
+    ALL FOUR EDGES, since 2026-08-30. Round 6 declined the left and right because
+    `_text_box` derived a WIDTH from a character count, and believed that count ran
+    "about a quarter narrow". Measured against the 4,317 labels the VIC figures
+    actually draw, the flat factor was within a few percent on AVERAGE and wrong by
+    up to a factor of four on any single label -- "W" is 0.944 em and "l" is 0.222.
+    `_text_box` uses Arial's real advance widths now, so the doubt is gone, and the
+    measurement that settles it is that NOT ONE label in the 843 stored figures
+    reaches a side edge. The check therefore costs nothing today and stops something
+    real: `repair_label_collisions` nudges a label up to 54 px, and with only the top
+    and bottom watched it pushed "P(0,2)" nine pixels off the left of its canvas and
+    the guard passed it. The figure came back reading "(0,2)" with the point's name
+    sliced off, and only a rendered look caught it.
     """
     if not svg:
         return None
-    m = re.search(r'viewBox\s*=\s*[\'"]([^\'"]+)[\'"]', svg)
+    m = re.search(r"viewBox\s*=\s*['\"]([^'\"]+)['\"]", svg)
     if not m:
         return None
     try:
-        _x0, y0, _w, h = (float(v) for v in m.group(1).split())
+        x0, y0, w, h = (float(v) for v in m.group(1).replace(",", " ").split())
     except ValueError:
         return None
     for tm in _TEXT.finditer(svg):
         b = _text_box(tm)
         if not b:
             continue
-        over = max(b[3] - (y0 + h), y0 - b[1])
+        edges = ((b[3] - (y0 + h), "below the bottom"), (y0 - b[1], "above the top"),
+                 (x0 - b[0], "past the left edge"), (b[2] - (x0 + w), "past the right edge"))
+        over, where = max(edges)
         if over > tol:
-            where = "below the bottom" if b[3] > y0 + h else "above the top"
             return (f"label {b[4]!r} is drawn {over:.0f} px {where} of the "
                     f"viewBox, so it is cut off")
     return None
