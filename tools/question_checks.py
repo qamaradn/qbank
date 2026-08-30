@@ -342,6 +342,18 @@ def figure_svg_errors(svg, max_bytes=3500):
         for bad in HARDCODED_COLOURS:
             if re.search(rf"(?<![\w#]){re.escape(bad)}(?![\w])", painted):
                 errs.append(f"figure_svg hard-codes {bad!r}; use currentColor")
+    # A CSS FUNCTION IS NOT A COLOUR EVERYWHERE. `var(--figure-page,#fff)` resolves in
+    # a browser and raises in cairosvg, which takes the WHOLE document down -- and
+    # cairosvg is what every contact sheet in this project is rendered with, so a
+    # figure using one is a figure nobody can look at. Twenty freshly redrawn planes
+    # shipped like that and were caught by a blank tile in a before/after sheet.
+    for m in re.finditer(r"\b(?:fill|stroke|stop-color|color)\s*=\s*['\"]([^'\"]+)",
+                         svg):
+        if re.match(r"\s*(?:var|env|calc)\s*\(", m.group(1)):
+            errs.append(f"figure_svg paints with {m.group(1)!r} — a CSS function is "
+                        f"not a colour to every renderer, and cairosvg fails the "
+                        f"whole figure on it")
+            break
     if len(body) > max_bytes:
         errs.append(f"figure_svg is {len(body)} bytes — keep under ~{max_bytes / 1000:.1f} KB "
                     f"(use one <path> for repeated rules, not many elements)")
@@ -1485,13 +1497,19 @@ def text_overlaps_geometry(svg, pad=0.5, axis_frac=0.85, axis_erode=0.35):
 _ANY_TAG = re.compile(r"<(line|path|rect|circle|ellipse|polygon|polyline)\b[^>]*>")
 
 
-def _faint_only(svg):
-    """The figure with everything but its watermark-opacity ink removed."""
+def _faint_only(svg, floor=0.35):
+    """The figure with everything but its watermark-opacity ink removed.
+
+    `opacity` counts as well as `stroke-opacity`. The NSW figures fade their grids with
+    the plain attribute, so a grid drawn at opacity 0.3 read as full-strength ink and
+    every tick label on it as struck through by a solid line.
+    """
     keep = []
     for m in _ANY_TAG.finditer(svg):
         tag = m.group(0)
-        op = re.search(r"stroke-opacity=[\'\"]([\d.]+)", tag)
-        if op and float(op.group(1)) <= 0.25:
+        vals = [float(v) for v in
+                re.findall(r"(?:^|[^-\w])(?:stroke-)?opacity=['\"]([\d.]+)", tag)]
+        if vals and min(vals) <= floor:
             keep.append(tag)
     return "<svg>" + "".join(keep) + "</svg>"
 

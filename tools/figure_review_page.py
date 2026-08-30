@@ -25,6 +25,7 @@ so the pass can be done in sittings.
 from __future__ import annotations
 
 import argparse
+import collections
 import html
 import json
 import pathlib
@@ -143,7 +144,10 @@ function card(q){
   el.innerHTML =
     '<div class="hd"><span class="n">' + q.n + '</span>' +
     '<span class="meta">' + q.book + (q.form ? " &middot; " + q.form : "") +
-    ' &middot; ' + q.id.slice(0,8) + '</span></div>' +
+    ' &middot; ' + q.id.slice(0,8) +
+    (q.same > 1 ? ' &middot; <b>same figure as ' + (q.same - 1) +
+                  ' other question' + (q.same > 2 ? 's' : '') +
+                  ', shown together</b>' : '') + '</span></div>' +
     '<div class="fig">' + q.svg + '</div>' +
     '<div class="stem">' + q.stem + '</div>' +
     '<div class="opts">A ' + q.a + ' &nbsp; B ' + q.b + ' &nbsp; C ' + q.c +
@@ -282,13 +286,29 @@ def main() -> int:
                if any(gf.run_check(n, q) for n, _ in gf.BLOCKING)}
     if not a.include_flagged:
         rows = [q for q in rows if q["id"] not in flagged]
-    rows.sort(key=lambda q: (q["source_book"] or "", q["form_id"] or "",
+    # IDENTICAL FIGURES SIT TOGETHER. Ten of the reviewer's 181 notes were "there are
+    # many instances of this figure reused", which is true of the PAGE and not of any
+    # paper: 140 questions share a figure with another, and not one form holds the same
+    # figure twice, so no student ever meets a picture they have already seen. What
+    # the reviewer met was 445 figures in a linear list with the copies scattered
+    # through it. Grouping them costs nothing and gives back the attention that was
+    # being spent looking at the same chart for the seventh time.
+    import hashlib
+    for q in rows:
+        q["_fig"] = hashlib.md5((q["figure_svg"] or "").encode()).hexdigest()
+    seen_first = {}
+    for q in rows:
+        seen_first.setdefault(q["_fig"], (q["source_book"] or "", q["form_id"] or "",
+                                          q["form_position"] or 0))
+    rows.sort(key=lambda q: (seen_first[q["_fig"]], q["form_id"] or "",
                              q["form_position"] or 0))
+    copies = collections.Counter(q["_fig"] for q in rows)
 
     def esc(v):
         return html.escape(" ".join(str(v or "").split()))
 
     data = [{"n": i + 1, "id": q["id"], "book": q["source_book"] or "",
+             "same": copies[q["_fig"]],
              "form": q["form_id"] or "", "stem": esc(q["stem"]),
              "a": esc(q["option_a"]), "b": esc(q["option_b"]),
              "c": esc(q["option_c"]), "d": esc(q["option_d"]),

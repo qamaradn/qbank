@@ -956,12 +956,16 @@ def plane(points=None, lines=None, polygon=None, xr=(-4, 4), yr=(-4, 4), cell=30
     # read a label drawn twice at one spot as one label rather than as a collision.
     #
     # The stroke colour is the PAGE, which is the one thing `currentColor` cannot be:
-    # currentColor IS the ink. It rides on a variable so a dark card can set it, with
-    # white as the fallback the review card and Selectly both actually use. Hoisting it
+    # currentColor IS the ink. Written plainly as #fff, not as a CSS variable: a
+    # browser resolves `var(--x,#fff)` and CAIROSVG DOES NOT -- it raises on the whole
+    # document, and cairosvg is the renderer every contact sheet in this project is
+    # made with. A figure it cannot parse is a figure nobody can look at, which is the
+    # one thing this round has shown matters most. `figure_svg_errors` refuses a CSS
+    # function in a paint attribute now, so this cannot come back. Hoisting the stroke
     # to the group keeps the halo from doubling the figure's size -- each <text> still
     # carries its own x, y, font-size and text-anchor, because `_text_box` reads all
     # four off the tag and would mis-box every number if they were hoisted too.
-    b.append(f'<g font-family="system-ui,sans-serif" stroke="var(--figure-page,#fff)" '
+    b.append(f'<g font-family="system-ui,sans-serif" stroke="#fff" '
              f'stroke-width="3" stroke-linejoin="round" fill="none" '
              f'aria-hidden="true">{"".join(lab)}</g>')
     b.append(f'<g font-family="system-ui,sans-serif" fill="currentColor" '
@@ -1078,7 +1082,7 @@ def plane(points=None, lines=None, polygon=None, xr=(-4, 4), yr=(-4, 4), cell=30
     if plab:
         # Haloed like the tick numbers: a point label sits inside the grid by
         # definition, so a gridline runs under most of them.
-        b.append(f'<g font-family="system-ui,sans-serif" stroke="var(--figure-page,#fff)" '
+        b.append(f'<g font-family="system-ui,sans-serif" stroke="#fff" '
                  f'stroke-width="3" stroke-linejoin="round" fill="none" '
                  f'aria-hidden="true">{"".join(plab)}</g>')
         b.append(f'<g font-family="system-ui,sans-serif" fill="currentColor" '

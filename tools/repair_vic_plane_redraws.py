@@ -60,7 +60,7 @@ def _dashed(pa, pb, label=None, at=None):
             # Same two-layer halo the tick numbers use, and the same reason: the
             # stroke is the PAGE colour, which currentColor cannot be, so it rides in
             # an aria-hidden layer that `figure_svg_errors` knows to judge separately.
-            out += (f'<g stroke="var(--figure-page,#fff)" stroke-width="3" '
+            out += (f'<g stroke="#fff" stroke-width="3" '
                     f'stroke-linejoin="round" fill="none" aria-hidden="true">{t}</g>'
                     f'<g fill="currentColor">{t}</g>')
         return out
