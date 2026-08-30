@@ -354,6 +354,20 @@ def figure_svg_errors(svg, max_bytes=3500):
                         f"not a colour to every renderer, and cairosvg fails the "
                         f"whole figure on it")
             break
+    # A DUPLICATE ATTRIBUTE IS NOT VALID XML, and no renderer agrees about it: a
+    # browser keeps the first, cairosvg refuses the whole document. One figure in the
+    # bank carried `<text x='236' ... x='250'>` -- a half-applied nudge from an earlier
+    # round that appended an x instead of replacing one -- and it was invisible to
+    # every check here while being the only figure nobody could render at all.
+    for tag in re.findall(r"<\w+\b[^>]*>", svg):
+        names = [n for n, _v in re.findall(r"\b([\w:-]+)\s*=\s*['\"]([^'\"]*)['\"]",
+                                           tag)]
+        dupes = {n for n in names if names.count(n) > 1}
+        if dupes:
+            errs.append(f"figure_svg repeats the attribute {sorted(dupes)[0]!r} on one "
+                        f"element — not valid XML, and cairosvg refuses the whole "
+                        f"figure over it")
+            break
     if len(body) > max_bytes:
         errs.append(f"figure_svg is {len(body)} bytes — keep under ~{max_bytes / 1000:.1f} KB "
                     f"(use one <path> for repeated rules, not many elements)")
