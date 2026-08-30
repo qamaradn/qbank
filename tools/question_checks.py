@@ -1269,6 +1269,23 @@ def _text_box(m, pad=0.0):
     return (x0 + pad, y - size * 0.8 + pad, x0 + w - pad, y + size * 0.25 - pad, label)
 
 
+def _on_different_axes(boxes, a, b):
+    """Is one of these two labels in the x-tick ROW and the other in the y-tick COLUMN?
+
+    A tick label is one of three or more at a shared coordinate -- that is what makes a
+    row a row -- so this needs no notion of what an axis is, only that both sequences
+    exist and each label belongs to a different one.
+    """
+    rows, cols = collections.defaultdict(list), collections.defaultdict(list)
+    for bx in boxes:
+        rows[round(bx[1] / 3)].append(bx)
+        cols[round((bx[0] + bx[2]) / 6)].append(bx)
+    in_row = {id(x) for g in rows.values() if len(g) >= 3 for x in g}
+    in_col = {id(x) for g in cols.values() if len(g) >= 3 for x in g}
+    return ((id(a) in in_row and id(b) in in_col)
+            or (id(b) in in_row and id(a) in in_col))
+
+
 def overlapping_text_labels(svg, pad=6.0):
     """Two labels whose boxes overlap, so both read as mush.
 
@@ -1298,6 +1315,15 @@ def overlapping_text_labels(svg, pad=6.0):
             # the narrower label.
             narrow = min(ax1 - ax0, bx1 - bx0)
             need = min(pad, max(1.2, 0.22 * narrow))
+            # THE ORIGIN CORNER IS NOT A COLLISION. Where the two tick sequences
+            # meet, the last y number and the first x number are diagonal neighbours
+            # by construction -- a "0" and a "Mon" clipping corners by 1.7 px, which
+            # blocked three NSW charts and is what every chart in every textbook
+            # looks like. Only that pair, only a corner, and only a small one: two
+            # labels off the axes overlapping by 2x3 px still merge and still count.
+            if (ox < 3 and oy < 3
+                    and _on_different_axes(boxes, boxes[i], boxes[j])):
+                continue
             if ox > need and oy > need:
                 return (f"labels {al!r} and {bl!r} overlap by about "
                         f"{ox:.0f}x{oy:.0f} px")
@@ -1940,10 +1966,18 @@ def axis_shorter_than_the_data(svg, tol=4.0):
             continue
         if w <= 0 or h <= 0 or not _fl._is_inked(a):
             continue
-        # a bar stands ON the x-axis; the background frame does not
-        if abs((y + h) - vy1) < 3 or abs((y + h) - _AXIS_BASE(svg, vy1)) < 3:
-            bars.append((x, y, x + w, y + h))
-    if len(bars) < 2:
+        bars.append((x, y, x + w, y + h))
+    # BARS SHARE ONE BASELINE. Asking only "does this rect's bottom sit near the
+    # x-axis" let a HORIZONTAL bar chart in -- bars growing rightwards from the y-axis,
+    # whose bottoms are at different heights and none of them the baseline -- and the
+    # check reported an x-axis "170 px before the last bar", which is nonsense about a
+    # chart that has no standing bars at all. A column chart has at least three columns
+    # standing on one line; anything else is not one and is not judged here.
+    if not bars:
+        return None
+    base = collections.Counter(round(b[3]) for b in bars).most_common(1)[0][0]
+    bars = [b for b in bars if abs(b[3] - base) < 1.5 and b[3] - b[1] > 6]
+    if len(bars) < 3 or abs(base - vy1) > 3:
         return None
     right = max(b[2] for b in bars)
     left = min(b[0] for b in bars)

@@ -94,6 +94,17 @@ BLOCKING = [
      "VIC figure pass: an arrowhead referenced and never defined, so never drawn"),
     ("explanation_is_a_repair_note",
      "VIC round 6: a note from a repair round left in what the student reads"),
+    # Round 8. The reviewer went through 445 VIC figures and flagged 181 — 41% — and
+    # the gate was clean on every one of them. These four are what the notes turned
+    # out to be, in the reviewer's own order of frequency.
+    ("angle_arc_misses_its_rays",
+     "VIC round 8: an angle arc that sweeps past the angle it marks"),
+    ("gridlines_stop_short_of_the_axes",
+     "VIC round 8: the grid floats clear of the axes a reader traces it back to"),
+    ("axis_shorter_than_the_data",
+     "VIC round 8: a column stands past the end of the axis it is measured on"),
+    ("latex_markup_in_text",
+     "VIC round 8: the student is shown \\dfrac{12}{13} rather than 12/13"),
 ]
 
 # EXAM-SPECIFIC — two things genuinely differ, and only two.
@@ -152,6 +163,9 @@ _TEXT_FIELD = {
     "leaked_working": "explanation",
     "rewrites_the_question": "explanation",
     "figure_svg_errors": "figure_svg",
+    "angle_arc_misses_its_rays": "figure_svg",
+    "gridlines_stop_short_of_the_axes": "figure_svg",
+    "axis_shorter_than_the_data": "figure_svg",
 }
 _BATCH = {"length_tell", "answer_shape_monotony"}
 

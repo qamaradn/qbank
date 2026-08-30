@@ -44,7 +44,7 @@ DB = ROOT / "run_data/db/qbank.db"
 MANIFEST = ROOT / "run_data/output/canvas_overflow_repairs.json"
 
 
-def grow(svg: str, pad: float = 3.0, widen: float = 1.3
+def grow(svg: str, pad: float = 3.0, widen: float = 1.06
          ) -> tuple[str, tuple[float, float] | None]:
     """Extend the viewBox until every label fits, plus a little.
 
@@ -52,9 +52,12 @@ def grow(svg: str, pad: float = 3.0, widen: float = 1.3
     mattering. DETECTING a horizontal clip needs an accurate width -- too narrow an
     estimate and you miss one, too wide and you chase figures that are merely tight.
     But GROWING the canvas only ever adds empty space, so being generous costs a
-    margin and never costs a label. The estimate runs about a quarter narrow, so it
-    is inflated by a third here and the box is grown to whatever that says.
-    "20 m" was being drawn as "2".
+    margin and never costs a label. "20 m" was being drawn as "2".
+
+    The inflation used to be a third, because a comment here claimed the width
+    estimate ran "about a quarter narrow". Measured against the labels the figures
+    actually draw, it did not; `_text_box` uses Arial's real advance widths now, so
+    the margin is a margin rather than a correction.
     """
     m = re.search(r'viewBox\s*=\s*[\'"]([^\'"]+)[\'"]', svg)
     if not m:

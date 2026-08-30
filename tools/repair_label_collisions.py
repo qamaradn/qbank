@@ -21,6 +21,7 @@ ROOT = pathlib.Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
 from tools import figure_lib as fl  # noqa: E402
+from tools.repair_canvas_overflow import grow  # noqa: E402
 from tools import question_checks as qc  # noqa: E402
 
 DB = ROOT / "run_data/db/qbank.db"
@@ -59,15 +60,31 @@ def _tick_axes(svg):
     into one that advances at 24 px per unit in one place and 40 in another. A tick
     belongs to the axis whose row or column it actually sits in.
     """
-    xs, ys = qc._axis_ticks(svg)
-    row = sorted(p for _v, p in ys)                # y positions of the y ticks
-    xrow = None
+    xps = [p for _v, p in qc._axis_ticks(svg)[0]]
+    yps = [p for _v, p in qc._axis_ticks(svg)[1]]
+    # A CATEGORY LABEL IS A TICK TOO. `_axis_ticks` only reads NUMBERS, so on a chart
+    # whose x-axis reads "9am 10am 11am 12pm 1pm" or "Mon Tue Wed Thu" none of them
+    # counted, the tool was free to move them anywhere, and its first offset -- down --
+    # dropped the leftmost one out of the row its four neighbours are in. Eight NSW
+    # charts came back with a category label on a line of its own.
+    #
+    # What makes something a tick is that it is one of a ROW or a COLUMN of labels at
+    # one size. Find those the same way, by their shared coordinate.
+    rows, cols = {}, {}
     for m in qc._TEXT.finditer(svg):
         b = qc._text_box(m)
         if not b:
             continue
-    xps = [p for _v, p in xs]
-    return (xps, [p for _v, p in ys])
+        cx = (b[0] + b[2]) / 2
+        rows.setdefault(round(b[1] / 3), []).append(cx)
+        cols.setdefault(round(cx / 3), []).append(b[1])
+    for _k, v in rows.items():
+        if len(v) >= 3:
+            xps += v
+    for _k, v in cols.items():
+        if len(v) >= 3:
+            yps += v
+    return (xps, yps)
 
 
 def _allowed(tag, xps, yps):
@@ -147,6 +164,58 @@ def _sector_map(svg):
     return out
 
 
+def _normal_offsets(svg, tag, step=4.0, reach=40.0):
+    """Offsets that push a label straight off the side it is printed on.
+
+    THE RING IS BLIND and it runs out. It tries fixed offsets outward from the anchor
+    in growing rings, which frees a label sitting near a line and cannot free one
+    printed ALONG a line -- most of the ring's candidates slide along the same side and
+    stay on it. That is the shape of the commonest complaint in the whole review:
+    "Number/text overlapping with sides", thirty-six times, on dimension labels lying
+    against the edge they measure.
+
+    A dimension label belongs on the OUTWARD normal of its own side, which is the
+    convention `figure_lib.right_triangle` is built on. Work out which segment the
+    label is on, take that segment's normal, and point it away from the figure's own
+    centre of ink -- then walk out along it.
+    """
+    m = qc._TEXT.search(tag)
+    if not m:
+        return []
+    box = qc._text_box(m)
+    if not box:
+        return []
+    cx, cy = (box[0] + box[2]) / 2, (box[1] + box[3]) / 2
+    segs = fl.figure_outlines(svg)
+    if not segs:
+        return []
+    hit = [sg for sg in segs if qc._seg_hits_box(sg[0][0], sg[0][1], sg[1][0],
+                                                 sg[1][1], *box[:4])]
+    if not hit:
+        return []
+    pts = [p for sg in segs for p in sg]
+    gx = sum(p[0] for p in pts) / len(pts)
+    gy = sum(p[1] for p in pts) / len(pts)
+    out = []
+    for (a, b), (c, d) in hit:
+        vx, vy = c - a, d - b
+        n = max((vx * vx + vy * vy) ** 0.5, 1e-9)
+        nx, ny = -vy / n, vx / n
+        if (cx - gx) * nx + (cy - gy) * ny < 0:          # point away from the ink
+            nx, ny = -nx, -ny
+        k = step
+        while k <= reach:
+            out.append((round(nx * k), round(ny * k)))
+            k += step
+    # nearest first, and never a no-op
+    seen, ordered = set(), []
+    for o in sorted(out, key=lambda t: abs(t[0]) + abs(t[1])):
+        if o != (0, 0) and o not in seen:
+            seen.add(o)
+            ordered.append(o)
+    return ordered
+
+
 def clashes(svg):
     return (qc.text_overlaps_geometry(svg), qc.overlapping_text_labels(svg))
 
@@ -182,7 +251,7 @@ def guard_state(svg, q=None):
     return out
 
 
-def repair(svg, tries=8):
+def repair(svg, tries=8, may_grow=True):
     """Nudge one label at a time until the figure is clean, or give up honestly."""
     moved = []
     seen = set()
@@ -208,8 +277,20 @@ def repair(svg, tries=8):
         # it is how a figure comes to disagree with its own scale. So when two labels
         # collide, move the annotation. Moving the tick was why "-5" and "P" stayed
         # stuck -- every offset tried was applied to the "-5".
+        xps, yps = _tick_axes(svg)
+        aligned = set()
+        for _m in qc._TEXT.finditer(svg):
+            _b = qc._text_box(_m)
+            if not _b:
+                continue
+            _cx = (_b[0] + _b[2]) / 2
+            if (any(abs(_cx - p) <= 3 for p in xps)
+                    or any(abs(_b[1] - p) <= 5 for p in yps)):
+                aligned.add(_b[4])
+
         def is_tick(t):
-            return bool(re.fullmatch(r"-?−?\d+(?:\.\d+)?", t.replace("−", "-")))
+            return (bool(re.fullmatch(r"-?−?\d+(?:\.\d+)?", t.replace("−", "-")))
+                    or t in aligned)
         # A tick may move ACROSS its own axis but never ALONG it. Sliding a number
         # away from the mark it names is a measurement change -- three figures came
         # back reading as nonlinear axes when the fallback did exactly that. Moving
@@ -217,7 +298,6 @@ def repair(svg, tries=8):
         # the scale is untouched, and it is what unsticks the commonest collision in
         # the bank: the x-axis "-1" and the y-axis "-1" meeting in the same corner
         # of the origin, where BOTH are ticks and neither could move at all.
-        xps, yps = _tick_axes(svg)
         annotations = [t for t in names if not is_tick(t)]
         names = annotations + [t for t in names if is_tick(t)]
         # A label is often drawn TWICE at one spot: a thick white stroke behind, the
@@ -270,7 +350,12 @@ def repair(svg, tries=8):
         for target, tags in groups:
             here = _clearance(svg, tags)
             options = []
-            for dx, dy in _allowed(tags[0], xps, yps):
+            allowed = _allowed(tags[0], xps, yps)
+            # A tick keeps its short, axis-crossing budget; anything else may also
+            # take the outward normal of the side it is lying on.
+            if not is_tick(target):
+                allowed = _normal_offsets(svg, tags[0]) + allowed
+            for dx, dy in allowed:
                 cand = shift_group(svg, tags, dx, dy)
                 if not ok(cand):
                     continue
@@ -291,7 +376,10 @@ def repair(svg, tries=8):
         target, tags = groups[0]
         # nothing clears everything; take the best partial and continue
         best = None
-        for dx, dy in _allowed(tags[0], xps, yps):
+        fallback = _allowed(tags[0], xps, yps)
+        if not is_tick(target):
+            fallback = _normal_offsets(svg, tags[0]) + fallback
+        for dx, dy in fallback:
             cand = shift_group(svg, tags, dx, dy)
             if not ok(cand):
                 continue
@@ -313,6 +401,29 @@ def repair(svg, tries=8):
         moved.append(best[2])
         already.add(best[2][0])
     return svg, moved
+
+
+def repair_and_fit(svg, tries=8):
+    """Move the labels, then GROW THE CANVAS to whatever that needed.
+
+    Twenty-eight of the reviewer's "Number/text overlapping with sides" could not be
+    freed at all, and for a good share of them the reason was not that there was
+    nowhere to put the label -- it was that the only place to put it was outside a
+    canvas drawn tight around the shape. A dimension belongs outside the figure it
+    measures; if the figure's box does not have room for that, the box is what is
+    wrong.
+
+    Growing a viewBox is additive under rule 11c -- it only ever adds empty space --
+    so the two together stay a safe pair even though the move on its own is not.
+    """
+    fixed, moved = repair(svg, tries=tries, may_grow=True)
+    if not moved:
+        return svg, moved
+    if qc.text_outside_the_canvas(fixed):
+        grown, _box = grow(fixed)
+        if not qc.text_outside_the_canvas(grown):
+            return grown, moved
+    return fixed, moved
 
 
 def main():
@@ -340,7 +451,7 @@ def main():
     for r in rows:
         if not any(clashes(r["figure_svg"])):
             continue
-        fixed, moved = repair(r["figure_svg"])
+        fixed, moved = repair_and_fit(r["figure_svg"])
         regressed = sorted(guard_state(fixed, r) - guard_state(r["figure_svg"], r))
         if regressed:
             print(f"  [{r['form_id']} pos {r['form_position']}] ROLLED BACK — "
