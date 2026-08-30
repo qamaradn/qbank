@@ -245,6 +245,62 @@ def latex_markup_in_text(q):
     return None
 
 
+_ARC_PATH = re.compile(
+    r"<path[^>]*\bd=['\"]\s*M\s*(-?[\d.]+)[ ,]+(-?[\d.]+)\s*A\s*"
+    r"([\d.]+)[ ,]+([\d.]+)[ ,]+[-\d.]+[ ,]+([01])[ ,]+([01])[ ,]+"
+    r"(-?[\d.]+)[ ,]+(-?[\d.]+)", re.I)
+
+
+def angle_arc_misses_its_rays(svg, tol_deg=5.0):
+    """An angle arc that does not stop where the angle does.
+
+    "the angle arc of 47 is slipping outside the triangle, fix it", "the angle 34 slips
+    out the triangle", "The angle 52 degrees line slips out the triangle" -- five
+    separate notes in one review pass, all of the same figure family: a right triangle
+    with the angle marked at its acute corner.
+
+    The arc is placed by picking a radius and sweeping a guessed number of degrees
+    rather than by reading where the two sides actually run, so it starts on the base
+    correctly and finishes past the hypotenuse, hanging outside the shape. It is the
+    same class of fault `angle_arc_malformed` catches at the centre -- an arc that
+    disagrees with the figure it is drawn on -- measured at the ENDS instead.
+
+    Each endpoint must lie along some segment leaving the arc's own vertex. The vertex
+    is derived, not assumed: it is the point equidistant from both ends at the drawn
+    radius, on the side the sweep flag names.
+    """
+    if not svg:
+        return None
+    from tools import figure_lib as _fl
+    segs = _fl.figure_outlines(svg)
+    if not segs:
+        return None
+    for m in _ARC_PATH.finditer(svg):
+        x1, y1, rx, ry, large, sweep, x2, y2 = (float(g) for g in m.groups())
+        if rx <= 0 or abs(rx - ry) > 0.6 or rx > 90:
+            continue                      # not a circular angle mark
+        # Reuse the centre the SVG spec actually puts it at, flags and all -- the
+        # same function `angle_arc_malformed` measures with, so the two checks cannot
+        # disagree about where an arc's vertex is.
+        cen = _arc_centre(x1, y1, x2, y2, rx, int(large), int(sweep))
+        if cen is None:
+            continue
+        # A mark whose centre is not a vertex of anything is not an angle mark.
+        rays = _fl._rays_at(segs, cen, eps=3.0)
+        if len(rays) < 2:
+            continue
+        worst, worst_pt = 0.0, None
+        for (ex, ey) in ((x1, y1), (x2, y2)):
+            a = math.degrees(math.atan2(ey - cen[1], ex - cen[0]))
+            off = min(abs((a - math.degrees(r) + 180) % 360 - 180) for r, _l in rays)
+            if off > worst:
+                worst, worst_pt = off, (ex, ey)
+        if worst > tol_deg:
+            return (f"an angle arc ends {worst:.0f}° off the side it should stop at "
+                    f"— it sweeps past the angle it marks and hangs outside the shape")
+    return None
+
+
 def figure_svg_errors(svg, max_bytes=3500):
     """Rules an inline `figure_svg` must satisfy to render in both review and Selectly.
 
