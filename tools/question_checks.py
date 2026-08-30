@@ -213,6 +213,9 @@ _PAINT_VALUE = re.compile(r'(?:fill|stroke|stop-color|style)\s*=\s*[\'"]([^\'"]*
                           re.I)
 
 
+_HALO_LAYER = re.compile(r"<g[^>]*\baria-hidden=['\"]true['\"][^>]*>.*?</g>", re.S)
+
+
 def figure_svg_errors(svg, max_bytes=3500):
     """Rules an inline `figure_svg` must satisfy to render in both review and Selectly.
 
@@ -234,6 +237,15 @@ def figure_svg_errors(svg, max_bytes=3500):
         return errs
     if "viewBox" not in svg:
         errs.append("figure_svg has no viewBox")
+    # A HALO LAYER IS NOT INK AND IS NOT NEW CONTENT. A label printed inside a grid is
+    # kept readable by drawing it twice -- a page-coloured stroke behind, the glyphs on
+    # top -- and that layer breaks both rules below for reasons that are not defects:
+    # its colour is the PAGE, which is the one thing `currentColor` cannot be (that IS
+    # the ink), and its bytes are a duplicate of text already counted. Judge the figure
+    # without it. `paint-order="stroke"` would do the same job in one element, and is
+    # not an option: cairosvg ignores it and paints the halo OVER the glyphs, which
+    # erases the label in every contact sheet this project renders to check its work.
+    body = _HALO_LAYER.sub("", svg)
     grounded = bool(_GROUNDED.search(svg))
     if not grounded:
         if "currentColor" not in svg:
@@ -241,12 +253,12 @@ def figure_svg_errors(svg, max_bytes=3500):
         # Only inside a paint attribute. Matching the whole document as a string put
         # a Bendigo suburb -- "White Hills", in a table of schools -- on the list of
         # figures that hard-code a colour.
-        painted = " ".join(m.group(1).lower() for m in _PAINT_VALUE.finditer(svg))
+        painted = " ".join(m.group(1).lower() for m in _PAINT_VALUE.finditer(body))
         for bad in HARDCODED_COLOURS:
             if re.search(rf"(?<![\w#]){re.escape(bad)}(?![\w])", painted):
                 errs.append(f"figure_svg hard-codes {bad!r}; use currentColor")
-    if len(svg) > max_bytes:
-        errs.append(f"figure_svg is {len(svg)} bytes — keep under ~{max_bytes / 1000:.1f} KB "
+    if len(body) > max_bytes:
+        errs.append(f"figure_svg is {len(body)} bytes — keep under ~{max_bytes / 1000:.1f} KB "
                     f"(use one <path> for repeated rules, not many elements)")
     return errs
 
@@ -1337,6 +1349,9 @@ def text_overlaps_geometry(svg, pad=0.5, axis_frac=0.85, axis_erode=0.35):
     segs = _fl.figure_outlines(svg)
     if not segs:
         return None
+    faint = _fl.figure_outlines(_faint_only(svg))
+    faint_set = {(tuple(a), tuple(b)) for a, b in faint}
+    haloed = _haloed_labels(svg)
     vb = _viewbox(svg)
     width = vb[2] if vb else 300.0
     height = vb[3] if vb else 220.0
@@ -1367,10 +1382,52 @@ def text_overlaps_geometry(svg, pad=0.5, axis_frac=0.85, axis_erode=0.35):
                 box = (x0, y0, x1, y1)
             if box[2] <= box[0] or box[3] <= box[1]:
                 continue
+            # A HALOED LABEL SURVIVES A GRIDLINE. A four-quadrant plane puts its
+            # tick numbers inside the grid whenever the axis is not at an edge, so a
+            # faint rule runs through every one of them -- and the answer a real
+            # graph gives is a page-coloured stroke behind the glyphs, not a moved
+            # number. Where BOTH are true (the ink is faint AND the label is drawn
+            # twice, halo behind), the number reads cleanly and this is not a defect.
+            # A solid line through a label still is, halo or no halo.
+            if label in haloed and ((a, b), (c, d)) in faint_set:
+                continue
             if _seg_hits_box(a, b, c, d, *box):
                 return (f"label {label!r} is drawn on top of the line from "
                         f"({a:g}, {b:g}) to ({c:g}, {d:g})")
     return None
+
+
+_ANY_TAG = re.compile(r"<(line|path|rect|circle|ellipse|polygon|polyline)\b[^>]*>")
+
+
+def _faint_only(svg):
+    """The figure with everything but its watermark-opacity ink removed."""
+    keep = []
+    for m in _ANY_TAG.finditer(svg):
+        tag = m.group(0)
+        op = re.search(r"stroke-opacity=[\'\"]([\d.]+)", tag)
+        if op and float(op.group(1)) <= 0.25:
+            keep.append(tag)
+    return "<svg>" + "".join(keep) + "</svg>"
+
+
+def _haloed_labels(svg):
+    """Labels drawn twice at one spot, the lower copy stroked in the page colour.
+
+    That is the standard way to keep a number readable over a gridline, and it is
+    already recognised by `overlapping_text_labels`, which does not call the pair a
+    collision.
+    """
+    seen, halo = set(), set()
+    for m in _TEXT.finditer(svg):
+        b = _text_box(m)
+        if not b:
+            continue
+        key = (round(b[0], 1), round(b[1], 1), b[4])
+        if key in seen:
+            halo.add(b[4])
+        seen.add(key)
+    return halo
 
 
 _HAS_WORD = re.compile(r"[A-Za-z]{3,}")
@@ -1621,6 +1678,13 @@ def _axis_ticks(svg):
         if in_a_cell(x, y):
             continue
         pts.append((float(t), x, y))
+    # A HALOED LABEL IS ONE LABEL. It is drawn twice at the same spot -- a thick
+    # page-coloured stroke behind, the glyphs on top -- so every tick value appeared
+    # twice and `drop_repeats` below, which exists to throw out values an axis names
+    # more than once, threw out the whole axis. A figure with a halo therefore read as
+    # having no ticks at all, which is how twenty freshly drawn planes came back
+    # "nothing can check that they are drawn where the stem says".
+    pts = list(dict.fromkeys(pts))
     if len(pts) < 4:
         return [], []
 

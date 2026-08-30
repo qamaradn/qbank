@@ -621,6 +621,32 @@ def _seg_box_gap(seg, bx0, by0, bx1, by1):
     return best
 
 
+def _faint_ink(svg_text):
+    """Just the watermark-opacity elements, so they can be told from real ink."""
+    keep = [m.group(0) for m in
+            re.finditer(r"<(?:line|path|rect|circle|ellipse|polygon|polyline)\b[^>]*>",
+                        svg_text)]
+    out = []
+    for tag in keep:
+        op = re.search(r"stroke-opacity=[\'\"]([\d.]+)", tag)
+        if op and float(op.group(1)) <= 0.25:
+            out.append(tag)
+    return "<svg>" + "".join(out) + "</svg>"
+
+
+def _label_w(text, size):
+    """Rendered width of a label, from the same Arial advance widths the checks use.
+
+    There were three copies of `len(text) * size * 0.55` in this codebase and all
+    three called it a quarter narrow. It is not: it is right on average and wrong per
+    label -- "W" is 0.944 em and "l" is 0.222 -- which is the wrong shape of error for
+    deciding whether a label fits. One table, in `question_checks`, imported here
+    lazily because that module reaches back into this one.
+    """
+    from tools.question_checks import text_width
+    return text_width(text, size)
+
+
 def _label_offset(ux, uy, text, size=13, gap=10.0):
     """Push a label out until its NEAREST EDGE clears the point by `gap`.
 
@@ -635,7 +661,7 @@ def _label_offset(ux, uy, text, size=13, gap=10.0):
     """
     n = max((ux * ux + uy * uy) ** 0.5, 1e-9)
     ux, uy = ux / n, uy / n
-    hw, top, bot = len(text) * size * 0.55 / 2, size * 0.8, size * 0.25
+    hw, top, bot = _label_w(text, size) / 2, size * 0.8, size * 0.25
     lo, hi = 0.0, 120.0
     for _ in range(40):
         t = (lo + hi) / 2
@@ -650,7 +676,7 @@ def _label_offset(ux, uy, text, size=13, gap=10.0):
 
 
 def plane(points=None, lines=None, polygon=None, xr=(-4, 4), yr=(-4, 4), cell=30,
-          pad=22, dots=True, label_off=(11, -8)):
+          pad=22, dots=True, label_off=(11, -8), segments=None, extra=None):
     """A four-quadrant coordinate plane where everything derives from one mapping.
 
     coord_grid covers the first quadrant only, and every figure in VIC round 5 that a
@@ -664,14 +690,29 @@ def plane(points=None, lines=None, polygon=None, xr=(-4, 4), yr=(-4, 4), cell=30
     the dots and the lines are all placed by px() and there is no second opinion about
     where a unit is. That is the point of this function -- not tidiness.
 
-    points:  {"B": (-2, 3)}          dots, labelled
-             [(1, 1), (2, 3)]        dots the student must read off the grid
-    lines:   [((0, 4), (4, 0))]      drawn through both points and clipped to the plane
-    polygon: [(-1, 4), (3, 4), ...]  closed outline
+    points:   {"B": (-2, 3)}         dots, labelled
+              [(1, 1), (2, 3)]       dots the student must read off the grid
+    lines:    [((0, 4), (4, 0))]     drawn THROUGH both points, clipped to the plane
+    segments: [((0, 2), (4, 4))]     drawn BETWEEN the two points and stopped there
+    polygon:  [(-1, 4), (3, 4), ...] closed outline
+    extra:    f(px) -> svg           anything else this figure needs -- a dashed
+                                     auxiliary line, an angle arc, a curve. It is
+                                     handed the SAME px() everything else is placed
+                                     by, so an addition cannot land on its own scale.
+
+    A SEGMENT IS NOT A LINE. `lines` extends through both points to the edge of the
+    plane, which is right for "the line through A and B" and wrong for "line segment
+    PQ" -- a question asking for the midpoint of PQ drawn as an endless line has no
+    PQ in it. They are separate arguments because they are separate objects.
     """
     x0, x1 = xr
     y0, y1 = yr
     gw, gh = (x1 - x0) * cell, (y1 - y0) * cell
+    # The y label is drawn at oy - 14 with a 12 px font, so its box reaches
+    # oy - 24. A pad of 22 left it two pixels above the canvas and the browser
+    # cut the top off it -- found the day `text_outside_the_canvas` learned to
+    # look at all four edges, in this function's own output.
+    pad = max(pad, 26)
     ox, oy = pad + 16, pad
     vw, vh = gw + 2 * pad + 30, gh + 2 * pad + 20
 
@@ -684,6 +725,8 @@ def plane(points=None, lines=None, polygon=None, xr=(-4, 4), yr=(-4, 4), cell=30
     # each axis its numbers can safely go. Drawing the labels first is how a line ended
     # up printed through the "-6" that names its own intercept.
     drawn = []
+    for (pa, pb) in (segments or []):
+        drawn.append((px(*pa), px(*pb)))
     for (pa, pb) in (lines or []):
         (ux, uy), (vx, vy) = pa, pb
         if ux == vx:
@@ -731,8 +774,21 @@ def plane(points=None, lines=None, polygon=None, xr=(-4, 4), yr=(-4, 4), cell=30
             marks.append(f"M{ax - 4:.0f} {y:.0f}H{ax + 4:.0f}")
     b.append(f'<path d="{"".join(marks)}" stroke="currentColor" stroke-width="1.4"/>')
 
+    # WHAT A TICK NUMBER HAS TO KEEP CLEAR OF is everything the figure draws in real
+    # ink, not only the lines passed in `lines`. The polygon's edges are content, and
+    # so is whatever `extra` draws -- a parabola, a construction line, an angle arc.
+    # Leaving those out put a "−1" on a parabola and a "3" on a triangle's side, both
+    # in this function's own output, both caught by the check afterwards.
+    content = list(drawn)
+    if polygon:
+        _pp = [px(*q) for q in polygon]
+        content += [(_pp[i], _pp[(i + 1) % len(_pp)]) for i in range(len(_pp))]
+    extra_svg = extra(px) if extra else ""
+    if extra_svg:
+        content += figure_outlines(extra_svg)
+
     def clear(bx0, by0, bx1, by1):
-        return min([_seg_box_gap(s, bx0, by0, bx1, by1) for s in drawn] or [99])
+        return min([_seg_box_gap(s, bx0, by0, bx1, by1) for s in content] or [99])
 
     # At small cell sizes the x-axis "-1" and the y-axis "-1" sit in the same corner and
     # print over each other: the x label is centred at ax-cell and the y label ends at
@@ -743,22 +799,69 @@ def plane(points=None, lines=None, polygon=None, xr=(-4, 4), yr=(-4, 4), cell=30
     # _axis_ticks needs three to fit a mapping -- so the figure stops being verifiable,
     # which is a worse fault than the collision this avoids.
     def thin(lo, hi):
+        """Every unit, or every second one if consecutive numbers would touch.
+
+        The threshold used to be `cell < 22`, guessed rather than measured. At cell=24
+        a "−1" and a "1" still overlap by 4 px, because what decides it is the WIDTH of
+        the widest number on the axis and not the cell size -- "−10" is two and a half
+        times as wide as "1". Measure the widest label and compare it with the spacing
+        it has to live in.
+        """
         every = [v for v in range(lo, hi + 1) if v]
+        if not every:
+            return every
+        widest = max(_label_w(str(v).replace("-", "\u2212"), 10) for v in every)
         alt = [v for v in every if v % 2 == 0]
-        return alt if (cell < 22 and len(alt) >= 3) else every
+        return alt if (widest + 3 > cell and len(alt) >= 3) else every
     xs, ys = thin(x0, x1), thin(y0, y1)
-    below = min([clear(px(i, 0)[0] - 7, ay + 6, px(i, 0)[0] + 7, ay + 18) for i in xs]
-                or [99])
-    above = min([clear(px(i, 0)[0] - 7, ay - 18, px(i, 0)[0] + 7, ay - 6) for i in xs]
-                or [99])
-    left = min([clear(ax - 21, px(0, j)[1] - 7, ax - 7, px(0, j)[1] + 5) for j in ys]
-               or [99])
-    right = min([clear(ax + 7, px(0, j)[1] - 7, ax + 21, px(0, j)[1] + 5) for j in ys]
-                or [99])
-    gap = 9 if max(left, right) > 12 else 14
-    xdy = 16 if below >= above else -9
-    ydx = -gap if left >= right else gap
-    xanch, yanch = "middle", ("end" if left >= right else "start")
+    # WHICH SIDE OF EACH AXIS THE NUMBERS GO, decided by trying every arrangement and
+    # measuring, rather than by scoring the two axes independently. Scoring them apart
+    # cannot see the one collision that actually happens: near the origin the x-axis
+    # "−1" and the y-axis "1" are a few pixels apart whatever each axis prefers on its
+    # own, and a plotted line through the origin sits on top of both. So enumerate --
+    # above/below, left/right, near/far -- and keep the first arrangement where no
+    # number touches another number and none is struck through by a drawn line.
+    def boxes_for(xdy, ydx, yanch):
+        out = []
+        for i in xs:
+            x, _ = px(i, 0)
+            w = _label_w(str(i).replace("-", "\u2212"), 10)
+            out.append((x - w / 2, ay + xdy - 8, x + w / 2, ay + xdy + 2,
+                        str(i).replace("-", "\u2212")))
+        for j in ys:
+            _, y = px(0, j)
+            w = _label_w(str(j).replace("-", "\u2212"), 10)
+            x = ax + ydx
+            x0b = x - w if yanch == "end" else x
+            out.append((x0b, y - 4, x0b + w, y + 6, str(j).replace("-", "\u2212")))
+        return out
+
+    def cost(xdy, ydx, yanch):
+        bx = boxes_for(xdy, ydx, yanch)
+        bad = 0
+        for k in range(len(bx)):
+            for l in range(k + 1, len(bx)):
+                if (min(bx[k][2], bx[l][2]) - max(bx[k][0], bx[l][0]) > 0
+                        and min(bx[k][3], bx[l][3]) - max(bx[k][1], bx[l][1]) > 0):
+                    bad += 4
+        for b0, b1, b2, b3, _t in bx:
+            if clear(b0, b1, b2, b3) <= 0:
+                bad += 1
+        return bad
+
+    best = None
+    for xdy in (16, -9, 22, -15):
+        for ydx, yanch in ((-9, "end"), (9, "start"), (-15, "end"), (15, "start")):
+            c = cost(xdy, ydx, yanch)
+            if best is None or c < best[0]:
+                best = (c, xdy, ydx, yanch)
+            if c == 0:
+                break
+        if best[0] == 0:
+            break
+    _c, xdy, ydx, yanch = best
+    left = right = 99
+    xanch = "middle"
 
     # Shared attributes ride on a <g>; x, y, font-size and text-anchor stay on each
     # <text> because question_checks._text_box reads all four off the tag to size a
@@ -766,20 +869,101 @@ def plane(points=None, lines=None, polygon=None, xr=(-4, 4), yr=(-4, 4), cell=30
     # it started where it actually centres, and the overlap checks would quietly
     # mis-box the whole figure.
     def tick(x, y, s, anchor):
-        return f'<text x="{x:.0f}" y="{y:.0f}" font-size="10" text-anchor="{anchor}">{s}</text>'
+        """One tick number. It is emitted TWICE, into two <g> layers -- see below."""
+        return (f'<text x="{x:.0f}" y="{y:.0f}" font-size="10" '
+                f'text-anchor="{anchor}">{s}</text>')
 
+    # AND THEN PER LABEL. The arrangement above is chosen for the axis as a whole,
+    # which cannot help the one or two numbers a plotted line happens to run through
+    # -- a segment from (−2, 3) to (4, −5) crosses the tick row twice wherever the row
+    # sits. A tick may cross its own axis freely: it stays level with the mark it
+    # names, so the scale is untouched. So any number still struck through goes to the
+    # other side on its own.
+    other_x = -9 if xdy > 0 else 16
+    other_y = (9, "start") if ydx < 0 else (-9, "end")
+    ROOM = 2.5
     lab = []
+    tickboxes = []
+
+    def free_of_ticks(b):
+        """No placed tick number already occupies this box."""
+        return not any(min(b[2], t[2]) - max(b[0], t[0]) > -1
+                       and min(b[3], t[3]) - max(b[1], t[1]) > -1 for t in tickboxes)
+
+    dropped_x = dropped_y = 0
     for i in xs:
         x, _ = px(i, 0)
-        lab.append(tick(x, ay + xdy, str(i).replace("-", "\u2212"), xanch))
+        t = str(i).replace("-", "\u2212")
+        w = _label_w(t, 10)
+        dy0 = xdy
+        # ROOM, not merely absence of contact. `text_overlaps_geometry` measures the
+        # rendered box -- baseline plus font size, real advance widths -- and a
+        # half-pixel gap by this estimate is a hit by that one. Ask for daylight.
+        bn = (x - w / 2, ay + dy0 - 9, x + w / 2, ay + dy0 + 3)
+        ba = (x - w / 2, ay + other_x - 9, x + w / 2, ay + other_x + 3)
+        here = clear(*bn) if free_of_ticks(bn) else -99
+        there = clear(*ba) if free_of_ticks(ba) else -99
+        if here < ROOM <= there:
+            dy0, here = other_x, there
+        # NEITHER SIDE IS CLEAR: the plotted line crosses the tick row here, so this
+        # number cannot be printed anywhere near its own mark without being struck
+        # through. Print the MARK and drop the NUMBER -- which is what a graph does,
+        # and is honest, where moving it away from its mark would not be. Only while
+        # four numbers remain, since three is what fitting a scale needs.
+        if here < ROOM and len(xs) - dropped_x > 4:
+            dropped_x += 1
+            continue
+        tickboxes.append((x - w / 2, ay + dy0 - 9, x + w / 2, ay + dy0 + 3))
+        lab.append(tick(x, ay + dy0, t, xanch))
     for j in ys:
         _, y = px(0, j)
-        lab.append(tick(ax + ydx, y + 4, str(j).replace("-", "\u2212"), yanch))
+        t = str(j).replace("-", "\u2212")
+        w = _label_w(t, 10)
+        dx0, an = ydx, yanch
+        b_now = (ax + dx0 - (w if an == "end" else 0), y - 5,
+                 ax + dx0 + (0 if an == "end" else w), y + 7)
+        alt_dx, alt_an = other_y
+        b_alt = (ax + alt_dx - (w if alt_an == "end" else 0), y - 5,
+                 ax + alt_dx + (0 if alt_an == "end" else w), y + 7)
+        here = clear(*b_now) if free_of_ticks(b_now) else -99
+        there = clear(*b_alt) if free_of_ticks(b_alt) else -99
+        if here < ROOM <= there:
+            dx0, an, here = alt_dx, alt_an, there
+        if here < ROOM and len(ys) - dropped_y > 4:
+            dropped_y += 1
+            continue
+        tickboxes.append((ax + dx0 - (w if an == "end" else 0), y - 5,
+                          ax + dx0 + (0 if an == "end" else w), y + 7))
+        lab.append(tick(ax + dx0, y + 4, t, an))
     # The "O" sits in the corner between the two tick columns and is the first thing to
     # collide when they crowd. It names something every reader can already see, so at
     # tight scales it simply goes.
     if cell >= 24:
-        lab.append(tick(ax - 9 if left >= right else ax + 9, ay + 15, "O", yanch))
+        _ow = _label_w("O", 10)
+        for _ox2, _oanch in ((ax - 9, "end"), (ax + 9, "start")):
+            _b = (_ox2 - (_ow if _oanch == "end" else 0), ay + 6,
+                  _ox2 + (0 if _oanch == "end" else _ow), ay + 18)
+            if clear(*_b) >= ROOM and free_of_ticks(_b):
+                tickboxes.append(_b)
+                lab.append(tick(_ox2, ay + 15, "O", _oanch))
+                break
+        # else: no room on either side. The origin is the one label every reader can
+        # already find, so it goes rather than being printed through.
+    # HALOED, IN TWO LAYERS. A four-quadrant plane puts its tick numbers INSIDE the
+    # grid whenever the axis is not at an edge, so a gridline runs through every one of
+    # them -- "Why are there thin grid lines behind the numbers?" A page-coloured
+    # stroke behind the glyphs is what a real graph does about it, and both text checks
+    # read a label drawn twice at one spot as one label rather than as a collision.
+    #
+    # The stroke colour is the PAGE, which is the one thing `currentColor` cannot be:
+    # currentColor IS the ink. It rides on a variable so a dark card can set it, with
+    # white as the fallback the review card and Selectly both actually use. Hoisting it
+    # to the group keeps the halo from doubling the figure's size -- each <text> still
+    # carries its own x, y, font-size and text-anchor, because `_text_box` reads all
+    # four off the tag and would mis-box every number if they were hoisted too.
+    b.append(f'<g font-family="system-ui,sans-serif" stroke="var(--figure-page,#fff)" '
+             f'stroke-width="3" stroke-linejoin="round" fill="none" '
+             f'aria-hidden="true">{"".join(lab)}</g>')
     b.append(f'<g font-family="system-ui,sans-serif" fill="currentColor" '
              f'fill-opacity=".75">{"".join(lab)}</g>')
     b.append(txt(ox + gw + 20, ay + 14, "x", 12, "middle", ".9"))
@@ -808,8 +992,19 @@ def plane(points=None, lines=None, polygon=None, xr=(-4, 4), yr=(-4, 4), cell=30
     # A list plots bare dots the student has to read off the grid -- one flagged
     # question shows three points and names none of them. A dict keyed on "" would
     # collapse them into one, so carry pairs rather than a mapping.
+    if extra_svg:
+        b.append(extra_svg)
     pairs = list(pts.items()) if isinstance(pts, dict) else [("", q) for q in pts]
     plab = []
+    placed = []                     # boxes of the point labels already written
+    # EVERYTHING ALREADY DRAWN, read back off the figure rather than listed by hand.
+    # The hand-written list was axes + plotted lines + tick marks, which is most of a
+    # figure and not all of it: a vertex label went straight over the polygon edge it
+    # belongs to, and another over a parabola drawn by `extra`. Ask the drawing.
+    _body = "".join(b)
+    _faint = {(tuple(u), tuple(v)) for u, v in figure_outlines(_faint_ink(_body))}
+    solid = [sg for sg in figure_outlines(_body)
+             if (tuple(sg[0]), tuple(sg[1])) not in _faint]
     for name, (x, y) in pairs:
         cx, cy = px(x, y)
         if dots:
@@ -842,9 +1037,50 @@ def plane(points=None, lines=None, polygon=None, xr=(-4, 4), yr=(-4, 4), cell=30
                 elif x == 0:
                     ux, uy = (1 if vx >= 0 else -1), (-0.4 if vy >= 0 else 0.5)
                 dx, dy = _label_offset(ux, uy, name)
+            # WHEREVER IT LANDS, IT MUST NOT LAND ON A LINE. The rules above choose a
+            # DIRECTION well -- outward from the shape, or perpendicular to the line
+            # the point sits on -- and then trust it. For a vertex one unit from an
+            # axis that is not enough: "A(1,1)" pushed outward from its triangle went
+            # straight over the y-axis. Keep the chosen direction if it is clear, and
+            # otherwise walk the compass and take the first that is.
+            w13 = _label_w(name, 13)
+
+            def free(ddx, ddy):
+                bx = (cx + ddx - w13 / 2, cy + ddy - 10,
+                      cx + ddx + w13 / 2, cy + ddy + 3)
+                if not (ox - 12 <= bx[0] and bx[2] <= ox + gw + 26
+                        and oy - 12 <= bx[1] and bx[3] <= oy + gh + 22):
+                    return -99
+                for tb in tickboxes + placed:
+                    if (min(bx[2], tb[2]) - max(bx[0], tb[0]) > -1
+                            and min(bx[3], tb[3]) - max(bx[1], tb[1]) > -1):
+                        return -99
+                return min(_seg_box_gap(sg, *bx) for sg in solid)
+
+            if free(dx, dy) < 3:
+                ring = [(1, -0.4), (1, 0.5), (-1, -0.4), (-1, 0.5), (0, -1), (0, 1),
+                        (0.7, -0.7), (-0.7, -0.7), (0.7, 0.7), (-0.7, 0.7)]
+                best = (free(dx, dy), dx, dy)
+                for ux2, uy2 in ring:
+                    cdx, cdy = _label_offset(ux2, uy2, name)
+                    g = free(cdx, cdy)
+                    if g > best[0]:
+                        best = (g, cdx, cdy)
+                    if g >= 3:
+                        break
+                _g, dx, dy = best
+            # Haloed like the tick numbers: a point label sits inside the grid by
+            # definition, so a gridline runs under most of them.
+            placed.append((cx + dx - _label_w(name, 13) / 2, cy + dy - 10,
+                           cx + dx + _label_w(name, 13) / 2, cy + dy + 3))
             plab.append(f'<text x="{cx + dx:.0f}" y="{cy + dy:.0f}" font-size="13" '
                         f'text-anchor="middle">{name}</text>')
     if plab:
+        # Haloed like the tick numbers: a point label sits inside the grid by
+        # definition, so a gridline runs under most of them.
+        b.append(f'<g font-family="system-ui,sans-serif" stroke="var(--figure-page,#fff)" '
+                 f'stroke-width="3" stroke-linejoin="round" fill="none" '
+                 f'aria-hidden="true">{"".join(plab)}</g>')
         b.append(f'<g font-family="system-ui,sans-serif" fill="currentColor" '
                  f'fill-opacity=".9">{"".join(plab)}</g>')
     return svg("".join(b), vb=f"0 0 {vw:.0f} {vh:.0f}")
