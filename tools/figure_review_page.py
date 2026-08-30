@@ -39,7 +39,7 @@ from tools import gate_forms as gf                       # noqa: E402
 from tools.sweep_checks import withheld_ids              # noqa: E402
 
 DB = ROOT / "run_data/db/qbank.db"
-OUT = ROOT / "review/ui/figures.html"
+UI = ROOT / "review/ui"          # every reviewer-facing page lives here
 
 SCOPES = {
     # Every VIC figure lives in maths+quant; reading and verbal carry none.
@@ -257,8 +257,14 @@ def main() -> int:
                     help="review_status to include (default pending; 'any' for all)")
     ap.add_argument("--include-flagged", action="store_true",
                     help="also include figures a BLOCKING check already names")
-    ap.add_argument("-o", "--out", type=pathlib.Path, default=OUT)
+    ap.add_argument("-o", "--out", type=pathlib.Path,
+                    help="default: review/ui/figures-<scope>.html")
     a = ap.parse_args()
+
+    # ONE FOLDER, ONE NAME PER PAGE. This used to default to a single `figures.html`
+    # whatever the scope, so building the NSW page silently replaced the VIC one and
+    # the link a reviewer had been given pointed at whichever was built last.
+    a.out = a.out or (UI / f"figures-{a.scope}.html")
 
     con = sqlite3.connect(DB)
     con.row_factory = sqlite3.Row

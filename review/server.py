@@ -315,20 +315,48 @@ def create_app(db_path: str = _DEFAULT_DB) -> FastAPI:
         return FileResponse(str(ui_path), media_type="text/html")
 
     @app.get("/figures")
-    def serve_figure_review():
-        """The by-eye figure pass, built by tools/figure_review_page.py.
+    def list_figure_pages():
+        """Every reviewer page in review/ui/, listed rather than guessed at.
+
+        This route used to serve one hard-coded `figures.html`, and both page builders
+        defaulted to writing it — so building the NSW page replaced the VIC one and the
+        link a reviewer already had pointed at whichever was made last. Each page now
+        carries its scope in its name and this lists what is actually there.
 
         Served from the review server rather than opened as a file so it reaches the
         browser the same way the review UI does — over the VM's IP — and so the SVGs
         are drawn by the renderer that actually matters. A PNG contact sheet is
         cairosvg's opinion of a figure, not Chrome's, and the two disagree.
         """
-        page = Path(__file__).parent / "ui" / "figures.html"
-        if not page.exists():
+        ui = Path(__file__).parent / "ui"
+        pages = sorted(p for p in ui.glob("*.html") if p.name != "index.html")
+        if not pages:
             return HTMLResponse(
-                "<h3>No figure review page built yet</h3><p>Run:<br>"
+                "<h3>No figure page built yet</h3><p>Run one of:<br>"
                 "<code>env -u PYTHONPATH .venv/bin/python3.11 -m "
-                "tools.figure_review_page --scope vic-mq</code></p>", status_code=404)
+                "tools.figure_review_page --scope vic-mq</code><br>"
+                "<code>env -u PYTHONPATH .venv/bin/python3.11 -m "
+                "tools.figure_compare_page --before &lt;backup.db&gt; "
+                "--scope vic-mq-recheck</code></p>", status_code=404)
+        rows = "".join(
+            f'<li><a href="/figures/{p.name}">{p.name}</a> '
+            f'<span style="color:#5a6572">&mdash; {p.stat().st_size / 1024:.0f} KB, '
+            f'built {datetime.fromtimestamp(p.stat().st_mtime):%d %b %H:%M}</span></li>'
+            for p in pages)
+        return HTMLResponse(
+            '<meta charset="utf-8"><title>Figure pages</title>'
+            '<body style="font:16px/1.6 system-ui,sans-serif;margin:32px">'
+            f'<h2>Figure pages</h2><ul>{rows}</ul>')
+
+    @app.get("/figures/{name}")
+    def serve_figure_page(name: str):
+        ui = Path(__file__).parent / "ui"
+        page = (ui / name).resolve()
+        # Only files that are actually in the folder, and only pages.
+        if page.parent != ui.resolve() or page.suffix != ".html" or not page.exists():
+            return HTMLResponse("<h3>No such page</h3>"
+                                '<p><a href="/figures">Back to the list</a></p>',
+                                status_code=404)
         return FileResponse(str(page), media_type="text/html")
 
     return app
