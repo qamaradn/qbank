@@ -1,10 +1,17 @@
 #!/usr/bin/env python3
-"""One HTML page showing each repaired figure BEFORE and AFTER, side by side.
+"""One HTML page showing what happened to EVERY figure the reviewer marked.
 
 A reviewer who has already spent a sitting flagging 181 figures should not have to
 re-review them from scratch to see whether the flags were acted on. This puts the
 picture they objected to next to the picture that replaced it, with their own note
 above the pair, so a glance answers "is this what I asked for?".
+
+AND IT SHOWS THE ONES THAT WERE NOT ACTED ON. The first cut listed only figures whose
+SVG had changed, so 57 of the reviewer's 189 marks silently vanished from the page and
+they had no way to tell "fixed" from "never got to it" — which is exactly what they
+asked about. Every mark appears now, labelled with what happened to it: redrawn, text
+fixed with the figure left alone, or not changed. A page that quietly drops the work
+you did not do is worse than no page.
 
 The BEFORE comes out of a database backup rather than a scratch file, so the page can
 be regenerated at any time from two things that are both kept: the backup taken before
@@ -25,8 +32,12 @@ import argparse
 import html
 import json
 import pathlib
+import os
+import shutil
 import sqlite3
+import subprocess
 import sys
+import tempfile
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
@@ -53,6 +64,15 @@ PAGE = """<!doctype html>
  .hd{padding:9px 14px;border-bottom:1px solid var(--line);background:#fafbfc;
      font-size:13px;color:#5a6572}
  .hd b{color:var(--ink)}
+ .badge{float:right;font-size:11px;letter-spacing:.05em;text-transform:uppercase;
+        font-weight:700;padding:2px 8px;border-radius:20px}
+ .badge.redrawn{background:#e6f4ea;color:var(--new)}
+ .badge.text{background:#e8eefc;color:#2a4b9b}
+ .badge.same{background:#fdece9;color:var(--old)}
+ .why{padding:9px 14px;background:#f6f7f9;border-bottom:1px solid var(--line);
+      font-size:13px;color:#5a6572}
+ .one{padding:14px;text-align:center}
+ .one svg{max-width:100%;height:auto}
  .note{padding:9px 14px;background:#fff8e8;border-bottom:1px solid var(--line);
        font-size:14px}
  .note::before{content:"you wrote: ";color:#8a6d1c;font-weight:600}
@@ -84,10 +104,11 @@ PAGE = """<!doctype html>
 </style>
 <header>
   <h1>Figure repairs &mdash; before and after</h1>
-  <div class="sub">__N__ figures, with what replaced them. Left is what you saw last
-    time; right is what is in the bank now. Mark anything still wrong, type what is
-    wrong with it, then press <b>Download my comments</b> and send the file back.
-    The question, its four options and the marked answer are under each pair.</div>
+  <div class="sub">__SUMMARY__<br>Left is what you saw last time; right is what is in
+    the bank now. Where nothing changed, you see the one picture and a line saying so.
+    Mark anything still wrong, type what is wrong with it, then press
+    <b>Download my comments</b> and send the file back. The question, its four options
+    and the marked answer are under each one.</div>
   <div class="bar">
     <input id="find" placeholder="filter by form, book or words in the question"
            style="min-width:260px">
@@ -95,6 +116,8 @@ PAGE = """<!doctype html>
       <option value="all">show all</option>
       <option value="todo">not yet marked</option>
       <option value="flagged">still a problem</option>
+      <option value="same">not changed yet</option>
+      <option value="redrawn">redrawn</option>
     </select>
     <input id="who" placeholder="your name" style="width:130px">
     <button id="download"><b>Download my comments</b></button>
@@ -128,18 +151,26 @@ function card(d){
   const st = state[d.n] || {};
   const el = document.createElement("div");
   el.className = "item" + (st.flag ? " flagged" : "") + (st.ok ? " done" : "");
+  const BADGE = {redrawn: "redrawn", text: "text fixed", same: "not changed"};
+  // A figure that did not change is shown ONCE. Putting the same picture in a
+  // before/after pair would read as "look, it is different now" and it is not.
+  const pictures = d.status === "redrawn"
+    ? '<div class="pair"><div class="cell b"><div class="tag">before</div>' +
+      d.before + '</div><div class="cell a"><div class="tag">after</div>' +
+      d.after + '</div></div>'
+    : '<div class="one">' + d.after + '</div>';
   el.innerHTML =
     '<div class="hd"><b>' + d.n + '</b> &middot; ' + d.book +
-    (d.form ? ' &middot; ' + d.form : '') + ' &middot; ' + d.id + '</div>' +
+    (d.form ? ' &middot; ' + d.form : '') + ' &middot; ' + d.id +
+    '<span class="badge ' + d.status + '">' + BADGE[d.status] + '</span></div>' +
     (d.note ? '<div class="note">' + d.note + '</div>' : '') +
+    (d.why ? '<div class="why">' + d.why + '</div>' : '') +
     '<div class="stem">' + d.stem + '</div>' +
     '<div class="opts">' +
       ['a','b','c','d'].map(L => '<span' + (L === d.key ? ' class="k"' : '') + '>' +
         L.toUpperCase() + ' ' + d[L] + '</span>').join('') +
       '<span class="k">&rarr; key ' + d.key.toUpperCase() + '</span></div>' +
-    '<div class="pair"><div class="cell b"><div class="tag">before</div>' +
-    d.before + '</div><div class="cell a"><div class="tag">after</div>' +
-    d.after + '</div></div>' +
+    pictures +
     '<div class="acts">' +
       '<input class="say" placeholder="what is still wrong with the new one?" value="' +
         (st.note || "").replace(/"/g,"&quot;") + '">' +
@@ -168,6 +199,8 @@ function draw(){
     const st = state[d.n] || {};
     if (mode === "todo" && (st.flag || st.ok)) continue;
     if (mode === "flagged" && !st.flag) continue;
+    if (mode === "same" && d.status === "redrawn") continue;
+    if (mode === "redrawn" && d.status !== "redrawn") continue;
     if (q && !d.hay.includes(q)) continue;
     grid.appendChild(card(d)); n++;
   }
@@ -236,6 +269,37 @@ draw();
 """
 
 
+def _script_parses(script):
+    """Ask a real JavaScript engine whether the page's script parses. (ok, message).
+
+    WHY THIS IS NOT DONE BY HAND. A backslash in this file's PAGE template is a PYTHON
+    escape before it is a JavaScript one, so `join("\\n")` written once becomes a real
+    newline inside a JS string and the whole script dies — silently; the Copy button
+    simply stopped working and nothing said so. Worth catching.
+
+    But the two hand-rolled versions of this check both cried wolf inside a minute.
+    "No line may end in a quote" rejected a ternary continued on the next line. A
+    quote-scanner that understood escapes still choked on the regex literal in
+    `.replace(/"/g, "&quot;")`. Writing a third would be writing a JavaScript parser,
+    badly. Use one that exists, and when it does not exist say so rather than pretend.
+    """
+    node = shutil.which("node")
+    if not node:
+        return True, "no node on this machine — page script not parse-checked"
+    with tempfile.NamedTemporaryFile("w", suffix=".js", delete=False,
+                                     encoding="utf-8") as fh:
+        fh.write(script)
+        path = fh.name
+    try:
+        r = subprocess.run([node, "--check", path], capture_output=True, text=True)
+    finally:
+        os.unlink(path)
+    if r.returncode == 0:
+        return True, ""
+    first = (r.stderr.strip().splitlines() or ["node --check failed"])[0]
+    return False, first
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -271,21 +335,59 @@ def main() -> int:
             notes[it["id"]] = it.get("note") or ""
             order[it["id"]] = it.get("n", 0)
 
-    rows = [dict(r) for r in now.execute(
-        "SELECT * FROM questions WHERE figure_svg IS NOT NULL AND figure_svg != ''")]
+    everything = {r["id"]: dict(r) for r in now.execute(
+        "SELECT * FROM questions WHERE figure_svg IS NOT NULL AND figure_svg != ''")}
     if a.ids:
         want = tuple(i.strip() for i in a.ids.split(","))
-        rows = [r for r in rows if r["id"].startswith(want)]
+        rows = [r for r in everything.values() if r["id"].startswith(want)]
     else:
-        rows = [r for r in rows
-                if r["id"] in was and was[r["id"]] != r["figure_svg"]]
+        # EVERY MARK THEY MADE, plus anything else that changed. Listing only what
+        # changed dropped 57 of their 189 flags off the page with nothing to say they
+        # had ever been raised.
+        rows = [everything[i] for i in notes if i in everything]
+        rows += [r for r in everything.values()
+                 if r["id"] not in notes
+                 and r["id"] in was and was[r["id"]] != r["figure_svg"]]
     rows.sort(key=lambda r: (order.get(r["id"], 10 ** 6), r["form_id"] or ""))
+
+    # What happened to each one, in the plainest terms available.
+    text_fields = ("stem", "option_a", "option_b", "option_c", "option_d",
+                   "explanation")
+    old_rows = {r["id"]: dict(r) for r in old.execute("SELECT * FROM questions")}
+    from tools import question_checks as qc                     # noqa: E402
+    watched = ("text_overlaps_geometry", "angle_arc_misses_its_rays",
+               "gridlines_stop_short_of_the_axes", "coordinate_figure_without_grid",
+               "overlapping_text_labels", "axis_shorter_than_the_data")
+
+    def outcome(r):
+        o = old_rows.get(r["id"])
+        if o is None:
+            return "redrawn", ""
+        if o["figure_svg"] != r["figure_svg"]:
+            return "redrawn", ""
+        if any((o[f] or "") != (r[f] or "") for f in text_fields):
+            return "text", ("The wording or the options were corrected. The picture "
+                            "itself was already right, so it is unchanged.")
+        note = (notes.get(r["id"]) or "").lower()
+        if "reuse" in note or "reused" in note:
+            return "same", ("Checked and left alone: 140 questions do share a figure, "
+                            "but no single test paper holds the same figure twice, so "
+                            "no student meets a picture they have already seen. The "
+                            "copies are grouped together on the review page now.")
+        hit = [n for n in watched if getattr(qc, n)(r["figure_svg"])]
+        if hit:
+            return "same", ("Not changed. An automatic check still names it (" +
+                            ", ".join(hit) + ") and the repair needs a decision a "
+                            "tool cannot make.")
+        return "same", ("Not changed. No automatic check sees anything wrong with it, "
+                        "so nobody has been back to it since you flagged it.")
 
     def esc(v):
         return html.escape(" ".join(str(v or "").split()))
 
     data = []
     for i, r in enumerate(rows):
+        st, why = outcome(r)
         stem = " ".join((r["stem"] or "").split())
         data.append({
             "n": i + 1, "id": r["id"][:8], "full": r["id"],
@@ -297,32 +399,41 @@ def main() -> int:
             "a": esc(r["option_a"]), "b": esc(r["option_b"]),
             "c": esc(r["option_c"]), "d": esc(r["option_d"]),
             "key": (r["correct_answer"] or "").strip().lower(),
+            "status": st, "why": esc(why),
             "note": esc(notes.get(r["id"], "")),
             "hay": " ".join([r["source_book"] or "", r["form_id"] or "",
                              stem]).lower(),
             # verbatim, both of them: the browser is the renderer whose opinion counts
-            "before": was[r["id"]], "after": r["figure_svg"]})
+            "before": was.get(r["id"], r["figure_svg"]),
+            "after": r["figure_svg"]})
 
+    import collections as _c
+    tally = _c.Counter(d["status"] for d in data)
+    marked = sum(1 for d in data if d["note"])
+    summary = (f"<b>{len(data)}</b> figures: <b>{tally.get('redrawn', 0)}</b> redrawn, "
+               f"<b>{tally.get('text', 0)}</b> with the wording fixed, "
+               f"<b>{tally.get('same', 0)}</b> not changed yet. "
+               f"<b>{marked}</b> of them carry a note you wrote.")
     page = (PAGE.replace("__N__", str(len(data)))
+                .replace("__SUMMARY__", summary)
                 .replace("__SCOPE__", a.scope)
                 .replace("__DATA__", json.dumps(data, ensure_ascii=False)))
-    # A backslash in this file's PAGE template is a PYTHON escape before it is a
-    # JavaScript one, so `join("\n")` written once becomes a real newline inside a
-    # JS string literal and the whole script stops parsing. It cost the Copy button
-    # silently. Cheap to check: no quote may be the last thing on a line inside the
-    # script.
-    script = page[page.index("<script>"):page.index("</script>")]
-    bad = [ln for ln in script.splitlines() if ln.rstrip().endswith(('"', "'"))
-           and not ln.rstrip().endswith(('";', "';", '",', "',", '")', "')"))]
-    if bad:
-        raise SystemExit(f"page script has an unterminated string: {bad[0][-60:]!r}")
+    script = page[page.index("<script>") + len("<script>"):page.index("</script>")]
+    ok, msg = _script_parses(script)
+    if not ok:
+        raise SystemExit(f"the page's JavaScript does not parse: {msg}")
 
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(page, encoding="utf-8")
     kb = out.stat().st_size / 1024
-    print(f"{len(data)} before/after pairs -> {out}  ({kb:.0f} KB)")
-    flagged = sum(1 for d in data if d["note"])
-    print(f"{flagged} of them carry the reviewer's own note")
+    print(f"{len(data)} figures -> {out}  ({kb:.0f} KB)")
+    for k, label in (("redrawn", "redrawn"), ("text", "wording fixed, figure as it was"),
+                     ("same", "NOT CHANGED")):
+        print(f"   {tally.get(k, 0):4d}  {label}")
+    print(f"   {sum(1 for d in data if d['note']):4d}  carry the reviewer's own note")
+    missing = len(notes) - sum(1 for d in data if d["full"] in notes)
+    if missing:
+        print(f"   {missing:4d}  marks whose question is no longer in the bank")
     print("\nSend that file. When it comes back:")
     print("   env -u PYTHONPATH .venv/bin/python3.11 -m tools.ingest_figure_review "
           "<the file>")
