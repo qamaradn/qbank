@@ -98,6 +98,10 @@ function card(d){
     (d.form ? ' &middot; ' + d.form : '') + ' &middot; ' + d.id + '</div>' +
     (d.note ? '<div class="note">' + d.note + '</div>' : '') +
     '<div class="stem">' + d.stem + '</div>' +
+    '<div class="opts">' +
+      ['a','b','c','d'].map(L => '<span' + (L === d.key ? ' class="k"' : '') + '>' +
+        L.toUpperCase() + ' ' + d[L] + '</span>').join('') +
+      '<span class="k">&rarr; key ' + d.key.toUpperCase() + '</span></div>' +
     '<div class="pair"><div class="cell b"><div class="tag">before</div>' +
     d.before + '</div><div class="cell a"><div class="tag">after</div>' +
     d.after + '</div></div>' +
