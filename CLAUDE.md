@@ -915,7 +915,66 @@ CREATE INDEX IF NOT EXISTS idx_wp_review_status ON writing_prompts(review_status
 
 ## CURRENT STATUS
 
-**Last worked on:** 2026-08-29 — FIFTY DRILL FORMS RELEASED TO THE REVIEWER.
+**Last worked on:** 2026-08-31 — VIC REVIEW ROUND 8. THE REVIEWER FOUND 181 OF 445
+FIGURES BAD AND THE CHECK SUITE HAD CLEARED ALL 445.
+
+AlaanQ reviewed the VIC maths figure page and flagged 181 (41%), 94 of them for the
+same thing: a number printed on top of a line. `text_overlaps_geometry` caught **none
+of the 94**, and both reasons were in the check. It read only `<line>` elements — so a
+rectangle's sides, a polygon's, a circle's and every angle arc were invisible, which is
+where shape figures do all their drawing — and it skipped horizontal and vertical
+segments by design, so a label on the vertical side of a cube was invisible twice. It
+reads `figure_lib.figure_outlines` now: every inked edge, arcs and curves flattened,
+**transforms applied** (three pie charts draw inside `translate(110,108)`, so read at
+face value their sectors sit 110 px from where the browser puts them). 85 of the 94.
+
+**Widths are measured, not counted.** Three comments claimed `len(label) * 0.55` ran "a
+quarter narrow". Measured against the 4,317 labels the VIC figures draw, it is within a
+few percent ON AVERAGE and wrong by up to a factor of four per label. `_text_box` uses
+Arial's advance widths and unescapes entities first.
+
+Four new BLOCKING checks, one per thing the reviewer kept saying:
+`gridlines_stop_short_of_the_axes` (the grid is laid out from the first tick, not the
+origin), `axis_shorter_than_the_data`, `angle_arc_misses_its_rays` (12 hits bank-wide,
+all 12 reviewer-flagged), `latex_markup_in_text` (a student shown `$42 \text{ cm}²$`).
+
+**200 questions changed, every one rendered and looked at.** 28 redrawn one at a time
+through `figure_lib` (`repair_vic_round8_figures.py`), 20 bare planes, 11 arcs, 70
+haloed, 85 labels moved, 25 LaTeX conversions, 11 grids/axes extended.
+`text_overlaps_geometry` is now clear on **every one of the reviewer's 189 marks**;
+11 marks remain (4 ambiguous arcs at crossings, 3 partial grids, 4 advisory).
+
+**Six of the 28 were WRONG, not untidy**, and only redrawing showed it: a draining-tank
+graph with two lines crossing in an X; a triangle at half-units none of which was the
+point its explanation names; a parabola printing "(1, 5)" beside the vertex the question
+asks for; a pie with two legends stacked and sectors of 60/30/180/90 against a legend
+saying 30/15/40/15; "OC" written across the right-angle symbol defining it; and a
+meat-pie sector that was not half the circle when half is the answer.
+
+**MORE WAS WRONG IN THE TOOLING THAN THE FIGURES, AGAIN.** `plane()` failed its own
+tightened checks. `repair_label_collisions` pushed a label off the canvas and the guard
+passed it, moved an x-axis "0" 44 px down the page in two individually-legal moves, took
+"30°" out of the sector it names, and its ring returns the FIRST offset that clears —
+which is (0,+16), so its habit was shoving labels onto whatever was underneath. It
+refuses a partial fix now. And the halo colour written as `var(--figure-page,#fff)`
+resolves in a browser and makes **cairosvg refuse the whole document**, so 20 freshly
+redrawn planes were applied and unrenderable by the tool every contact sheet here is
+made with. Found as blank tiles in a before/after sheet; no check said a word.
+
+**NSW WAS MEASURED AND IS CLEAN** — 254 figures, 12 findings, 0 blocked. It is
+materially better than VIC because NSW went through `question_checks` as an authoring
+gate and the Gemini books never did. **The NSW round has not started; leave it.**
+
+**LIVE FORMS ARE OFF-LIMITS.** 14 questions in `vic-drill-mq-002..010` fail the new
+checks. The reviewer has passed them; those failures are accepted. Do not repair them.
+
+**Reviewer pages now live one-per-scope in `review/ui/`** — `figures-<scope>.html`,
+`compare-<scope>.html`; `/figures` lists the folder. `tools/figure_compare_page.py`
+builds a before/after page that takes comments and downloads the SAME JSON
+`ingest_figure_review` already reads. `compare-vic-mq-recheck.html` is built and ready
+to send: 166 pairs, 132 carrying AlaanQ's own note.
+
+**Previously:** 2026-08-29 — FIFTY DRILL FORMS RELEASED TO THE REVIEWER.
 
 **1,325 questions across 50 forms are live and verified (2026-08-29).** Ten forms per
 component: `vic-drill-mq-001..010`, `vic-drill-rv-001..010`, `nsw-drill-math-001..010`,
