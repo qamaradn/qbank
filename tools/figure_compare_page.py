@@ -56,7 +56,11 @@ PAGE = """<!doctype html>
  .note{padding:9px 14px;background:#fff8e8;border-bottom:1px solid var(--line);
        font-size:14px}
  .note::before{content:"you wrote: ";color:#8a6d1c;font-weight:600}
- .stem{padding:9px 14px;font-size:13.5px;color:#333;border-bottom:1px solid var(--line)}
+ .stem{padding:9px 14px;font-size:13.5px;color:#333}
+ .opts{padding:0 14px 10px;font-size:13px;color:#444;
+       border-bottom:1px solid var(--line)}
+ .opts span{display:inline-block;margin-right:14px}
+ .opts .k{color:var(--new);font-weight:700}
  .pair{display:grid;grid-template-columns:1fr 1fr;gap:0}
  .cell{padding:14px;text-align:center}
  .cell+.cell{border-left:1px solid var(--line)}
@@ -82,7 +86,8 @@ PAGE = """<!doctype html>
   <h1>Figure repairs &mdash; before and after</h1>
   <div class="sub">__N__ figures, with what replaced them. Left is what you saw last
     time; right is what is in the bank now. Mark anything still wrong, type what is
-    wrong with it, then press <b>Download my comments</b> and send the file back.</div>
+    wrong with it, then press <b>Download my comments</b> and send the file back.
+    The question, its four options and the marked answer are under each pair.</div>
   <div class="bar">
     <input id="find" placeholder="filter by form, book or words in the question"
            style="min-width:260px">
@@ -281,7 +286,13 @@ def main() -> int:
         data.append({
             "n": i + 1, "id": r["id"][:8], "full": r["id"],
             "book": r["source_book"] or "",
-            "form": r["form_id"] or "", "stem": esc(stem[:300]),
+            "form": r["form_id"] or "", "stem": esc(stem),
+            # The four options and the key, as the first review page shows them: "does
+            # this picture answer this question" cannot be judged from the stem alone.
+            # A figure can agree with every word and still contradict the marked answer.
+            "a": esc(r["option_a"]), "b": esc(r["option_b"]),
+            "c": esc(r["option_c"]), "d": esc(r["option_d"]),
+            "key": (r["correct_answer"] or "").strip().lower(),
             "note": esc(notes.get(r["id"], "")),
             "hay": " ".join([r["source_book"] or "", r["form_id"] or "",
                              stem]).lower(),
