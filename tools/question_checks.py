@@ -220,10 +220,16 @@ _LATEX = re.compile(
     r"\\[()\[\]]"                                   # \( \) \[ \]
     r"|\\(?:dfrac|frac|sqrt|text|times|div|cdot|pi|circ|angle|neq|leq|geq|le|ge"
     r"|left|right|begin|end|overline|mathrm|displaystyle)\b"
-    # $...$ only where something inside it is a LaTeX command. A stem about a
+    # $...$ where something inside it is a LaTeX command. A stem about a
     # $180 phone that later mentions $18 of GST is not maths markup, and matching
     # bare dollar signs put 388 perfectly good money questions on the list.
-    r"|\$[^$\n]*\\[a-zA-Z]+[^$\n]*\$")
+    r"|\$[^$\n]*\\[a-zA-Z]+[^$\n]*\$"
+    # ...OR a $...$ pair that OPENS ON A LETTER. Round 9: the reviewer found
+    # '$y = 2x - 3$' and '$AB$' twice on one page and the rule above saw neither,
+    # because neither carries a backslash. A price always opens on a digit or a
+    # space-then-digit, so requiring a letter straight after the opening $ leaves
+    # all 404 money questions in the bank alone and catches 17 real ones.
+    r"|\$[A-Za-z][^$\n]{0,80}\$")
 
 
 def latex_markup_in_text(q):
