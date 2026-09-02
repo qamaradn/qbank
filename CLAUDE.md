@@ -915,7 +915,87 @@ CREATE INDEX IF NOT EXISTS idx_wp_review_status ON writing_prompts(review_status
 
 ## CURRENT STATUS
 
-**Last worked on:** 2026-08-31 — VIC REVIEW ROUND 8. THE REVIEWER FOUND 181 OF 445
+**Last worked on:** 2026-08-31 — VIC REVIEW ROUND 9. THE FORTY-NINE ALAAN WROTE A
+NOTE AGAINST, AND NOTHING ELSE.
+
+Round 8's page (`compare-vic-mq-recheck.html`, 223 cards) came back with comments on
+**49**, numbered 2 to 113. All 49 are repaired. The other 64 inside that range were
+looked at and passed.
+
+**ROUND 10 IS QUEUED AND BRIEFED.** Alaan's next file arrived 2026-09-01 as
+`review/ui/figure-review-vic-mq-recheck-2026-09-01.json`. It holds 95 comments, but 49
+are the round-9 ones repeated byte-for-byte — Alaan re-downloads the whole page each
+time — so **the work is the 46 comments on cards numbered above 113**, all `pending`,
+none live. Books: `png_shs_pt1_310526` 13, `png_act_test8_240526` 12,
+`png_act_test7_240526` 10, `png_act_test5_230526` 4, `png_act_test2_230526` 3,
+`year9_maths` 2, `png_act_test4_230526` 2 — the first and the `year9_maths` pair have
+not been through a figure round before. Full brief:
+`pdfs/vic_figure_round10_PROMPT.md`.
+
+**A card with no comment is a PASS, not a gap.** The round's whole brief: work only on
+questions carrying a comment, do not sweep, do not repair anything the reviewer did not
+name. Nothing approved was touched; all 49 were `pending`.
+
+Most notes were placement and were done as written. **Twelve were not**, each worked
+twice by two routes, and every key confirmed by MEASURING the figure that shipped:
+
+- **Four keys moved.** `0096a667` a bottom edge labelled 8 on a shape that closes at 7
+  (perimeter 38, not the keyed 46 — which is 38 with that edge counted twice);
+  `23bfa545` marking 70° at A *and* 110° at D forces AB ∥ DC, making it a parallelogram
+  rather than the trapezoid the stem describes, so A is 60° and angle CDE is 70°, not
+  40°; `7c325b26` the stem named the wrong pair of sides parallel, angle BDC is 40°;
+  `f0ab0510` one straight line through the origin at 20 km/h, keyed 25, with an
+  explanation reading 70 km at t=3 (not on the line) and signing off "The answer is C"
+  while the key said B.
+- **Eight where the key was right and something else was wrong.** `d3c74fcc` the
+  reviewer read the figure correctly and got 44 — the cut-out was drawn 6 wide where
+  the working says 4, so the FIGURE was redrawn and the keyed 56 now matches;
+  `63e9b382` an incircle too small to touch anything, derived now at exactly 2 cm from
+  all three sides; `f17a9331` a triangle off the lattice; `a30aed4e` the answer printed
+  on the graph as a labelled point; `e75376a3` options B and C the same line
+  (`4x − 2y = −6` is `y = 2x + 3`), C now `y = 2x − 3` which is parallel;
+  `b86b2e3c` a point C defined as lying on both diameters — that is the centre, so
+  every angle from it was undefined — beside an option naming a point D the figure does
+  not contain; `ccac7c88` an explanation using five numbers that are not the five in
+  its chart; `7edd1fff` an explanation using adjacent angles where a parallelogram
+  needs opposite ones.
+
+**MORE WAS WRONG IN MY OWN BUILDS THAN IN THE FIGURES, AGAIN — ten against twelve.**
+The before/after check diff refused SEVEN before they reached the database: a
+hard-coded `#fff`, a circumference stroked twice, two rotated axis titles drawn inside
+the tick-number column, equation labels with no halo over the gridlines beneath them,
+a pie label long enough to reach back over its own arc, and four gridlines called a
+grid. **Three more no check saw and only looking caught:** `fl.plane` moves a tick
+number to the other side of the axis wherever a plotted line crosses the tick row,
+which reads as a number out of line — the exact fault the reviewer raised on
+`4653b226` — so `31585b1f` keeps its own grid, extended, and `e75376a3` keeps its
+figure untouched; and twice, two arcs of equal radius at one crossing joined into a
+single semicircle and marked nothing.
+
+**All 44 single-question checks were diffed before and after: newly firing none, ten
+findings cleared.** 275 tests pass. Record: `run_data/output/vic_round9_figures.json`,
+script `tools/repair_vic_round9_figures.py`, backup
+`run_data/db/qbank.db.bak-round9-204047`.
+
+**Page built and ready to send: `review/ui/compare-vic-mq-round9.html`** — 49 cards,
+all 49 carrying Alaan's own note, 47 redrawn and 2 wording-only (their notes were about
+the options, not the picture). Verified by reading the page back: all 49 cards' stem,
+options, key and after-picture match the live DB.
+
+**`latex_markup_in_text` WIDENED, with the owner's agreement.** It only fired on a
+`$...$` pair containing a backslash command, so it missed `$y = 2x - 3$` and `$AB$`,
+which the reviewer found twice. Measured first: 421 questions carry a `$...$` pair and
+**404 of them are prices**, which is why the rule was narrow. A price always opens on a
+digit, so the rule now also fires when the `$` is followed by a LETTER — 16 hits, none
+of them money. **Nine were pending and are repaired** (`tools/repair_latex_markup_round9.py`);
+six were already rejected and one (`f27e0d63`) is approved and live in
+`vic-drill-mq-008`, so both groups are left alone. Reading those nine turned up **a
+fifth wrong key**: `6aafd8b2` asks when $5000 at 4% first passes $6000 —
+1.04⁴ gives $5849.29 and 1.04⁵ gives $6083.26, so it is 5 complete years (option D),
+keyed A, with an explanation that worked out "5 years" then wrote "Answer is B" while
+B is 7 years.
+
+**Previously:** 2026-08-31 — VIC REVIEW ROUND 8. THE REVIEWER FOUND 181 OF 445
 FIGURES BAD AND THE CHECK SUITE HAD CLEARED ALL 445.
 
 AlaanQ reviewed the VIC maths figure page and flagged 181 (41%), 94 of them for the

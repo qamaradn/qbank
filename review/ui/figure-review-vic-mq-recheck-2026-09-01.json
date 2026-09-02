@@ -1,0 +1,866 @@
+{
+ "kind": "qbank-figure-review",
+ "version": 1,
+ "scope": "vic-mq-recheck",
+ "reviewer": "Alaan Q",
+ "reviewed_at": "2026-09-01T10:06:50.971Z",
+ "total_on_page": 223,
+ "reviewed": 95,
+ "items": [
+  {
+   "n": 2,
+   "id": "23bfa545-dd24-4d70-a071-a528b39e1594",
+   "book": "external_qr_300526",
+   "form": "vic-drill-mq-028",
+   "verdict": "problem",
+   "note": "The angles are disproportionate; Angle B is evidently obtuse, however it is marked as only 30 degrees. Similarly, angle D is marked as 110 degrees but is clearly acute. Additionally, the actual solution should be option B, 70 degrees, not C at 40 degrees.",
+   "stem": "In the figure below, ABCD is a trapezoid with BC parallel to AD. E lies on line AD, and angle measures are as marked. Wh"
+  },
+  {
+   "n": 3,
+   "id": "422ba017-680d-4f73-8987-f95645065781",
+   "book": "external_qr_300526",
+   "form": "vic-drill-mq-032",
+   "verdict": "problem",
+   "note": "The 120 degrees text should be closer to the angle's arc, while the 6 cm label should be on near the actual circumference/arc. Also, the 120 degrees Celsius is not proportional; it should take up 1/3 of the circle. The angle given looks like it's barely 60 degrees, much less 120. The shaded sector text is also redundant.",
+   "stem": "In the figure below, a sector of a circle has a central angle of 120° and a radius of 6 cm. What is the area, in square "
+  },
+  {
+   "n": 4,
+   "id": "0096a667-b965-4da2-8007-c7f8c3a68ce2",
+   "book": "external_qr_300526",
+   "form": "vic-drill-mq-050",
+   "verdict": "problem",
+   "note": "The \"all right angles\" text is not needed, and there is no need for that many right angle symbols are the question clearly states that \"all pairs of intersecting line segments meet at right angles.\"",
+   "stem": "In the figure shown below, all pairs of intersecting line segments meet at right angles, and all lengths are given in ce"
+  },
+  {
+   "n": 5,
+   "id": "19ba6203-0094-449e-b377-1d699fc4259c",
+   "book": "external_qr_300526",
+   "form": "vic-drill-mq-071",
+   "verdict": "problem",
+   "note": "There should be some number line values to the left of -1, as there is an unprofessional empty space. Number ticks -2 and -3 could fit in the gap.",
+   "stem": "The number line below shows the solution set to which of the following inequalities?"
+  },
+  {
+   "n": 6,
+   "id": "4653b226-6ed4-4b00-8dee-745b613c8a3e",
+   "book": "ma_vic_stats",
+   "form": "vic-drill-mq-015",
+   "verdict": "problem",
+   "note": "The y-axis tick (10 on the y-axis values) overlaps with the y-axis itself and should be moved to be in line with the other values.",
+   "stem": "Using the histogram shown below, what fraction of the students borrowed fewer than 5 books?"
+  },
+  {
+   "n": 19,
+   "id": "dddc910e-00b3-438b-b97a-3cc0856d47cf",
+   "book": "png_act_test2_230526",
+   "form": "vic-drill-mq-012",
+   "verdict": "problem",
+   "note": "Add horizontal grid lines on the y-axis in line with the y-axis ticks/values to make the graph more readable.",
+   "stem": "The graph below shows the number of visitors to Bondi Beach on each day of a week-long festival. What is the mean number"
+  },
+  {
+   "n": 21,
+   "id": "31585b1f-1aa9-479f-a549-2a34cbdf2792",
+   "book": "png_act_test2_230526",
+   "form": "vic-drill-mq-015",
+   "verdict": "problem",
+   "note": "Expand the grid lines to fully encompass the dotted line to imitate a real coordinate plane.",
+   "stem": "In the coordinate plane, what is the slope of the line passing through the points (2, 5) and (6, −3)?"
+  },
+  {
+   "n": 24,
+   "id": "1a87560f-3691-4620-84bb-060b45bd9a68",
+   "book": "png_act_test2_230526",
+   "form": "vic-drill-mq-022",
+   "verdict": "problem",
+   "note": "The 7 cm label still slightly overlaps with the parallelogram's side.",
+   "stem": "The area of a parallelogram is found by multiplying its base by its perpendicular height. In the figure below, what is t"
+  },
+  {
+   "n": 25,
+   "id": "e75376a3-1c99-4cd9-af6f-8df88568eb96",
+   "book": "png_act_test2_230526",
+   "form": "vic-drill-mq-023",
+   "verdict": "problem",
+   "note": "Option C and B are the same thing just in scaled-up different form. Option B can be simplified to Option C, so both should be a solution. Change either options to not be correct.",
+   "stem": "The graph below shows one line in a system of two linear equations. The system has infinitely many solutions. Which equa"
+  },
+  {
+   "n": 30,
+   "id": "b03c10bc-d10f-442f-94cf-ad8e43fed338",
+   "book": "png_act_test2_230526",
+   "form": "vic-drill-mq-043",
+   "verdict": "problem",
+   "note": "There is a unnecessary \"?\" after the number 12 instead of the \"cm\" text.",
+   "stem": "In the figure below, triangle ABC has a right angle at C. AB = 13 cm and BC = 5 cm. What is the area of the triangle in "
+  },
+  {
+   "n": 35,
+   "id": "58e9df0d-db25-4ac4-ac41-4285e6a9236d",
+   "book": "png_act_test2_230526",
+   "form": "vic-drill-mq-049",
+   "verdict": "problem",
+   "note": "The 34 degrees is too close to the RP side, move slightly away from the line.",
+   "stem": "In the right triangle shown below, the angle at P is 34°. The side opposite to P (QR) has length 12 cm. Which expression"
+  },
+  {
+   "n": 36,
+   "id": "b2e0b69d-b2db-4bf6-a972-de543a5950c5",
+   "book": "png_act_test2_230526",
+   "form": "vic-drill-mq-054",
+   "verdict": "problem",
+   "note": "There are two right angle symbols near \"α,\" and only one is needed.",
+   "stem": "The figure below shows a right-angled triangle with legs of length 9 cm and 12 cm. What is the value of tan α, where α i"
+  },
+  {
+   "n": 39,
+   "id": "5f8121d8-60eb-4d95-8ce1-96e73c9a960b",
+   "book": "png_act_test2_230526",
+   "form": "vic-drill-mq-064",
+   "verdict": "problem",
+   "note": "Add a label underneath the x-axis. Increase the size of the \"goals\" text. Move the numbers above each bar to be in the center of the bar, not closer to its left.",
+   "stem": "The bar chart below shows the number of goals scored by five Sydney FC players in a season. What is the mean number of g"
+  },
+  {
+   "n": 40,
+   "id": "0896c838-21b9-42cc-a3fa-b70e832e91f3",
+   "book": "png_act_test2_230526",
+   "form": "vic-drill-mq-065",
+   "verdict": "problem",
+   "note": "The angle \"52\" is about to touch the CA side. Move it slightly away from the line.",
+   "stem": "In the figure below, a flagpole stands vertically at point B. From point A on the ground, the angle of elevation to the "
+  },
+  {
+   "n": 41,
+   "id": "a723bb91-63d7-4b30-9bd7-be0e429ead31",
+   "book": "png_act_test2_230526",
+   "form": "vic-drill-mq-068",
+   "verdict": "problem",
+   "note": "Move the \"θ\" symbol to be inside of the triangle without overlapping any of the triangle's sides. Also draw a small angle arc near the θ.",
+   "stem": "The figure below shows a right-angled triangle with sides labelled. If tan θ = 5/12, what is the length of the hypotenus"
+  },
+  {
+   "n": 42,
+   "id": "805a9fcc-afc8-4a80-8a9b-261cf00c07ce",
+   "book": "png_act_test2_230526",
+   "form": "vic-drill-mq-071",
+   "verdict": "problem",
+   "note": "The right angle symbol is on the wrong side; it is supposed to be at the top left of the triangle, not randomly overlapping at the bottom.",
+   "stem": "The figure below shows a composite shape made from a rectangle and a right-angled triangle. What is the total area of th"
+  },
+  {
+   "n": 43,
+   "id": "61dae39f-27d1-4f06-b6ae-dac373e53e09",
+   "book": "png_act_test2_230526",
+   "form": "vic-drill-mq-077",
+   "verdict": "problem",
+   "note": "All the angle numbers aren't in the angle zones they are meant to be representing. Add angle arcs for each of the angles.",
+   "stem": "In the figure below, line p is parallel to line q, and a transversal crosses both lines forming angles labelled 1 throug"
+  },
+  {
+   "n": 47,
+   "id": "960e31fb-7fc8-4e50-90c0-74ca5b9ab2a0",
+   "book": "png_act_test2_230526",
+   "form": "vic-drill-mq-087",
+   "verdict": "problem",
+   "note": "The \"P(1,2)\" is too far away from the point it is meant to be representing. Move it closer to the 1, 2 location without any overlapping.",
+   "stem": "In the figure below, triangle PQR has vertices at P(1, 2), Q(7, 2) and R(4, 8). What is the area of the triangle in squa"
+  },
+  {
+   "n": 49,
+   "id": "2f330d5e-222a-4e7d-b2ae-b161afe2b4fa",
+   "book": "png_act_test3_230526",
+   "form": "vic-drill-mq-017",
+   "verdict": "problem",
+   "note": "The \"A(1,2)\" is too far away from the point it is meant to be representing. Move it closer to the 1, 2 location without any overlapping.",
+   "stem": "The points A(1, 2), B(5, 2), and C(5, 8) form a right triangle in the coordinate plane. In the figure below, what is the"
+  },
+  {
+   "n": 50,
+   "id": "d3b6d5e1-9fe2-4fae-9519-76f4da21e25c",
+   "book": "png_act_test3_230526",
+   "form": "vic-drill-mq-023",
+   "verdict": "problem",
+   "note": "The grid lines are incomplete. Make the touch the markings on the x and y axes.",
+   "stem": "In the coordinate plane shown, point P has coordinates (2, 5) and point Q has coordinates (8, 1). What is the midpoint o"
+  },
+  {
+   "n": 55,
+   "id": "929a33c3-f5b4-4327-aaaf-6b46f93c512c",
+   "book": "png_act_test3_230526",
+   "form": "vic-drill-mq-044",
+   "verdict": "problem",
+   "note": "Remove the black dot at 3, 4. Make the blue line graphically accurate and originate from the point 0, 7. The red line also doesn't properly represent it's trajectory. It has the wrong slope and doesn't touch the accurate points it should go through (1, 0 | 2, 2 | 3, 4)",
+   "stem": "The graph below shows two straight lines. What is the y-coordinate of their point of intersection?"
+  },
+  {
+   "n": 56,
+   "id": "6579606d-c7dd-4900-b86f-7ea5e072a5a1",
+   "book": "png_act_test3_230526",
+   "form": "vic-drill-mq-045",
+   "verdict": "problem",
+   "note": "The angle arcs fail to properly revolve around the designated angle locations. The algebraic expressions must also be placed on top or below the complete angle arcs. Revise the letter O to be closer to the central point being referenced without overlapping any other text.",
+   "stem": "In the figure below, two straight lines intersect at point O. What is the value of x?"
+  },
+  {
+   "n": 57,
+   "id": "63e9b382-88b8-4b6a-9e4a-22c7c87ea955",
+   "book": "png_act_test3_230526",
+   "form": "vic-drill-mq-047",
+   "verdict": "problem",
+   "note": "The inscribed circle is inaccurate. The radius cannot be determined properly unless it reaches some of the triangle's boundary. Revise the question by either sizing up the circle to fit the question's prompt, or simply delete the rough and incorrect question.",
+   "stem": "In the figure below, a circle is inscribed in a right-angled triangle with legs of length 6 cm and 8 cm. What is the rad"
+  },
+  {
+   "n": 59,
+   "id": "791cf236-36f3-4a16-9218-19997934bc14",
+   "book": "png_act_test3_230526",
+   "form": "vic-drill-mq-049",
+   "verdict": "problem",
+   "note": "The equal side markings are meant to pass slightly inside of the triangle, like a hash piercing both sides equally.",
+   "stem": "In the figure below, triangle ABC has AB = AC and angle BAC = a°. The base BC = 8 cm. If a = 36°, what is the size of an"
+  },
+  {
+   "n": 60,
+   "id": "05ea2fe9-c0ee-44b8-9df3-f55a76b3277d",
+   "book": "png_act_test3_230526",
+   "form": "vic-drill-mq-049",
+   "verdict": "problem",
+   "note": "Multiple errors are present. The question itself has the strange $ symbolsl that don't make sense. The angle arcs are either incomplete or not in the right location. Solving the question itself shouldn't be possible, as angle r looks like a standard straight angle.",
+   "stem": "In the figure below, line $AB$ is parallel to line $CD$. A transversal crosses both lines. The angle marked $p$ is 65° a"
+  },
+  {
+   "n": 62,
+   "id": "aa8ee79a-5d76-4e09-83ee-5a942b535226",
+   "book": "png_act_test3_230526",
+   "form": "vic-drill-mq-052",
+   "verdict": "problem",
+   "note": "Fix the unnecessary $ dollar signs surrounding the answer options.",
+   "stem": "A straight line passes through the points (0, −3) and (4, 5). The graph of this line is shown below. What is the equatio"
+  },
+  {
+   "n": 63,
+   "id": "7c325b26-9463-46c9-ac2a-4db06465c833",
+   "book": "png_act_test3_230526",
+   "form": "vic-drill-mq-057",
+   "verdict": "problem",
+   "note": "The angle arc on CDE is incomplete, and the question is also wrong as the solution should be option D (40 degrees). Revise the question to be correct and complete.",
+   "stem": "In the figure below, ABCD is a trapezoid with AB ∥ DC. Point E lies on line AD extended beyond D, and angle measures are"
+  },
+  {
+   "n": 64,
+   "id": "7edd1fff-9222-46e2-a85b-e43f4326f6ef",
+   "book": "png_act_test3_230526",
+   "form": "vic-drill-mq-062",
+   "verdict": "problem",
+   "note": "The 38 degrees is in the wrong location, it should be at angle DAC, not under the parallelogram.",
+   "stem": "In the figure below, ABCD is a parallelogram. The diagonal AC is drawn, and angle DAC = 38° and angle ACD = 47°. What is"
+  },
+  {
+   "n": 65,
+   "id": "ef7b9ff2-7386-42d7-8ca9-38338aff6712",
+   "book": "png_act_test3_230526",
+   "form": "vic-drill-mq-070",
+   "verdict": "problem",
+   "note": "There is no point for the text saying \"Square on AC.\" Either sketch out the square or leave the triangle as it is without the phrase.",
+   "stem": "In the figure below, a right-angled triangle has legs of length 5 cm and 12 cm. A square is drawn on the hypotenuse. Wha"
+  },
+  {
+   "n": 66,
+   "id": "13720600-c70a-44f5-b5aa-9a3df18b99a1",
+   "book": "png_act_test3_230526",
+   "form": "vic-drill-mq-074",
+   "verdict": "problem",
+   "note": "The equal side lines should pass through the shape and reach inside slightly.",
+   "stem": "In the figure below, triangle PQR is isosceles with PQ = PR. If angle QPR = 50°, what is the size of angle PQR?"
+  },
+  {
+   "n": 67,
+   "id": "f17a9331-1ebe-48e7-a7bc-3b7c7c7f3bb5",
+   "book": "png_act_test3_230526",
+   "form": "vic-drill-mq-074",
+   "verdict": "problem",
+   "note": "The exact area of the shape cannot be taken as the points don't properly lie on any grid or coordinate location that is findable. Revise the triangle to lie on specific coordinate grid points.",
+   "stem": "In the coordinate plane below, what is the area of triangle PQR?"
+  },
+  {
+   "n": 73,
+   "id": "a30aed4e-8a2d-40be-8aad-0a84dc3043d4",
+   "book": "png_act_test4_230526",
+   "form": "vic-drill-mq-014",
+   "verdict": "problem",
+   "note": "The answer is clearly visible on the graph. Revise it by removing the explicit point stating where the answer is so the student can practice reading coordiante planes.",
+   "stem": "The graph below shows two straight lines. At what point do the lines x = 3 and y = x + 2 intersect?"
+  },
+  {
+   "n": 74,
+   "id": "b86b2e3c-28a2-42a9-9df1-faedfb35b7aa",
+   "book": "png_act_test4_230526",
+   "form": "vic-drill-mq-023",
+   "verdict": "problem",
+   "note": "The angle arc for P is incomplete. Angle APF physically cannot be 35 degrees, as it is clearly an obtuse angle and supplemntary to the 35 below. Additionally, there is no label showing where point C is found, making the entire question wrong and unreadable.",
+   "stem": "In the figure below, P is the centre of the circle. C lies on segment AE and also on segment BF. Angle BPC = 35° and ang"
+  },
+  {
+   "n": 76,
+   "id": "ccac7c88-6f2f-4f92-9cf9-0f80d9e62e26",
+   "book": "png_act_test4_230526",
+   "form": "vic-drill-mq-038",
+   "verdict": "problem",
+   "note": "Label the axes, (Sports on X-axis | Number of student responses on Y-axis).",
+   "stem": "The graph below shows the number of students at Canberra Academy who participated in various sports during the school ye"
+  },
+  {
+   "n": 79,
+   "id": "660a2278-ee8b-4353-9904-14c6ed607804",
+   "book": "png_act_test4_230526",
+   "form": "vic-drill-mq-053",
+   "verdict": "problem",
+   "note": "The y-axis value of 20 overlaps with the y-axis label \"Students\".",
+   "stem": "The bar chart below shows the number of students from four Melbourne schools who participated in a regional maths compet"
+  },
+  {
+   "n": 82,
+   "id": "bed54cfb-9e6b-46df-bdd6-bafecabb948a",
+   "book": "png_act_test4_230526",
+   "form": "vic-drill-mq-061",
+   "verdict": "problem",
+   "note": "The right angle symbol under point O must be slightly lower to sit on line AB to represent a proper right angle.",
+   "stem": "In the figure below, a circle with centre O has radius 10 cm. Chord AB is 16 cm long. What is the perpendicular distance"
+  },
+  {
+   "n": 88,
+   "id": "f0ab0510-bc60-4692-930c-e1698b05a788",
+   "book": "png_act_test4_230526",
+   "form": "vic-drill-mq-075",
+   "verdict": "problem",
+   "note": "Not needed gap above the y = 80 point. Enlargen the graph to cover the gap.",
+   "stem": "The graph below shows the distance (in kilometres) travelled by a cyclist from Sydney over time (in hours). What is the "
+  },
+  {
+   "n": 90,
+   "id": "a6e5c362-9398-4607-abb3-9327572aad2f",
+   "book": "png_act_test5_230526",
+   "form": "vic-drill-mq-012",
+   "verdict": "problem",
+   "note": "The smaller circle with diameter of 10 is to be placed so that it's circumference overlaps with the center and circumference of the larger circle to fit the question's prompt.",
+   "stem": "In the figure below, two tangent circles are shown. The 10 cm diameter of the smaller circle equals the radius of the la"
+  },
+  {
+   "n": 91,
+   "id": "d3c74fcc-2f8d-4ab7-81f5-cc05c73e7988",
+   "book": "png_act_test5_230526",
+   "form": "vic-drill-mq-021",
+   "verdict": "problem",
+   "note": "The solution is actually 44 cm squared, not 56.",
+   "stem": "In the figure below, the shaded region is formed between a large rectangle and a smaller rectangle cut from its corner. "
+  },
+  {
+   "n": 92,
+   "id": "a418c657-d5fd-4ebd-ab61-db76142311cd",
+   "book": "png_act_test5_230526",
+   "form": "vic-drill-mq-025",
+   "verdict": "problem",
+   "note": "The point C should be centered at the point of intersections with RS, not at the end of the angle arc.",
+   "stem": "In the figure below, lines PQ and RS are parallel. The transversal line crosses both, forming the angles shown. If ∠ABR "
+  },
+  {
+   "n": 96,
+   "id": "d4914353-b5b6-4ffb-9c72-7535c04ff273",
+   "book": "png_act_test5_230526",
+   "form": "vic-drill-mq-042",
+   "verdict": "problem",
+   "note": "There is no need for the right angle symbol in the middle of all the angles.",
+   "stem": "In the figure below, the measure of ∠PQS is (2x + 20)° and the measure of ∠PQR is 110°. Line segment QT bisects ∠SQR. Wh"
+  },
+  {
+   "n": 98,
+   "id": "cb1773e3-da39-488e-9135-1d18e4f5649b",
+   "book": "png_act_test5_230526",
+   "form": "vic-drill-mq-057",
+   "verdict": "problem",
+   "note": "There shouldn't be a light shadow or shading outside of the pie chart. The angle values also are inaccurate, as 90 degrees should be less that what is currently is and 75 degrees should be an acute not obtuse angle. Revise by fixing shading and angle ratios.",
+   "stem": "The pie chart below shows how a Year 10 student in Brisbane spends 24 hours in a day. If the student spends 6 hours slee"
+  },
+  {
+   "n": 99,
+   "id": "992eaf5f-b05c-4693-b0f1-d6adeecc7f09",
+   "book": "png_act_test5_230526",
+   "form": "vic-drill-mq-064",
+   "verdict": "problem",
+   "note": "The location of point C is confusing; it seems to overlap with point E. The number 6 is also about to touch line BE. The question is also unsolvable without a clear idea of where point C is.",
+   "stem": "In the figure below, triangle ABE and triangle ACD share vertex A. AB = 8, BE = 6, and triangle ACD is similar to triang"
+  },
+  {
+   "n": 101,
+   "id": "b0646282-b42f-4774-9871-73439099b294",
+   "book": "png_act_test5_230526",
+   "form": "vic-drill-mq-066",
+   "verdict": "problem",
+   "note": "The symbol of equal sides are wrong, they are meant to be simple dash or lines, not complex bent figures.",
+   "stem": "An isosceles triangle has one angle of 40°. If the 40° angle is the apex angle (between the two equal sides), what is th"
+  },
+  {
+   "n": 104,
+   "id": "ce16a033-767d-4e6a-b77e-d1343dab2a42",
+   "book": "png_act_test5_230526",
+   "form": "vic-drill-mq-076",
+   "verdict": "problem",
+   "note": "The point D is not meant to have a smaller square present; it is a point not a shape.",
+   "stem": "In the figure below, triangle ABC is right-angled at C. The point D lies on AB such that CD is perpendicular to AB. If A"
+  },
+  {
+   "n": 106,
+   "id": "d6e54257-0d25-47c1-b8f5-12a0bcd02013",
+   "book": "png_act_test5_230526",
+   "form": "vic-drill-mq-079",
+   "verdict": "problem",
+   "note": "Expand the grid lines to surround and go slightly beyond the triangle's coordiantes.",
+   "stem": "In the coordinate plane shown below, the points A(1, 4), B(5, 4), and C(5, 1) form a right triangle. What is the area of"
+  },
+  {
+   "n": 108,
+   "id": "5edd52c3-6dd0-4ee4-adb5-5f3fe6f4eceb",
+   "book": "png_act_test5_230526",
+   "form": "vic-drill-mq-087",
+   "verdict": "problem",
+   "note": "The right angle symbol is misplaced. It slightly overlaps with line/road OB, making it look like a shape rather than a right-angle symbol. Revise by placing it in the right location.",
+   "stem": "In the figure below, two straight roads meet at point O. Road OA runs due east and road OB runs at an angle of 55° north"
+  },
+  {
+   "n": 109,
+   "id": "2f68e90c-af88-48dc-998b-9e44c05b7b41",
+   "book": "png_act_test6_230526",
+   "form": "vic-drill-mq-013",
+   "verdict": "problem",
+   "note": "More horizontal grid lines should be placed above the triangle beyond y=4.",
+   "stem": "The graph below shows a triangle with vertices P, Q, and R plotted on a coordinate plane. What is the perimeter of trian"
+  },
+  {
+   "n": 113,
+   "id": "81afb3a7-59f2-4eaf-be65-e10631ac76ce",
+   "book": "png_act_test6_230526",
+   "form": "vic-drill-mq-048",
+   "verdict": "problem",
+   "note": "There is an obsolete vertical line to the left of point P.",
+   "stem": "In the figure below, line PQ is parallel to the base BC of triangle ABC, with AP = 3 cm and PB = 9 cm. If the area of tr"
+  },
+  {
+   "n": 122,
+   "id": "0f936d02-0c88-4bce-9a91-5209e4285b59",
+   "book": "png_act_test7_240526",
+   "form": "vic-drill-mq-023",
+   "verdict": "problem",
+   "note": "The -1 found between the actual points -1 and -2 in Quadrant 4 should be removed.",
+   "stem": "In the coordinate plane below, line ℓ is parallel to the x-axis and passes through the point (3, −4). Which of the follo"
+  },
+  {
+   "n": 123,
+   "id": "b9928154-cc26-42bd-b1e8-046222536fbf",
+   "book": "png_act_test7_240526",
+   "form": "vic-drill-mq-033",
+   "verdict": "problem",
+   "note": "There is an empty gap between y point 16 and the label Days. Fill the gap by enlargening the graph and the bars.",
+   "stem": "The graph below shows the number of rainy days recorded each month in Melbourne over a 6-month period. What is the mean "
+  },
+  {
+   "n": 124,
+   "id": "ccb2dfba-41ac-4ae8-93ca-4f3a19b7e03c",
+   "book": "png_act_test7_240526",
+   "form": "vic-drill-mq-036",
+   "verdict": "problem",
+   "note": "The ∠BAx text is too far away from the angle it is representing. Move it closer to the angle near origin without overlapping with any. lines or values.",
+   "stem": "In the coordinate plane below, point A is at the origin and point B is at (8, 6). What is the exact length of AB, and wh"
+  },
+  {
+   "n": 126,
+   "id": "2a58c697-edc3-4445-90e2-8ce13eb5bfee",
+   "book": "png_act_test7_240526",
+   "form": "vic-drill-mq-041",
+   "verdict": "problem",
+   "note": "The \"Pies\" text on the Y-axis should be enlargened to fill the emptiness to the left of the y-axis.",
+   "stem": "The graph below shows the number of meat pies sold at a Melbourne footy canteen over five quarters of a game. What is th"
+  },
+  {
+   "n": 127,
+   "id": "3c6c07ee-c23d-4163-a3f3-e7000e609179",
+   "book": "png_act_test7_240526",
+   "form": "vic-drill-mq-045",
+   "verdict": "problem",
+   "note": "The 6 cm text on the right slightly overlaps with the right side of the rectangle.",
+   "stem": "A rectangle with sides 12 cm and 18 cm has a right triangle cut from one corner. The two legs of the removed triangle ar"
+  },
+  {
+   "n": 128,
+   "id": "33547c58-6e98-4795-9644-9de180662f3f",
+   "book": "png_act_test7_240526",
+   "form": "vic-drill-mq-047",
+   "verdict": "problem",
+   "note": "The black dots representing P and Q should be touching the transervsal line aswell. Move the dots to be in alignment with the transversal line.",
+   "stem": "In the figure below, three lines intersect pairwise creating angles at three separate intersection points P, Q, and R. A"
+  },
+  {
+   "n": 129,
+   "id": "f253343d-a558-4eda-aeec-da953b75dff9",
+   "book": "png_act_test7_240526",
+   "form": "vic-drill-mq-051",
+   "verdict": "problem",
+   "note": "The figure makes no sense as a whole. First of all, the 70 degree angle mathematically can not be an obtuse angle as it is represented in the image. \"a\" doesn't even represent an angle location. Revise the question by fixing the 70 degree value and moving the \"a\" to an angle that is supplementary to angle b.",
+   "stem": "In the figure below, two lines intersect a transversal. What is the sum of angles a° and b°?"
+  },
+  {
+   "n": 130,
+   "id": "93e6e231-d7dd-40f4-bc7f-ca5233269a07",
+   "book": "png_act_test7_240526",
+   "form": "vic-drill-mq-055",
+   "verdict": "problem",
+   "note": "The drawn image still doesn't make sense. There are two redundant squares above point W, as well as a useless perpendicular symbol. Move the text \"XZ=20\" below point W.",
+   "stem": "In the figure below, triangle XYZ has a right angle at Y. Point W lies on XZ such that YW is perpendicular to XZ. If XY "
+  },
+  {
+   "n": 132,
+   "id": "a865cd26-7dc8-4129-af8f-f3b1a36da75d",
+   "book": "png_act_test7_240526",
+   "form": "vic-drill-mq-060",
+   "verdict": "problem",
+   "note": "The symmetry line on line QR is tilted the wrong way. It is almost invisible; revise by making the line of equal sides face the right direction.",
+   "stem": "In triangle PQR below, PQ ≅ QR, and the measure of ∠Q is 48°. What is the measure of ∠P?"
+  },
+  {
+   "n": 135,
+   "id": "26205798-5f8c-4b90-bfe7-b0e2a4ddd730",
+   "book": "png_act_test8_240526",
+   "form": "vic-drill-mq-013",
+   "verdict": "problem",
+   "note": "The angle q arc is on the wrong location. It is meant to be connected to the triangle and the base line, not a standalone straight angle.",
+   "stem": "In the figure below, a triangle has an interior angle of 74° and two exterior angles measuring p° and q° as labelled. Wh"
+  },
+  {
+   "n": 136,
+   "id": "6559d286-84d7-47cc-bddf-be413bcca4af",
+   "book": "png_act_test8_240526",
+   "form": "vic-drill-mq-014",
+   "verdict": "problem",
+   "note": "The locations of the text and angles are inaccurate. For example, angle C is meant to be in Angle A's location. Rearrange the angles to be in the correct places.",
+   "stem": "A survey asked 360 residents of Adelaide which streaming service they used most. The results are shown in the pie chart "
+  },
+  {
+   "n": 137,
+   "id": "247238f5-f161-45e0-9e8f-c7fa7fe8c9ef",
+   "book": "png_act_test8_240526",
+   "form": "vic-drill-mq-020",
+   "verdict": "problem",
+   "note": "Add more spacing between the top title, categories, and data sections. Also add horizontal lining/seperation grids.",
+   "stem": "A science class in Melbourne measures the mass of various rock samples. The results are shown in the stem-and-leaf plot "
+  },
+  {
+   "n": 139,
+   "id": "7ed5c9e5-d709-40ad-87f4-d756832a4231",
+   "book": "png_act_test8_240526",
+   "form": "vic-drill-mq-025",
+   "verdict": "problem",
+   "note": "Add a label on the y-axis, while also adding a few more number values to reach the top of the graph. Ensure that the y-axis numbers are accurate (the number 20 is slightly under the bar that represents 20 medals).",
+   "stem": "The bar chart below shows the number of medals won by five Australian states at a school athletics carnival. What is the"
+  },
+  {
+   "n": 141,
+   "id": "36544278-f540-4f33-84a8-86945197ccfe",
+   "book": "png_act_test8_240526",
+   "form": "vic-drill-mq-034",
+   "verdict": "problem",
+   "note": "The number \"3\" slightly overlaps with the line at the bottom. Fix it by pushing the numbers slightly downwards.",
+   "stem": "In the figure below, a trapezium is divided into a rectangle and two right-angled triangles. All lengths are in centimet"
+  },
+  {
+   "n": 142,
+   "id": "b7056f8c-d8e0-4b37-8919-2ca2482530f0",
+   "book": "png_act_test8_240526",
+   "form": "vic-drill-mq-035",
+   "verdict": "problem",
+   "note": "There is no need for the arrow and small line segment near points P and S. Remove the arrow and line.",
+   "stem": "The figure below is composed of square PQRS and equilateral triangle QRT sitting on top of side QR. If the length of PQ "
+  },
+  {
+   "n": 143,
+   "id": "e89214af-bc93-4306-bb82-b6462d6a4ef7",
+   "book": "png_act_test8_240526",
+   "form": "vic-drill-mq-037",
+   "verdict": "problem",
+   "note": "The locaations of each number don't make sense. Does 4 or 6 represent the height? Move some of the numbers right such that one represents height, one represents length, and one represents width; each on different dimensions.",
+   "stem": "The figure below shows a rectangular prism-shaped storage box. What is the total surface area of the box in square centi"
+  },
+  {
+   "n": 144,
+   "id": "431d4c9b-91c3-4860-a74b-11a116dbfbb0",
+   "book": "png_act_test8_240526",
+   "form": "vic-drill-mq-052",
+   "verdict": "problem",
+   "note": "The \"5 cm\" on the left slightly overlaps with line CA.",
+   "stem": "A right-angled triangle has legs of length 5 cm and 12 cm. A square is drawn on the hypotenuse. What is the area of that"
+  },
+  {
+   "n": 146,
+   "id": "3aa33936-33cb-4a1e-9c2e-723fbb64ce40",
+   "book": "png_act_test8_240526",
+   "form": "vic-drill-mq-060",
+   "verdict": "problem",
+   "note": "The number \"24\" slightly overlaps with the circle's circumference. Move it slightly to the left.",
+   "stem": "A rectangle with dimensions 10 cm by 24 cm is inscribed in a circle so that all four vertices touch the circle. What is "
+  },
+  {
+   "n": 148,
+   "id": "f2ce366f-9f6c-4911-9579-1362300ee14a",
+   "book": "png_act_test8_240526",
+   "form": "vic-drill-mq-076",
+   "verdict": "problem",
+   "note": "Extend the grid lines to go slightly beyond the two lines.",
+   "stem": "The graph below shows the distance (in km) travelled by two cars, Car P and Car Q, over time (in hours). At what time ar"
+  },
+  {
+   "n": 150,
+   "id": "c1930d7d-0acb-41da-a15b-67121e8ec9e8",
+   "book": "png_act_test8_240526",
+   "form": "vic-drill-mq-082",
+   "verdict": "problem",
+   "note": "The pie chart is inverted. It is not even in a circular shape as a pie chart should be.",
+   "stem": "The pie chart below shows how 300 students at Brisbane Grammar School travel to school. Based on the chart, how many stu"
+  },
+  {
+   "n": 154,
+   "id": "c5daaa49-3407-4329-8604-b28262459cc7",
+   "book": "png_shs_pt1_310526",
+   "form": "vic-drill-mq-019",
+   "verdict": "problem",
+   "note": "The 5 cm label for rectangle R is in the wrong location. It is meant to be beside the rectangle R, not above rectangle S.",
+   "stem": "The figure below shows rectangle R with length (2x + 3) cm and width 5 cm, and rectangle S with length (x + 7) cm and wi"
+  },
+  {
+   "n": 157,
+   "id": "d27c8f45-506d-4725-83ed-3851980c82c5",
+   "book": "png_shs_pt1_310526",
+   "form": "vic-drill-mq-032",
+   "verdict": "problem",
+   "note": "The angle arc is incomplete with angle QPR. It should complete the entire angle P's arc.",
+   "stem": "In the figure below, triangle PQR has a line of symmetry along the perpendicular from P to QR. Angle QPR = 40° and QR = "
+  },
+  {
+   "n": 159,
+   "id": "82f15e67-a6d9-4b85-a67b-7b8b3d66457e",
+   "book": "png_shs_pt1_310526",
+   "form": "vic-drill-mq-039",
+   "verdict": "problem",
+   "note": "The 3 and 2 cm text should be moved to create an imaginary triangle from the cut-out portion of the rectangle. They should be at the bottom right of the rectangle.",
+   "stem": "The figure below shows a rectangle 8 cm wide and 5 cm tall. A right-angled triangle is cut from the top-right corner. Th"
+  },
+  {
+   "n": 162,
+   "id": "26c0bfa3-e621-4901-9f4d-60edc5da171e",
+   "book": "png_shs_pt1_310526",
+   "form": "vic-drill-mq-049",
+   "verdict": "problem",
+   "note": "Expand the grid and scaling lines to encompass point P. Enlargen the grid.",
+   "stem": "The figure below shows a coordinate grid. Point P is at (2, 3). It is rotated 90° anti-clockwise about the origin. What "
+  },
+  {
+   "n": 163,
+   "id": "ebd339c2-8f61-4c92-beca-42f162fea481",
+   "book": "png_shs_pt1_310526",
+   "form": "vic-drill-mq-051",
+   "verdict": "problem",
+   "note": "The 4 cm text slightly overlaps with rectangle B.",
+   "stem": "In the figure below, the two rectangles have equal areas. What is the value of x?"
+  },
+  {
+   "n": 164,
+   "id": "0e77976c-688d-4320-bbca-b942c9cb7394",
+   "book": "png_shs_pt1_310526",
+   "form": "vic-drill-mq-055",
+   "verdict": "problem",
+   "note": "The 11 cm at the bottom of the shape slightly overlaps with the arrow.",
+   "stem": "In the figure below, a large rectangle has dimensions 11 cm × 7 cm. A rectangular notch of width 3 cm and height 2 cm is"
+  },
+  {
+   "n": 165,
+   "id": "7d94095a-7c84-4d9c-907d-db66e783c411",
+   "book": "png_shs_pt1_310526",
+   "form": "vic-drill-mq-059",
+   "verdict": "problem",
+   "note": "The question mentions \"a large rectangle divided into black and white L-shaped sections\", but the rectangle shown is just a black box. Fix the graph as the question instructs.",
+   "stem": "The figure below shows a large rectangle divided into black and white L-shaped sections. The total shape is 5 cm wide an"
+  },
+  {
+   "n": 166,
+   "id": "81a45008-ed81-4ab1-8c15-09ad88eecda4",
+   "book": "png_shs_pt1_310526",
+   "form": "vic-drill-mq-062",
+   "verdict": "problem",
+   "note": "There is no need for the 6 found in the center of the square. Move the existing 6 in the right-most triangle to be beside one of the square's sides.",
+   "stem": "The figure below shows the net of a square pyramid. The square base has side length 6 cm and each triangular face has a "
+  },
+  {
+   "n": 170,
+   "id": "3114e7d5-d539-438d-80bb-135aea29f343",
+   "book": "png_shs_pt1_310526",
+   "form": "vic-drill-mq-070",
+   "verdict": "problem",
+   "note": "The locations of the numbers are unclear. The 5 cm text almost overlaps with one of the lines, and the 4 and 6 at the bottom are in random places. Fix the question by moving them in the right places.",
+   "stem": "The figure below shows a net that can be folded into a rectangular prism (cuboid). What is the total surface area of the"
+  },
+  {
+   "n": 172,
+   "id": "3a39fbb9-2d91-4795-bad7-9c68596383b2",
+   "book": "png_shs_pt1_310526",
+   "form": "vic-drill-mq-075",
+   "verdict": "problem",
+   "note": "There are thin grid liens present behind the actual grid in the same shape. Get rid of it because it overlaps with basically every number.",
+   "stem": "The grid below shows all possible outcomes when the spinner (sections 1–4) is spun twice. The shaded cells show outcomes"
+  },
+  {
+   "n": 173,
+   "id": "64404632-9fa0-43eb-8433-fec4688095aa",
+   "book": "png_shs_pt1_310526",
+   "form": "vic-drill-mq-075",
+   "verdict": "problem",
+   "note": "The \"Collingwood\" text is out of line and is overlapping with the x-axis label \"Football Club.\"",
+   "stem": "The bar chart below shows the number of meat pies sold at four Melbourne football clubs&#x27; canteens during one Saturd"
+  },
+  {
+   "n": 174,
+   "id": "b45f50b0-00bb-4fe6-ae82-a971a4f7a212",
+   "book": "png_shs_pt1_310526",
+   "form": "vic-drill-mq-080",
+   "verdict": "problem",
+   "note": "The angle arc is slipping outside the line and should be flipped horizontally such that the curved part faces away from the origin of the plane.",
+   "stem": "The figure below shows two rays meeting at point O. Ray OA is along the horizontal and ray OB makes an angle with OA. Us"
+  },
+  {
+   "n": 179,
+   "id": "6e95b3e1-1b47-4601-a618-1f44d30769b8",
+   "book": "png_shs_pt1_310526",
+   "form": "vic-drill-mq-087",
+   "verdict": "problem",
+   "note": "The letter X overlaps with one of the sides and some of the lines pass out of the circle when they aren't supposed to.",
+   "stem": "A spinner is divided into four sectors labelled W, X, Y and Z. The probability of landing on W is three times the probab"
+  },
+  {
+   "n": 183,
+   "id": "6e18fcef-4cf6-4f89-931c-203f00bdc699",
+   "book": "year9_maths",
+   "form": "vic-drill-mq-028",
+   "verdict": "problem",
+   "note": "The letters A, B, and C all look weird and should be turned into the normal font.",
+   "stem": "In triangle ABC shown, ∠A = 30°, ∠C = 45° and side AB = 12 m. Using exact values for the trigonometric ratios, find the "
+  },
+  {
+   "n": 186,
+   "id": "46c3108f-ee12-44c5-91f8-e901b47eee94",
+   "book": "year9_maths",
+   "form": "vic-drill-mq-056",
+   "verdict": "problem",
+   "note": "This question should be deleted. it is too obvious. Try scaling up the second triangle and make them similar so the student has to do some sort of working out.",
+   "stem": "The two right-angled triangles shown are congruent. What is x, and which test guarantees it?"
+  },
+  {
+   "n": 192,
+   "id": "42e248db-f84d-482b-8b1f-cccc02a831a6",
+   "book": "png_act_test4_230526",
+   "form": "vic-drill-mq-020",
+   "verdict": "problem",
+   "note": "-5 value on the y-axis is overlapping with the y-axis line itself.",
+   "stem": "The graph below shows the line y = 2x − 3. Which point lies on this line?"
+  },
+  {
+   "n": 199,
+   "id": "48f9e70a-34c4-44e2-8b68-75b97d66a4f8",
+   "book": "png_act_test5_230526",
+   "form": "vic-drill-mq-029",
+   "verdict": "problem",
+   "note": "Letter P overlaps with the y-axis. Fix by moving it to the right.",
+   "stem": "In the figure below, triangle PQR has vertices P(1, 4), Q(7, 4), and R(4, 8). What is the area, in square units, of tria"
+  },
+  {
+   "n": 200,
+   "id": "1238596a-7953-4ada-8c16-43f60caddece",
+   "book": "png_act_test5_230526",
+   "form": "vic-drill-mq-031",
+   "verdict": "problem",
+   "note": "The letters A and B are both overlapped by the line segment.",
+   "stem": "In the figure below, line segment AB has endpoints A(2, 1) and B(8, 9) on a coordinate grid. Point M is the midpoint of "
+  },
+  {
+   "n": 204,
+   "id": "c76f4d12-c8ef-4a2a-9714-25986a138da4",
+   "book": "png_act_test4_230526",
+   "form": "vic-drill-mq-041",
+   "verdict": "problem",
+   "note": "Letter E slighly overlaps with the y-axis. Fix by moving to the left.",
+   "stem": "In the coordinate plane below, triangle DEF is reflected across the line y = x to produce triangle D&#x27;E&#x27;F&#x27;"
+  },
+  {
+   "n": 206,
+   "id": "f488d2ef-0225-460c-aa49-365b5959ec92",
+   "book": "png_act_test2_230526",
+   "form": "vic-drill-mq-053",
+   "verdict": "problem",
+   "note": "The value 4 on the y-axis is overlapping with the  line.w",
+   "stem": "In the figure below, points A(0, 4) and B(6, 4) are two vertices of a right-angled triangle ABC with the right angle at "
+  },
+  {
+   "n": 207,
+   "id": "7961f672-0d30-44aa-80d3-c44d8ecba477",
+   "book": "png_act_test5_230526",
+   "form": "vic-drill-mq-053",
+   "verdict": "note",
+   "note": "-2 and 3 on the y-axis and -1 and 4 on the x-axis are all being overlapped by the square's sides.",
+   "stem": "In the coordinate plane below, rectangle WXYZ has vertices W(−1, 3), X(4, 3), Y(4, −2), and Z(−1, −2). Point P lies on s"
+  },
+  {
+   "n": 210,
+   "id": "c0526d7f-2752-4e21-82b7-588e2b76fbef",
+   "book": "png_act_test7_240526",
+   "form": "vic-drill-mq-057",
+   "verdict": "problem",
+   "note": "Number 1 on the y-axis is overlapping with side AB.",
+   "stem": "In the coordinate plane below, triangle ABC has vertices at A(−4, 1), B(2, 1), and C(2, 5). What is the area of triangle"
+  },
+  {
+   "n": 211,
+   "id": "7cc5d3c3-c93f-4aad-bd6a-c8998b452a34",
+   "book": "png_act_test5_230526",
+   "form": "vic-drill-mq-058",
+   "verdict": "problem",
+   "note": "Letter N overlaps with the y-axis. Fix it by moving it to the side.",
+   "stem": "The graph below shows a straight line in the coordinate plane. What is the y-intercept of the line passing through point"
+  },
+  {
+   "n": 217,
+   "id": "653b3f7f-b6a1-4597-a573-9554a112cecd",
+   "book": "png_act_test2_230526",
+   "form": "vic-drill-mq-075",
+   "verdict": "problem",
+   "note": "The number -5 on the y-axis is completely overlapped with the y-axis and should be moved to Quadrant 4's edge.",
+   "stem": "The graph below shows a straight line. What is the equation of this line?"
+  },
+  {
+   "n": 218,
+   "id": "6c2145b3-d4ed-46da-92ee-ce0b4cd81a7c",
+   "book": "png_act_test2_230526",
+   "form": "vic-drill-mq-079",
+   "verdict": "problem",
+   "note": "(0, 2) overlaps with the x-axis. Move it closer to the point it is meant to be representing.",
+   "stem": "The graph below shows two lines. Line P passes through (0, 2) and (3, 8). Line Q is parallel to Line P and passes throug"
+  },
+  {
+   "n": 222,
+   "id": "965641b2-9805-484b-9f3e-73924da02971",
+   "book": "png_act_test8_240526",
+   "form": "vic-drill-mq-083",
+   "verdict": "problem",
+   "note": "Letter R slightly overlaps with the diagonal PR. The diagonal PR doesn't even have to reach outside the rectangle. Shorten",
+   "stem": "In the rectangle graphed below, what is the slope of diagonal PR?"
+  }
+ ]
+}
