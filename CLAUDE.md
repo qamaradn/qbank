@@ -915,7 +915,99 @@ CREATE INDEX IF NOT EXISTS idx_wp_review_status ON writing_prompts(review_status
 
 ## CURRENT STATUS
 
-**Last worked on:** 2026-08-31 — VIC REVIEW ROUND 9. THE FORTY-NINE ALAAN WROTE A
+**Last worked on:** 2026-09-02 — VIC REVIEW ROUND 10. THE FORTY-SIX ABOVE CARD 113.
+
+Alaan's 2026-09-01 file (`review/ui/figure-review-vic-mq-recheck-2026-09-01.json`) holds
+95 comments. Forty-nine are the round-9 notes repeated byte-for-byte, because Alaan
+re-downloads the whole page each time; those are the cards numbered 2 to 113 and were
+already done. **The work was the 46 comments on cards above 113. All 46 are repaired.**
+All were `pending`; none was live in Selectly. Nothing outside the 46 was touched.
+
+Most notes were placement and were done as written. **Twenty-one were not**, and each was
+worked twice by two routes before anything changed, with every key confirmed by MEASURING
+the figure that shipped — reading the coordinates back out of the stored SVG:
+
+- **Two keys moved.** `3c6c07ee` cuts a 6-by-9 corner off a 12-by-18 rectangle, so the
+  perimeter is 45 + 3√13 = 55.8 — not one of the four options, and the explanation wrote
+  that same expression and then called it 57.8. Worse, a cut corner always SHORTENS a
+  boundary, so 60, 63 and 66 were unreachable on sight and only one option could ever
+  have been right. Re-cut to a 6-by-8 corner: hypotenuse 10, perimeter 56.
+  `46c3108f` showed two congruent triangles with 15 cm printed on the very side the
+  other one called x, so x could be read straight across — the reviewer's own words were
+  "too obvious ... scale up the second triangle and make them similar". It is now 8-15-17
+  against 16-30-34, drawn at twice the size, and x = 30 either by the scale factor or by
+  Pythagoras.
+- **Eight figures disagreed with their own numbers.** `c1930d7d` was a pie chart drawn as
+  a four-pointed star: every slice swept the long way with the large-arc flag left at 0,
+  so each arc bulged inward. `6559d286` had C and D the wrong way round, drawing the
+  90° slice as 50°, and two labels sitting in a slice they do not name. `64404632` drew
+  Collingwood's bar TALLER than Carlton's while labelling it lower. `7ed5c9e5` placed its
+  three y numbers at heights that work out at 17, 9 and 0. `2a58c697` drew the 15-pie bar
+  at 12.5. `6e95b3e1` cut the spinner into 156/81/33/90 degrees against probabilities of
+  45/15/25/15, put X and Y in the same slice and ran two radii out through the rim.
+  `93e6e231` drew W somewhere other than the foot of the perpendicular and the right
+  angle at Y at 78°. `3aa33936` drew a 10-by-24 rectangle wider than it is tall.
+- **Four questions said something the picture did not.** `f253343d` asked for a + b = 180
+  from two lines that were not parallel, so the answer followed from nothing; they are
+  parallel now, with chevrons. `b45f50b0` put OB at 45° while the stem needs 125°, so the
+  picture said the answer was 45 and the key says 35. `7d94095a` described black and
+  white L-shaped sections beside a plain black box — two of its three rect elements
+  painted nothing, one of them written with x2/y2 attributes a rect does not have.
+  `82f15e67` and its stem both said the corner was cut off the top right; the polygon
+  cuts the bottom right.
+- **Two were wrong in the words only.** `247238f5`'s explanation listed ten values that
+  are in no row of its plot and averaged them to 37.5, which is not an option; the plot
+  holds nine values and its median is the keyed 36. `81a45008` offered "96 + 36 = 132
+  cm²" as an option — a sum with its working shown, of the right answer plus the base.
+- **One was a font that was never a font.** `6e18fcef`'s A, B and C looked "weird"
+  because the root `<svg>` carries `fill="none" stroke="currentColor"` and every `<text>`
+  inherits it, so all seven labels were drawn as hollow outlines.
+- **Four more turned up only on redrawing what the reviewer asked for.** `33547c58`
+  marked alpha in the region ABOVE the first line, which is exterior, while the stem
+  calls it co-interior with beta — and beta, named in the stem, was marked nowhere at
+  all. `26205798` drew the q arc as a semicircle about a point sitting on the base line
+  30 px past the vertex, belonging to no angle, and carried two `<line>` elements whose
+  x1 reads `'50,180'`, which is not a length. `3114e7d5`'s net could not be folded: the
+  top and bottom flaps start 10 px from the face between them. `36544278` drew a height
+  of 160 px on a figure whose own 3s and 16 set the scale at 10 px per cm, so the height
+  labelled 8 was drawn as 16 — and its one dimension rule ran the whole base, 22, with a
+  "3" under each end.
+
+**MY OWN WORK ADDED FIFTEEN MORE DEFECTS, AND THE CHECK DIFF REFUSED EVERY ONE OF THEM
+BEFORE IT REACHED THE DATABASE** — fewer than the figures held this time, which is the
+first round that has been true. Six were labels I moved onto something else: a "10" onto
+a circle, a beta onto its own arc, a "C" 6 px above the viewBox, an "x" onto an
+arrowhead, a "12 cm" onto its own dimension rule twice, and an "S" under a tick number.
+Four were the scale trap: **a y number may only
+move sideways and an x number only up or down**, because the check reads the axis mapping
+from the label positions, so a number shifted along its own axis makes the axis read as
+nonlinear — that refused three separate attempts on `7961f672`, `c0526d7f` and
+`0f936d02`. Four were labels landing on faint gridlines, fixed with halos. One was a
+figure rebuilt over the 3.5 KB limit at 4,219 bytes.
+
+**And one was a check reading a table as a chart.** Removing the ghost grid from
+`3a39fbb9` — the reviewer's actual request — made `coordinate_figure_without_grid` fire,
+because that check exits early only on a drawn rect LARGER than 40 by 40 and every cell
+in that table is exactly 40 by 40. An outer frame round the sixteen cells settles it, and
+a table wants one anyway.
+
+**Four findings are left standing and are NOT regressions.** Three figures (`42e248db`,
+`7cc5d3c3`, `653b3f7f`) keep a tick number grazed by the plotted line, which crosses the
+number column at that height — the only free spot is the far side of the axis, and a
+second number out of column reads worse than a two-pixel graze. One (`3a39fbb9`) stays
+over the byte limit. All four were firing before this round and none is what the reviewer
+raised.
+
+**46 repaired, 0 refused, 8 findings cleared, newly firing none. 275 tests pass.**
+Record: `run_data/output/vic_round10_figures.json`, script
+`tools/repair_vic_round10_figures.py`, backup `run_data/db/qbank.db.bak-round10-133407`.
+
+**Page built and ready to send: `review/ui/compare-vic-mq-round10.html`** — 46 cards, all
+46 carrying Alaan's own note, all 46 redrawn. Verified by parsing the page's own data
+back: every before-picture matches the backup, every after-picture, stem, option and key
+matches the live database, and all 46 are still `pending`.
+
+**Previously:** 2026-08-31 — VIC REVIEW ROUND 9. THE FORTY-NINE ALAAN WROTE A
 NOTE AGAINST, AND NOTHING ELSE.
 
 Round 8's page (`compare-vic-mq-recheck.html`, 223 cards) came back with comments on
