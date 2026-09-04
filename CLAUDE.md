@@ -915,7 +915,60 @@ CREATE INDEX IF NOT EXISTS idx_wp_review_status ON writing_prompts(review_status
 
 ## CURRENT STATUS
 
-**Last worked on:** 2026-09-04 — VIC REVIEW ROUND 11. THE SIXTEEN THAT CAME BACK.
+**Last worked on:** 2026-09-04 — ALL 153 VIC DRILL FORMS APPROVED AND PUSHED LIVE.
+
+The figure rounds are closed, so the owner's call was to stop piloting and put the whole
+VIC bank in front of the reviewers: approve everything, push everything, let them work
+through it form by form at their own pace, and take the fixes from the CSVs as they come.
+**Human review inside Selectly is the launch gate — nothing in qbank is.**
+
+| Category | Forms | Questions | Complete |
+|---|---:|---:|---:|
+| Maths + Quantitative `vic-drill-mq-*` | 87 | 2,691 | 87 of 87 |
+| Reading + Verbal `vic-drill-rv-*` | 66 | 2,499 | 66 of 66 |
+| Writing `vic-drill-wr-*` | 27 | 54 prompts | not pushed |
+
+**Approved in two steps, both revertible.** First every VIC question carrying a figure --
+445 pending rows, 67 already done, 512 in all, every one of them in an `mq` form since VIC
+reading and verbal have no figures (`tools/approve_vic_figures.py`). Then the remaining
+4,055 across all 153 forms (`tools/approve_forms.py`, whose record now holds 5,380 rows and
+appends rather than overwrites, so August's 1,325 stay revertible). Rejected questions are
+left alone by design.
+
+**Pushed 4,500 to production: `inserted=4500 skipped=0 errors=0` over 113 batches.** The
+other 690 were already live from the August pilot. Restricted with `--forms` to the 153 VIC
+forms, which also restricts the deactivation pass, so the 635 approved NSW questions that
+would otherwise have gone were left alone.
+
+**Verified by reading production back, not from the push log.** Per category, every one of
+the 5,190 VIC approved questions is live and every live row carries a `qbank_id`:
+mathematics 641 of 641, quantitative 2,050, reading 1,112, verbal 1,387. **0 unaddressable.**
+The larger row counts in the dump (842 mathematics, 1,347 reading) are NSW questions in the
+same categories, and the single inactive mathematics row is the rejected "zero pairs"
+question the withdrawal pass switched off in August.
+
+**ONE THING IS NOT VERIFIED AND CANNOT BE FROM HERE: the form assignments.** Selectly's
+schema has `form_id`, `form_position` and `form_kind`, the import route reads and writes all
+three (checked in the code), and the push sent them with no errors -- but no endpoint
+returns them. `/api/admin/questions-dump` exposes `qbankId` precisely so a caller can see
+what is unaddressable; it should expose `formId` for the same reason, and until it does,
+"the forms are dealt in production" rests on the import code rather than on a read-back. It
+is a few lines in that route. **Ask for it before relying on the forms.**
+
+**Both August blockers are closed** (checked in the Selectly repo, not the notes): `vic-seal`
+in `schools.ts` is now the 2026 three-component config -- maths+quantitative 62q/60min,
+reading+verbal 75q/55min as ONE section, writing 2 tasks/40min -- and the import no longer
+strips the form fields.
+
+**Nothing holds back a form.** The pusher excludes 158 §6 verbal and 108 beyond-Year-8 QR
+questions; none of them is in an `mq` or `rv` form, so all 5,190 were sendable and every
+form arrives full.
+
+**Writing was not pushed.** The 27 `vic-drill-wr-*` forms are prompts in a separate table
+with their own path, and `written-expression` in schools.ts is still 1 task / 25 min against
+VIC's 2 tasks / 40 min.
+
+**Previously:** 2026-09-04 — VIC REVIEW ROUND 11. THE SIXTEEN THAT CAME BACK.
 
 The rounds 9-10 page (`compare-vic-mq-rounds9-10.html`, all 95 questions repaired in
 those two rounds) came back on 2026-09-03. **Seventy-nine passed with no comment.**
