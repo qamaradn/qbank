@@ -991,12 +991,25 @@ visible layer, because the halo layer never carried -4 or -5. So the figure had 
 carrying two identical visible copies stacked on each other, and the number had never
 had a halo at all. One copy is in the halo layer now and one is glyphs.
 
-**`text_overlaps_geometry` fires on all three questions as a result, deliberately.**
-Those rectangle sides and that plotted line are solid ink and the check forgives a
-haloed label only over faint ink. It is the accepted cost of the instruction: the
-alternative is no number. There is nowhere clear to move them to either -- a y number
-may only shift sideways and an x number only up or down, and sideways is where the
-rectangle is while up-and-down is where the line is.
+**AND THEN THE NUMBERS WERE MOVED CLEAR (2026-09-04, same session).** Restoring them
+left four sitting on ink, and the owner asked for them moved "a bit up or down". Up and
+down was measured first and is not available: shifting a y column down clears the line
+at 6 px, and at 6 px `plotted_geometry_matches_stem` starts calling the figure wrong,
+because it reads the axis mapping from the label positions and every plotted point then
+reads a fifth of a unit out. **A y number may only move SIDEWAYS and an x number only UP
+OR DOWN — the other direction is the one the mapping is read from.**
+
+So on `7961f672` the whole y column went left of the rectangle and the whole x row below
+it, and on `c0526d7f` the y column went left of A. Each set stays one straight line of
+its own kind, which is what round 10 got wrong by moving only some of them. **Both
+figures are now completely clean on every check** — the overlap is gone and nothing was
+traded for it. `tools/repair_owner_tick_clearance.py`, backup
+`qbank.db.bak-owner3-190616`.
+
+The first attempt put `7961f672`'s x row just under the rectangle, where the row's -2 and
+the column's -3 ended up shoulder to shoulder in the corner. `overlapping_text_labels`
+passed it, because that check wants a real 6 px overlap and these merely touched. Found
+by rendering it and looking.
 
 **Previously overruled the same way (2026-09-04):** on `c0526d7f` the
 reviewer asked for the y-axis "1" to be deleted and round 11 deleted it; the owner asked
