@@ -973,7 +973,32 @@ of the number row, and they now do.
 **16 repaired, 0 refused, newly firing none. 275 tests pass.** One finding stands and
 is not a regression: `42e248db` keeps a tick number grazed by its own plotted line.
 
-**ONE OF THE SIXTEEN WAS THEN OVERRULED BY THE OWNER (2026-09-04).** On `c0526d7f` the
+**THREE OF THE SIXTEEN WERE THEN OVERRULED BY THE OWNER (2026-09-04), ALL THE SAME
+CALL: a missing tick number is to be written, and every number sits on the same side of
+its axis as the rest.** `7961f672` gets back the four the reviewer had deleted -- y 3
+and -2 into the x=89 column, x -1 and 4 into the y=158 row -- and `42e248db`'s -5 comes
+in from the far side of the axis to the column at x=72. Read back off the stored SVGs,
+both figures now carry a complete, evenly spaced set: 30 px per unit on 7961f672 and 24
+on 42e248db, with no number off its column or row. Each restored number is drawn twice,
+halo behind and glyphs on top, so the rectangle side or the plotted line behind it is
+broken where the digits sit. `tools/repair_owner_axis_ticks.py`, backup
+`qbank.db.bak-owner2-184900`.
+
+**Redoing 42e248db turned up a defect round 10 left behind.** Round 10 meant to give
+that -5 a halo and inserted the second copy next to its neighbour in the COLUMN instead
+of inside the aria-hidden group -- the pattern it anchored on only existed in the
+visible layer, because the halo layer never carried -4 or -5. So the figure had been
+carrying two identical visible copies stacked on each other, and the number had never
+had a halo at all. One copy is in the halo layer now and one is glyphs.
+
+**`text_overlaps_geometry` fires on all three questions as a result, deliberately.**
+Those rectangle sides and that plotted line are solid ink and the check forgives a
+haloed label only over faint ink. It is the accepted cost of the instruction: the
+alternative is no number. There is nowhere clear to move them to either -- a y number
+may only shift sideways and an x number only up or down, and sideways is where the
+rectangle is while up-and-down is where the line is.
+
+**Previously overruled the same way (2026-09-04):** on `c0526d7f` the
 reviewer asked for the y-axis "1" to be deleted and round 11 deleted it; the owner asked
 for it back, "align 1 as all other ticks on y axis". It is back at x = 179, y = 176,
 where the column and its own tick put it, and it now carries the page-coloured halo the
@@ -981,12 +1006,8 @@ other numbers have and it never had — so AB is broken behind the glyphs and th
 reads over the line. `tools/repair_c0526d7f_yaxis_one.py`, backup
 `qbank.db.bak-owner-184607`. The whole column measures 30 px per unit end to end.
 
-**That deliberately re-fires `text_overlaps_geometry` on this question**, because AB is
-solid ink and the check forgives a haloed label only over faint ink. It is the accepted
-cost of the instruction: the alternative is no number at all. The number cannot be
-nudged clear instead — AB runs from x = −4 to x = 2 at that exact height, covering the
-column on both sides of the axis, and a y number moved up or down makes the axis read as
-nonlinear.
+AB runs from x = −4 to x = 2 at that exact height, covering the column on both sides of
+the axis, so there was never a clear spot to use instead.
 Record: `run_data/output/vic_round11_figures.json`, script
 `tools/repair_vic_round11_figures.py`, backup `run_data/db/qbank.db.bak-round11-180148`.
 
