@@ -1,0 +1,155 @@
+{
+ "kind": "qbank-figure-review",
+ "version": 1,
+ "scope": "vic-mq-rounds9-10",
+ "reviewer": "Alaan Q",
+ "reviewed_at": "2026-09-03T10:17:49.779Z",
+ "total_on_page": 95,
+ "reviewed": 16,
+ "items": [
+  {
+   "n": 13,
+   "id": "5f8121d8-60eb-4d95-8ce1-96e73c9a960b",
+   "book": "png_act_test2_230526",
+   "form": "vic-drill-mq-064",
+   "verdict": "problem",
+   "note": "There is no need for a 0 in the y-axis labels. Instead add some y-axis numbering and horizontal grid lines to improve the bar chart and make the 0 sensible.",
+   "stem": "The bar chart below shows the number of goals scored by five Sydney FC players in a season. What is the mean number of g"
+  },
+  {
+   "n": 14,
+   "id": "0896c838-21b9-42cc-a3fa-b70e832e91f3",
+   "book": "png_act_test2_230526",
+   "form": "vic-drill-mq-065",
+   "verdict": "problem",
+   "note": "The 52 degree value has moved slightly too far away from Angle A. Move it a little closer without creating any overlapping with sides or arcs.",
+   "stem": "In the figure below, a flagpole stands vertically at point B. From point A on the ground, the angle of elevation to the "
+  },
+  {
+   "n": 32,
+   "id": "a30aed4e-8a2d-40be-8aad-0a84dc3043d4",
+   "book": "png_act_test4_230526",
+   "form": "vic-drill-mq-014",
+   "verdict": "problem",
+   "note": "There is no need for a number 0 at the origin (bottom left of origin near -1 on x-axis). It disrupts the symmetry of the graph. Also, values -2 and 3 on the x-axis are missing. Replace them.",
+   "stem": "The graph below shows two straight lines. At what point do the lines x = 3 and y = x + 2 intersect?"
+  },
+  {
+   "n": 34,
+   "id": "ccac7c88-6f2f-4f92-9cf9-0f80d9e62e26",
+   "book": "png_act_test4_230526",
+   "form": "vic-drill-mq-038",
+   "verdict": "problem",
+   "note": "Draw some horizontal grid lines and y-axis values aligning with the grid lines for professionalism and readability.",
+   "stem": "The graph below shows the number of students at Canberra Academy who participated in various sports during the school ye"
+  },
+  {
+   "n": 35,
+   "id": "660a2278-ee8b-4353-9904-14c6ed607804",
+   "book": "png_act_test4_230526",
+   "form": "vic-drill-mq-053",
+   "verdict": "problem",
+   "note": "Draw some horizontal grid lines aligning with the y-axis value ticks for professionalism and readability.",
+   "stem": "The bar chart below shows the number of students from four Melbourne schools who participated in a regional maths compet"
+  },
+  {
+   "n": 36,
+   "id": "bed54cfb-9e6b-46df-bdd6-bafecabb948a",
+   "book": "png_act_test4_230526",
+   "form": "vic-drill-mq-061",
+   "verdict": "problem",
+   "note": "The chord AB doesn't actually reach the circumference. Complete the chord and make it properly touch the circumferences.",
+   "stem": "In the figure below, a circle with centre O has radius 10 cm. Chord AB is 16 cm long. What is the perpendicular distance"
+  },
+  {
+   "n": 47,
+   "id": "5edd52c3-6dd0-4ee4-adb5-5f3fe6f4eceb",
+   "book": "png_act_test5_230526",
+   "form": "vic-drill-mq-087",
+   "verdict": "problem",
+   "note": "The right angle symbol is slightly passing through line OB. Shorten it or push it backways slightly such that there is no line dash going outside of the OB line.",
+   "stem": "In the figure below, two straight roads meet at point O. Road OA runs due east and road OB runs at an angle of 55° north"
+  },
+  {
+   "n": 66,
+   "id": "431d4c9b-91c3-4860-a74b-11a116dbfbb0",
+   "book": "png_act_test8_240526",
+   "form": "vic-drill-mq-052",
+   "verdict": "problem",
+   "note": "This is a duplicate question. Rewrite by changing the values.",
+   "stem": "A right-angled triangle has legs of length 5 cm and 12 cm. A square is drawn on the hypotenuse. What is the area of that"
+  },
+  {
+   "n": 70,
+   "id": "c5daaa49-3407-4329-8604-b28262459cc7",
+   "book": "png_shs_pt1_310526",
+   "form": "vic-drill-mq-019",
+   "verdict": "problem",
+   "note": "Create a little more distance between the rectangles as the 5 cm label between rectangles is vague.",
+   "stem": "The figure below shows rectangle R with length (2x + 3) cm and width 5 cm, and rectangle S with length (x + 7) cm and wi"
+  },
+  {
+   "n": 74,
+   "id": "ebd339c2-8f61-4c92-beca-42f162fea481",
+   "book": "png_shs_pt1_310526",
+   "form": "vic-drill-mq-051",
+   "verdict": "problem",
+   "note": "Move the 15 cm and 8 cm arrays a little closer to the side on each rectangle that they are meatn to be representing. Push both of them upwards.",
+   "stem": "In the figure below, the two rectangles have equal areas. What is the value of x?"
+  },
+  {
+   "n": 75,
+   "id": "0e77976c-688d-4320-bbca-b942c9cb7394",
+   "book": "png_shs_pt1_310526",
+   "form": "vic-drill-mq-055",
+   "verdict": "problem",
+   "note": "There is no need for the arrows and line segment. The figure is also a little unclear as the question states two smaller rectanges are cut from the top corner, but the figure shows to rectangles being added. Revise the question.",
+   "stem": "In the figure below, a large rectangle has dimensions 11 cm × 7 cm. A rectangular notch of width 3 cm and height 2 cm is"
+  },
+  {
+   "n": 80,
+   "id": "64404632-9fa0-43eb-8433-fec4688095aa",
+   "book": "png_shs_pt1_310526",
+   "form": "vic-drill-mq-075",
+   "verdict": "note",
+   "note": "Add some horizontal grid lines upon the y-axis values. Increase the font size and center the axes labels.",
+   "stem": "The bar chart below shows the number of meat pies sold at four Melbourne football clubs&#x27; canteens during one Saturd"
+  },
+  {
+   "n": 85,
+   "id": "42e248db-f84d-482b-8b1f-cccc02a831a6",
+   "book": "png_act_test4_230526",
+   "form": "vic-drill-mq-020",
+   "verdict": "problem",
+   "note": "The -5 still feels out of place. Move it a little higher and to the right so it looks more symmetrical and aligned with the other values.",
+   "stem": "The graph below shows the line y = 2x − 3. Which point lies on this line?"
+  },
+  {
+   "n": 88,
+   "id": "c76f4d12-c8ef-4a2a-9714-25986a138da4",
+   "book": "png_act_test4_230526",
+   "form": "vic-drill-mq-041",
+   "verdict": "problem",
+   "note": "The circular point E is a semi-circle, not a normal circle like the other points. Revise by making the points smaller dots and moving the letters to be further from the x and y axes.",
+   "stem": "In the coordinate plane below, triangle DEF is reflected across the line y = x to produce triangle D&#x27;E&#x27;F&#x27;"
+  },
+  {
+   "n": 90,
+   "id": "7961f672-0d30-44aa-80d3-c44d8ecba477",
+   "book": "png_act_test5_230526",
+   "form": "vic-drill-mq-053",
+   "verdict": "problem",
+   "note": "The updated graph looks far worse. The numbers are all misaligned and some are duplicating itself. Revert back to the \"before\" graph and simply delete any number that is being overlapped as a student can easily infer what value is being touched.",
+   "stem": "In the coordinate plane below, rectangle WXYZ has vertices W(−1, 3), X(4, 3), Y(4, −2), and Z(−1, −2). Point P lies on s"
+  },
+  {
+   "n": 91,
+   "id": "c0526d7f-2752-4e21-82b7-588e2b76fbef",
+   "book": "png_act_test7_240526",
+   "form": "vic-drill-mq-057",
+   "verdict": "problem",
+   "note": "Just delete the 1 on the y-axis that is found inside the triangle as it looks out of place and students can still infer the value line AB is sitting on.",
+   "stem": "In the coordinate plane below, triangle ABC has vertices at A(−4, 1), B(2, 1), and C(2, 5). What is the area of triangle"
+  }
+ ]
+}

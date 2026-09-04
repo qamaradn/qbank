@@ -915,7 +915,76 @@ CREATE INDEX IF NOT EXISTS idx_wp_review_status ON writing_prompts(review_status
 
 ## CURRENT STATUS
 
-**Last worked on:** 2026-09-02 — VIC REVIEW ROUND 10. THE FORTY-SIX ABOVE CARD 113.
+**Last worked on:** 2026-09-04 — VIC REVIEW ROUND 11. THE SIXTEEN THAT CAME BACK.
+
+The rounds 9-10 page (`compare-vic-mq-rounds9-10.html`, all 95 questions repaired in
+those two rounds) came back on 2026-09-03. **Seventy-nine passed with no comment.**
+Sixteen carry a note and **all sixteen are repaired.** All were `pending`, none live.
+Nine of the sixteen are round-10 work coming back and seven are round-9 work.
+
+Read the return with care: the ingest tool prints "flagged 15, marked fine 1" because
+one card is marked `note` rather than `problem` — and that note asks for gridlines and
+a bigger font, which is work. The count is 16. The same thing happened in round 10.
+
+**The flags are converging: 181 of 445, then 95 of 223, then 16 of 95.**
+
+Ten of the sixteen were placement or presentation and were done as written — four
+charts wanted horizontal gridlines in almost the same words, so they get them the same
+way, at the tick heights and nowhere else. **Six were not**, and each was worked twice:
+
+- **A duplicate the checks never saw.** `431d4c9b` asks for the area of a square on the
+  hypotenuse of a 5-12 triangle, and so does `ef7b9ff2` in `vic-drill-mq-070`, with the
+  same numbers and the same answer of 169. Both pending, so a student sitting two drill
+  papers would meet it twice. Re-cut on 8-15-17 (289), which no other question uses;
+  the closest stem in the bank is now 0.71 against phase 4's 0.85 threshold. The square
+  is drawn on the hypotenuse now — the figure had only ever shown the triangle.
+- **A stem, a figure and a key describing three different shapes.** `0e77976c`'s stem
+  says the notches are 3-by-2 and 4-by-2, which leaves 63; its explanation works those
+  two out and stops before subtracting; the figure is a U with ONE notch in the middle
+  of the top edge; and the key is 57, which is 77 − 4×3 − 4×2, exactly what the
+  figure's four numbers say. The key and the figure's labels agree with each other, so
+  they stand and the stem's two numbers are corrected. Drawn area measures 57 cm².
+- **Bars at three different scales.** `ccac7c88` drew 80 students as 80 px, 100 as 125
+  and 70 as 63 — 1.0, 1.25 and 0.9 px per student. Nothing showed it until the y-axis
+  the reviewer asked for went on. Redrawn at 1.2 throughout.
+- **A chord that stopped inside its own circle.** `bed54cfb`'s ends were 86.5 from a
+  centre with radius 90. Rather than stretch it, the whole figure is put on one scale:
+  the chord now sits where a 16 cm chord in a 10 cm circle actually sits, 6 cm from the
+  centre, which is the answer. Every length is now the length its label claims.
+- **A right angle marked about a point in mid-air.** `5edd52c3` drew road OB at 52.5°
+  while the stem says 55, and put D at a spot 7 px off that road, so the mark hung off
+  the line. OB is at exactly 55° now and D is DERIVED as the foot of the perpendicular
+  from C — which lands at 114.7 m, the keyed 114.
+- **A straight revert.** `7961f672`: "the updated graph looks far worse ... revert back
+  to the before graph and simply delete any number that is being overlapped." Round 10
+  moved a whole column and row of tick numbers to keep every number at its own tick;
+  the reviewer would rather have four numbers missing than seven moved. Restored from
+  the round-10 backup with those four deleted. **The lesson is worth keeping: a fix
+  that satisfies a check can still read worse than the defect it removed.**
+
+**Two more only showed up on redrawing.** `c76f4d12`'s point E "is a semi-circle" —
+it is a whole circle with the letter E painted over its right half, because round 10
+moved the letter to clear the y-axis and moved it onto the dot instead. And
+`a30aed4e`'s missing x numbers, −2 and 3, are missing because the line y = x + 2
+crosses the axis at exactly x = −2 and the line x = 3 runs the full height of the plot
+through where its own number belongs; they can only come back if both lines stop short
+of the number row, and they now do.
+
+**16 repaired, 0 refused, newly firing none. 275 tests pass.** One finding stands and
+is not a regression: `42e248db` keeps a tick number grazed by its own plotted line.
+Record: `run_data/output/vic_round11_figures.json`, script
+`tools/repair_vic_round11_figures.py`, backup `run_data/db/qbank.db.bak-round11-180148`.
+
+**Page built and ready to send: `review/ui/compare-vic-mq-round11.html`** — 16 cards,
+all 16 carrying Alaan's own note, all 16 redrawn. Verified by parsing the page's own
+data back against the live database and the backup.
+
+**WHAT "DONE" MEANS HERE.** Finishing these rounds finishes the DRAWING work for VIC
+maths. It approves nothing: 445 of the 512 VIC maths questions carrying a figure are
+still `pending`, and moving them to `approved` is a separate human pass over the words
+and the keys, not just the pictures. NSW's 254 pending figures have not started.
+
+**Previously:** 2026-09-02 — VIC REVIEW ROUND 10. THE FORTY-SIX ABOVE CARD 113.
 
 Alaan's 2026-09-01 file (`review/ui/figure-review-vic-mq-recheck-2026-09-01.json`) holds
 95 comments. Forty-nine are the round-9 notes repeated byte-for-byte, because Alaan
