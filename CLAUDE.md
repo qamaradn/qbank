@@ -972,6 +972,21 @@ of the number row, and they now do.
 
 **16 repaired, 0 refused, newly firing none. 275 tests pass.** One finding stands and
 is not a regression: `42e248db` keeps a tick number grazed by its own plotted line.
+
+**ONE OF THE SIXTEEN WAS THEN OVERRULED BY THE OWNER (2026-09-04).** On `c0526d7f` the
+reviewer asked for the y-axis "1" to be deleted and round 11 deleted it; the owner asked
+for it back, "align 1 as all other ticks on y axis". It is back at x = 179, y = 176,
+where the column and its own tick put it, and it now carries the page-coloured halo the
+other numbers have and it never had — so AB is broken behind the glyphs and the number
+reads over the line. `tools/repair_c0526d7f_yaxis_one.py`, backup
+`qbank.db.bak-owner-184607`. The whole column measures 30 px per unit end to end.
+
+**That deliberately re-fires `text_overlaps_geometry` on this question**, because AB is
+solid ink and the check forgives a haloed label only over faint ink. It is the accepted
+cost of the instruction: the alternative is no number at all. The number cannot be
+nudged clear instead — AB runs from x = −4 to x = 2 at that exact height, covering the
+column on both sides of the axis, and a y number moved up or down makes the axis read as
+nonlinear.
 Record: `run_data/output/vic_round11_figures.json`, script
 `tools/repair_vic_round11_figures.py`, backup `run_data/db/qbank.db.bak-round11-180148`.
 
