@@ -315,9 +315,10 @@ def row_to_question(row: dict) -> dict:
     pid = passage_id(row)
     if pid is not None:
         q["passageId"] = pid
-    # Fixed-form delivery. Selectly's import schema does not accept these yet (zod strips
-    # unknown keys silently, so sending them early is harmless); once it does, a reload
-    # carries form membership instead of needing a second pass over every row.
+    # Fixed-form delivery. Selectly's import accepts and stores all three as of
+    # 2026-09-04, and /api/admin/questions-dump returns them, so the deal can be checked
+    # rather than assumed -- tools/verify_pushed_forms.py does it. Verified after the
+    # 4,500-question VIC push: 5,190 of 5,190 live, every form and position matching.
     if row.get("form_id"):
         q["formId"] = row["form_id"]
         q["formPosition"] = row["form_position"]
