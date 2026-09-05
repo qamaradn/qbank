@@ -53,6 +53,7 @@ from tools.question_checks import (  # noqa: E402
     options_distinct_by_value,
     positional_reference,
 )
+from tools.figure_gate import figure_findings  # noqa: E402
 
 GEN = ROOT / "run_data/output/mathematics/generated"
 BOOK = os.environ.get("MA_BOOK", "ma_nsw_selective")
@@ -237,7 +238,15 @@ def validate(qs, nn, plan):
             errs.append(f"{tag}: {m}")
         for msg in doubled_token_errors(q) + option_wording_errors(q):
             errs.append(f"{tag}: {msg}")
-        for e in figure_svg_errors(q.get("figure_svg")):
+        # THE WHOLE FIGURE CHECK SET, not just figure_svg_errors. Four VIC review
+        # rounds produced 304 reviewer comments on 445 figures, and 45% of them were a
+        # number sitting on a line -- a defect `text_overlaps_geometry` catches and this
+        # finaliser never ran. Every one of those checks existed while the figures were
+        # being authored; they were only ever run afterwards, during repair. Running
+        # them here is the difference between fixing a defect once and fixing it 181
+        # times. Calibrated: all 21 figures hand-built in rounds 10-11 pass clean, so a
+        # figure that fails this is a figure whose labels have not been placed properly.
+        for e in figure_findings(q):
             errs.append(f"{tag}: {e}")
         if not q.get("figure_svg"):
             # Runs for every category, not just the ones flagged needs_figure: an averages
