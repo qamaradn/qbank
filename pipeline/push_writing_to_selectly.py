@@ -150,6 +150,27 @@ def verify(url: str, secret: str) -> int:
     return 0 if not missing and not noform else 1
 
 
+def migration_is_live(url: str, secret: str) -> bool | None:
+    """Does Selectly's dump return the four fields the migration adds?
+
+    True yes, False no, None cannot tell (no rows to look at). A prompt pushed before
+    the migration lands loses its stimulus silently -- the import drops unknown keys and
+    still reports success -- and a persuasive task with no quote under it is worse live
+    than absent. This is the check that stops that happening by accident."""
+    for cat in ("writing", "mathematics"):
+        try:
+            req = urllib.request.Request(
+                f"{url.rstrip('/')}/api/admin/questions-dump?category={cat}",
+                headers={"x-import-secret": secret})
+            rows = json.loads(urllib.request.urlopen(req, timeout=120).read())["questions"]
+        except Exception as e:                                   # noqa: BLE001
+            logger.warning(f"could not probe the dump: {e}")
+            return None
+        if rows:
+            return all(f in rows[0] for f in MIGRATION_FIELDS)
+    return None
+
+
 def main() -> None:
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
     ap = argparse.ArgumentParser(description=__doc__)
@@ -158,6 +179,8 @@ def main() -> None:
     ap.add_argument("--forms", default="", help="comma-separated form_ids")
     ap.add_argument("--batch", type=int, default=20)
     ap.add_argument("--dry-run", action="store_true")
+    ap.add_argument("--force", action="store_true",
+                    help="push even though the migration looks undeployed")
     ap.add_argument("--verify", action="store_true",
                     help="read the prompts back and check the new fields landed")
     args = ap.parse_args()
@@ -173,6 +196,22 @@ def main() -> None:
 
     if args.verify:
         sys.exit(verify(url, secret))
+
+    live = migration_is_live(url, secret)
+    if live is False and not args.force:
+        logger.error(
+            "REFUSING TO PUSH. Selectly's dump does not return "
+            f"{list(MIGRATION_FIELDS)}, so the migration that adds those columns is not "
+            "deployed. Every prompt would land with its task and NO STIMULUS -- a "
+            "persuasive question reading 'argue for or against the view in the quote "
+            "below' with no quote. The import drops unknown keys silently and still "
+            "reports errors=0, which is exactly how the form fields failed in August. "
+            "Deploy the migration, or pass --force if you have another way of knowing "
+            "it is live.")
+        sys.exit(2)
+    if live is None:
+        logger.warning("could not confirm the migration is deployed — run --verify "
+                       "straight after this push and check the stimulus arrived")
 
     forms = [f.strip() for f in args.forms.split(",") if f.strip()]
     rows = fetch_approved_prompts(forms or None)
