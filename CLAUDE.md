@@ -964,9 +964,30 @@ strips the form fields.
 questions; none of them is in an `mq` or `rv` form, so all 5,190 were sendable and every
 form arrives full.
 
-**Writing was not pushed.** The 27 `vic-drill-wr-*` forms are prompts in a separate table
-with their own path, and `written-expression` in schools.ts is still 1 task / 25 min against
-VIC's 2 tasks / 40 min.
+**VIC WRITING IS NOW LIVE TOO (2026-09-06).** All 54 VIC prompts across the 27
+`vic-drill-wr-*` forms: `inserted=54 skipped=0`. Verified by reading production back and
+comparing FIELD BY FIELD against qbank -- stem, stimulus, stimulus type, prompt type,
+both word counts, the time, the form and the position all match on all 54, every one
+active, 27 forms of exactly two at positions 1 and 2. `pipeline/push_writing_to_selectly.py`.
+
+Writing prompts live in their own table, so they have their own sender. It shares the
+tracking and payload hashing, and it **refuses to push while Selectly's dump lacks
+`stimulus`** -- a prompt whose stimulus is dropped imports with `errors=0` and reads as
+broken, and eleven of the 54 are quote prompts whose task says "argue for or against the
+view expressed in the quote below". That guard held the push for a day until the Selectly
+work shipped, which is what it is for.
+
+**No rubric is sent.** Selectly's import used to require a five-key object qbank does not
+have and nothing there read -- `buildGradingPrompt` hardcoded its own dimensions. The
+marking dimensions now come from `prompt_type`, which matters: `vic-drill-wr-016` is
+persuasive at position 1 and narrative at position 2, so the old fixed rubric was marking
+that narrative on "Argument".
+
+**NSW and JMSS writing are NOT pushed and that is deliberate.** NSW's section is already
+correct at 1 task / 30 min and its 42 prompts have no forms dealt, because NSW sets one
+prompt and a form of one adds nothing -- "writing does not halve" (SPEC). JMSS has no
+exam in schools.ts, so the sender holds its 10 back on its own. All 106 are `approved`;
+52 are approved-but-unsent by design, which is what `--verify` reports as "not live".
 
 **Previously:** 2026-09-04 — VIC REVIEW ROUND 11. THE SIXTEEN THAT CAME BACK.
 
