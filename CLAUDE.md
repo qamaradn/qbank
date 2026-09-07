@@ -915,7 +915,34 @@ CREATE INDEX IF NOT EXISTS idx_wp_review_status ON writing_prompts(review_status
 
 ## CURRENT STATUS
 
-**Last worked on:** 2026-09-04 — ALL 153 VIC DRILL FORMS APPROVED AND PUSHED LIVE.
+**Last worked on:** 2026-09-06 — NSW FIGURE ROUND 1 IS OPEN AND NOT STARTED.
+
+Alaan Q.'s first NSW return is `review/ui/figure-review-nsw-2026-09-06.json`: **10 flags
+on a 254-card page**, all `pending`, none live in Selectly. The brief for working them is
+`pdfs/nsw_figure_round1_PROMPT.md`. Two Thinking Skills questions and eight maths; the
+marks run from card 8 to card 250, so it reads as a complete pass rather than a partial
+one. **No repairs have been started.**
+
+**The authoring gate is vindicated by the numbers.** NSW has 320 figures and 12 fire the
+check set (4%); VIC has 512 and 88 fire (17%). The reviewer flagged 10 of 254 here
+against 181 of 445 on VIC — a tenfold difference in review load, the same reviewer and
+the same kind of content. NSW was authored through `question_checks`; the Gemini books
+were not. `tools/figure_gate.py` now runs the whole set at authoring time for exactly
+this reason.
+
+Three things that round has to handle, each checked rather than assumed:
+
+- `bf613208` and `d5975559` share ONE figure, byte for byte — the same 1,429-character
+  SVG, one asking the area of a U-shaped tile and the other its perimeter. That is why
+  the reviewer wrote the identical note twice. Fix the drawing once and write it to BOTH
+  rows. They are not duplicate questions (stem similarity 0.31).
+- **Seven of the ten fire no check at all.** Only three are visible to
+  `text_overlaps_geometry`. A clean gate state is not evidence a figure is right.
+- `b2c8c7b6` asks for a deletion, not a repair. Removing a question from a dealt form
+  changes its size, and NSW forms are 19-26 items, so a silent removal re-bases every
+  score recorded against that form.
+
+**Previously:** 2026-09-04 — ALL 153 VIC DRILL FORMS APPROVED AND PUSHED LIVE.
 
 The figure rounds are closed, so the owner's call was to stop piloting and put the whole
 VIC bank in front of the reviewers: approve everything, push everything, let them work
