@@ -915,7 +915,50 @@ CREATE INDEX IF NOT EXISTS idx_wp_review_status ON writing_prompts(review_status
 
 ## CURRENT STATUS
 
-**Last worked on:** 2026-09-07 — NSW FIGURE ROUND 1 IS CLOSED. ALL TEN REPAIRED.
+**Last worked on:** 2026-09-07 — ALL 117 NSW DRILL FORMS ARE APPROVED AND PUSHED LIVE.
+
+The whole NSW bank is now in front of the reviewers, form by form, the same way VIC was
+on 2026-09-04. **Human review inside Selectly is the launch gate — nothing in qbank is.**
+
+| Component | Forms | Questions | Was live | Newly sent |
+|---|---:|---:|---:|---:|
+| Mathematical Reasoning `nsw-drill-math-*` | 42 | 838 | 200 | 638 |
+| Reading `nsw-drill-read-*` | 27 | 649 | 235 | 414 |
+| Thinking Skills `nsw-drill-ts-*` | 48 | 954 | 200 | 754 |
+| **Total** | **117** | **2,441** | **635** | **1,806** |
+
+**Nothing held a single NSW form back**, and each reason was checked rather than assumed:
+the two exclusion manifests that cut the VIC push (158 §6 verbal, 108 beyond-Year-8
+quantitative) catch ZERO NSW rows because neither subject appears in an NSW form; all
+2,441 route to `nsw-shspt` and none routes nowhere; no rejected question sits in any form
+(the four rejected NSW questions were lifted out and had never been pushed); and every
+form's positions run 1..n with no gaps, at sizes 19 to 26.
+
+**Approved in one revertible step** — `tools/approve_forms.py` over the 87 forms that
+were still pending, 1,806 questions, backup `run_data/db/qbank.db.bak-nswapprove-114210`.
+The record now holds 7,186 rows and appends, so August's and VIC's approvals stay
+revertible. Approval here means "reachable by the reviewer", not "reviewed".
+
+**Pushed `inserted=1806 skipped=0 errors=0` over 46 batches**, tracked total 5,879 →
+7,685. Restricted with `--forms` to the 117 NSW forms, which also restricts the
+deactivation pass, so the 5,190 live VIC questions were left alone.
+
+**THE FORM ASSIGNMENTS CAN NOW BE VERIFIED — the entry below that calls this
+unverifiable is superseded.** `/api/admin/questions-dump` returns `formId`, `formPosition`
+and `formKind`, so `tools/verify_pushed_forms.py` runs for real. Read back from
+production: **NSW 2,441 of 2,441 live with the right form — 0 not live, 0 live without a
+form, 0 whose form differs from qbank.** The same check over `vic-drill-` returns 5,190 of
+5,190, so the VIC deal is intact and untouched.
+
+The ten figures repaired this morning were verified individually against production —
+stem, all four options, key, form, position and the figure itself, which is sent as a
+base64 SVG data URI. All ten match the qbank row exactly, `b2c8c7b6` included, so the
+re-cut question is live in its old slot with its new content.
+
+**NSW writing is still not pushed, and that is deliberate.** Its 42 prompts are approved
+with no forms dealt, because NSW sets one prompt and a form of one adds nothing.
+
+**Previously:** 2026-09-07 — NSW FIGURE ROUND 1 CLOSED. ALL TEN REPAIRED.
 
 Alaan Q.'s first NSW return (`review/ui/figure-review-nsw-2026-09-06.json`) flagged 10
 cards on a 254-card page and passed the other 244. **All ten are repaired, 0 refused,
