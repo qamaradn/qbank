@@ -257,6 +257,13 @@ def main() -> int:
                     help="review_status to include (default pending; 'any' for all)")
     ap.add_argument("--include-flagged", action="store_true",
                     help="also include figures a BLOCKING check already names")
+    ap.add_argument("--forms",
+                    help="comma-separated form_ids, or prefixes ending in '*'. Use this "
+                         "to page a set the status filter would otherwise hide -- the "
+                         "pilot forms 001-010 were approved in August, so the default "
+                         "--status pending silently left all 133 of their figures off "
+                         "both review pages and the reviewer met them for the first "
+                         "time inside Selectly.")
     ap.add_argument("-o", "--out", type=pathlib.Path,
                     help="default: review/ui/figures-<scope>.html")
     a = ap.parse_args()
@@ -277,6 +284,13 @@ def main() -> int:
     if a.book:
         sql += " AND source_book = ?"
         args.append(a.book)
+    if a.forms:
+        want = [f.strip() for f in a.forms.split(",") if f.strip()]
+        clauses = []
+        for f in want:
+            clauses.append("form_id LIKE ?")
+            args.append(f[:-1] + "%" if f.endswith("*") else f)
+        sql += " AND (" + " OR ".join(clauses) + ")"
     rows = [dict(r) for r in con.execute(sql, args)]
 
     # A withheld question is one no student will ever see: the 98 beyond Year 8 and

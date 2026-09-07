@@ -915,7 +915,41 @@ CREATE INDEX IF NOT EXISTS idx_wp_review_status ON writing_prompts(review_status
 
 ## CURRENT STATUS
 
-**Last worked on:** 2026-09-07 — ALL 117 NSW DRILL FORMS ARE APPROVED AND PUSHED LIVE.
+**Last worked on:** 2026-09-07 — 133 FIGURES WERE NEVER ON A REVIEW PAGE. THE REVIEWER
+IS RIGHT.
+
+Alaan reported meeting figures in `vic-drill-mq-010` that he had never seen on the figure
+page. He is right, the cause is a default in our own tool, and it hit BOTH exams.
+
+`tools/figure_review_page.py` defaults to `--status pending`. The pilot forms 001-010 were
+approved back in August, so every figure inside them was excluded from the page BY
+CONSTRUCTION — and nothing said so.
+
+| | figures in a form | on the figure page | never paged |
+|---|---:|---:|---:|
+| VIC maths (2026-08-30) | 512 | 445 | **67** — `vic-drill-mq-001..010` |
+| NSW (2026-09-04) | 320 | 254 | **66** — `nsw-drill-math/ts-001..010` |
+
+Proved from the backups rather than reasoned: `qbank.db.bak-vicmq-20260830-202732` holds
+exactly 445 pending and 67 approved VIC maths figures on the day the page was built, and
+the 67 are precisely forms 001-010. **All 189 of Alaan's round-8 marks land on a pending
+figure and not one lands on those 67**, which is what you would expect if he never saw
+them. Set 10 holds 5 of them. NSW is the same shape: 254 pending, 66 approved, and his 10
+NSW marks all land on the 254.
+
+**The round-8 note saying "the reviewer has passed them" was wrong and is corrected
+above.** Those forms went to the reviewer as QUESTIONS in the August pilot; their figures
+were never put in front of anyone.
+
+**Two pages are built and ready to send:** `review/ui/figures-vic-mq-pilot.html` (67) and
+`review/ui/figures-nsw-pilot.html` (66). Verified to hold zero cards that appear on any
+earlier page. `figure_review_page.py` gained `--forms` so a set the status filter hides
+can still be paged.
+
+**These 133 have never been through a figure round, so expect a normal first-round flag
+rate, not a recheck rate** — VIC's first round flagged 41%.
+
+**Previously:** 2026-09-07 — ALL 117 NSW DRILL FORMS ARE APPROVED AND PUSHED LIVE.
 
 The whole NSW bank is now in front of the reviewers, form by form, the same way VIC was
 on 2026-09-04. **Human review inside Selectly is the launch gate — nothing in qbank is.**
@@ -1446,7 +1480,10 @@ materially better than VIC because NSW went through `question_checks` as an auth
 gate and the Gemini books never did. **The NSW round has not started; leave it.**
 
 **LIVE FORMS ARE OFF-LIMITS.** 14 questions in `vic-drill-mq-002..010` fail the new
-checks. The reviewer has passed them; those failures are accepted. Do not repair them.
+checks. Do not repair them. **CORRECTED 2026-09-07: the claim that "the reviewer has
+passed them" was wrong** — those forms were released to the reviewer as QUESTIONS in
+the August pilot, but their figures were never on a figure page, so nobody had looked
+at the pictures. See the CURRENT STATUS entry on the 133 unpaged figures.
 
 **Reviewer pages now live one-per-scope in `review/ui/`** — `figures-<scope>.html`,
 `compare-<scope>.html`; `/figures` lists the folder. `tools/figure_compare_page.py`
