@@ -1,0 +1,101 @@
+{
+ "kind": "qbank-figure-review",
+ "version": 1,
+ "scope": "nsw",
+ "reviewer": "Alaan Q.",
+ "reviewed_at": "2026-09-06T04:56:46.060Z",
+ "total_on_page": 254,
+ "reviewed": 10,
+ "items": [
+  {
+   "n": 8,
+   "id": "bf613208-bfa6-462f-9674-1ceaa7fd059b",
+   "book": "lr_thinking_skills",
+   "form": "nsw-drill-ts-013",
+   "verdict": "problem",
+   "note": "The entire figure is full of unclear values. The 6 cm overlaps with some sides, and there are many vague 4 cm values.",
+   "stem": "Using the measurements shown, what is the area of this U-shaped tile?"
+  },
+  {
+   "n": 53,
+   "id": "d5975559-f4ff-4f43-ac1c-e5cd6b9c3de9",
+   "book": "lr_thinking_skills",
+   "form": "nsw-drill-ts-026",
+   "verdict": "problem",
+   "note": "The entire figure is full of unclear values. The 6 cm overlaps with some sides, and there are many vague 4 cm values.",
+   "stem": "The diagram shows a U-shaped tile with all its sides measured. What is the distance right around the outside?"
+  },
+  {
+   "n": 142,
+   "id": "05abece6-2b45-450e-9c2f-b4be6f923743",
+   "book": "ma_nsw_selective",
+   "form": "nsw-drill-math-014",
+   "verdict": "problem",
+   "note": "The 3m and the 2m are a little too close to each other. Seperate them and move them closer to the sides they are representing while keeping some distance.",
+   "stem": "The diagram shows the floor of a shearing shed. What is its area?"
+  },
+  {
+   "n": 151,
+   "id": "7932815e-2170-4ac8-999e-2cd33632edf9",
+   "book": "ma_nsw_selective",
+   "form": "nsw-drill-math-018",
+   "verdict": "problem",
+   "note": "The 3m and the 4m are a little too close to each other. Seperate them and move them closer to the sides they are representing while keeping some distance.",
+   "stem": "The diagram shows a paved courtyard at a school in Ballarat. What is the perimeter of the courtyard?"
+  },
+  {
+   "n": 214,
+   "id": "b2c8c7b6-f6d2-4845-8a84-ee56d0d06674",
+   "book": "year7_nsw_maths",
+   "form": "nsw-drill-math-013",
+   "verdict": "problem",
+   "note": "Out-of-place question. Far too difficult and doesn't really make sense. Delete.",
+   "stem": "The diagram shows a compass-and-straightedge construction on the segment AB. Arcs of equal radius were drawn from A and "
+  },
+  {
+   "n": 217,
+   "id": "4769e94e-7af9-4f75-b868-005911827164",
+   "book": "year7_nsw_maths",
+   "form": "nsw-drill-math-016",
+   "verdict": "problem",
+   "note": "The letters P and Q slightly overlap with the x-axis. Move them closer to their points without any overlapping.",
+   "stem": "The shaded triangle is rotated 90 degrees anticlockwise about the origin. What are the coordinates of the image of verte"
+  },
+  {
+   "n": 218,
+   "id": "c17f98d2-bdb8-41cc-b620-eb55ae8cd542",
+   "book": "year7_nsw_maths",
+   "form": "nsw-drill-math-017",
+   "verdict": "problem",
+   "note": "Extend the line so that it touches point 5, 20. This will make the graph seem more complete and full of information.",
+   "stem": "The graph shows how many eggs a bakery in Wagga Wagga needs for different numbers of batches of muffins. At the same rat"
+  },
+  {
+   "n": 239,
+   "id": "8de54934-e5e4-4868-a8f6-8f46024b7bac",
+   "book": "year7_nsw_maths",
+   "form": "nsw-drill-math-032",
+   "verdict": "problem",
+   "note": "Add the axis value lines or ticks on each value. Also create a little more distance between -2 on the y axis and the line.",
+   "stem": "Which equation does the straight line drawn on the grid represent?"
+  },
+  {
+   "n": 244,
+   "id": "2bc8b93a-59c6-4e6c-b23a-d9c4759e05ca",
+   "book": "year7_nsw_maths",
+   "form": "nsw-drill-math-035",
+   "verdict": "problem",
+   "note": "Add more values on the axes, while also integrating more axis value/numbering tick marks or lines.",
+   "stem": "The point K is plotted on the coordinate plane. K is moved 6 units to the right and then 5 units down. What are the coor"
+  },
+  {
+   "n": 250,
+   "id": "7abd8a82-f9d5-4e8e-98dc-c1f99e29eae2",
+   "book": "year7_nsw_maths",
+   "form": "nsw-drill-math-038",
+   "verdict": "problem",
+   "note": "The 4cm label is in the wrong place. It is meant to represent depth, but currently it is depicting height. Move it to be  on one of the depth values.",
+   "stem": "The rectangular prism shown is 6 cm long, 4 cm deep and 3 cm high. Looking straight down on it from above, the top view "
+  }
+ ]
+}
