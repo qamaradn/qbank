@@ -915,13 +915,19 @@ CREATE INDEX IF NOT EXISTS idx_wp_review_status ON writing_prompts(review_status
 
 ## CURRENT STATUS
 
-**Last worked on:** 2026-09-06 — NSW FIGURE ROUND 1 IS OPEN AND NOT STARTED.
+**Last worked on:** 2026-09-07 — NSW FIGURE ROUND 1 IS CLOSED. ALL TEN REPAIRED.
 
-Alaan Q.'s first NSW return is `review/ui/figure-review-nsw-2026-09-06.json`: **10 flags
-on a 254-card page**, all `pending`, none live in Selectly. The brief for working them is
-`pdfs/nsw_figure_round1_PROMPT.md`. Two Thinking Skills questions and eight maths; the
-marks run from card 8 to card 250, so it reads as a complete pass rather than a partial
-one. **No repairs have been started.**
+Alaan Q.'s first NSW return (`review/ui/figure-review-nsw-2026-09-06.json`) flagged 10
+cards on a 254-card page and passed the other 244. **All ten are repaired, 0 refused,
+newly firing none, 288 tests pass.** All ten were `pending` and none was live in
+Selectly; nothing outside the ten was touched. Record:
+`run_data/output/nsw_round1_figures.json`, script
+`tools/repair_nsw_round1_figures.py`, backup `run_data/db/qbank.db.bak-nsw1-104347`.
+
+**Page built and ready to send: `review/ui/compare-nsw-round1.html`** — 10 cards, all 10
+carrying Alaan's own note, all 10 redrawn. Verified by parsing the page's own data back:
+every before-picture matches the backup and every after-picture, stem, option and key
+matches the live row.
 
 **The authoring gate is vindicated by the numbers.** NSW has 320 figures and 12 fire the
 check set (4%); VIC has 512 and 88 fire (17%). The reviewer flagged 10 of 254 here
@@ -930,17 +936,57 @@ the same kind of content. NSW was authored through `question_checks`; the Gemini
 were not. `tools/figure_gate.py` now runs the whole set at authoring time for exactly
 this reason.
 
-Three things that round has to handle, each checked rather than assumed:
+**Seven of the ten fire no check at all**, so the round was worked by rendering each
+figure and looking at it. Only three were visible to `text_overlaps_geometry`, and on
+two of those the check was firing on something else entirely — an axis number on its own
+faint gridline, not the defect the reviewer named. A clean gate state is not evidence.
 
-- `bf613208` and `d5975559` share ONE figure, byte for byte — the same 1,429-character
-  SVG, one asking the area of a U-shaped tile and the other its perimeter. That is why
-  the reviewer wrote the identical note twice. Fix the drawing once and write it to BOTH
-  rows. They are not duplicate questions (stem similarity 0.31).
-- **Seven of the ten fire no check at all.** Only three are visible to
-  `text_overlaps_geometry`. A clean gate state is not evidence a figure is right.
-- `b2c8c7b6` asks for a deletion, not a repair. Removing a question from a dealt form
-  changes its size, and NSW forms are 19-26 items, so a silent removal re-bases every
-  score recorded against that form.
+Six were placement and were done as written. **Four were not:**
+
+- **One figure, two questions.** `bf613208` and `d5975559` carried the SAME 1,429-byte
+  SVG — one asks the area of a U-shaped tile, the other its perimeter — which is why the
+  same sentence came back twice. The drawing was measured and was RIGHT: 13 px per cm,
+  and its eight sides really are 4, 4, 6, 4, 4, 6, 14 and 6. Three of the eight LABELS
+  were not on the side they name: the notch's "6 cm" was centred over the notch's left
+  wall rather than under its floor, and the notch's right wall had its "4 cm" parked 18
+  px below the notch entirely, naming nothing. Redrawn once at 16 px per cm and written
+  to both rows. Verified by measuring the shipped SVG: every one of the eight labels is
+  now nearest to an edge whose drawn length equals the number it prints.
+- **A question re-cut rather than deleted.** `b2c8c7b6` — "far too difficult and doesn't
+  really make sense. Delete." The reviewer is right about the level and the figure was
+  not the problem: measured, both arcs are radius 110 about A and about B, they cross at
+  (160, 56.8) and (160, 183.2), and the ruled line runs through both. What is wrong is
+  that a compass-and-straightedge construction justified by the equidistance property is
+  Stage 4-5 work in a paper sat by Year 6 students. It is RE-CUT, not deleted:
+  `nsw-drill-math-013` holds exactly twenty questions, one per topic, and this is its
+  only "Two-Dimensional Figures" slot, so dropping it would shrink the form AND remove
+  the topic. The replacement is the same reasoning at a level a Year 6 candidate can
+  reach — an isosceles triangle with its base extended, exterior angle 116°, apex 52° —
+  worked twice (180 − 116 = 64 for both base angles then 180 − 64 − 64 = 52, or the
+  exterior angle rule 116 = 52 + 64) and DRAWN to those angles, so measuring the picture
+  gives the same answer as the arithmetic. Closest stem in the bank: 0.66 (13720600, a
+  VIC question that goes the other way), against phase 4's 0.85 threshold.
+- **A wrong explanation nobody had reported.** `2bc8b93a`'s explanation named the wrong
+  options twice: it said option D has the correct coordinates and option B moves up,
+  when it is B that reads (2, -2) with the wrong quadrant and D that moves up to (2, 8).
+  Found while redrawing the axes the reviewer asked for. Corrected.
+- **A "4 cm" that named the height twice.** `7abd8a82` drew the depth label beside the
+  back-right VERTICAL edge, which is 80 px — exactly the front-left edge already
+  labelled 3 cm. It is now on the receding bottom-right edge, placed along that edge's
+  own outward normal.
+
+**One finding is left standing and is NOT a regression.** `4769e94e` keeps
+`text_overlaps_geometry`: all twelve of its axis numbers and the letter R sit on a faint
+gridline, which is the ordinary condition of every four-quadrant plane in the bank. It
+was firing before this round, it is not what the reviewer raised, and the fix — a
+page-coloured halo behind each number — would push the file past the 3,500-byte limit.
+P and Q, which IS what they raised, are clear: both moved to the free side of their own
+point, 7 px from the dot and 19-21 px clear of the x-axis. The two planes that had room
+(`8de54934`, `2bc8b93a`) were haloed and are now completely clean.
+
+**WHAT "DONE" MEANS HERE.** This finishes the DRAWING work the reviewer asked for. It
+approves nothing: the 254 NSW figures are still `pending`, and moving them to `approved`
+is a separate human pass over the words and the keys.
 
 **Previously:** 2026-09-04 — ALL 153 VIC DRILL FORMS APPROVED AND PUSHED LIVE.
 
