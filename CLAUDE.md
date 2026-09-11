@@ -917,7 +917,113 @@ CREATE INDEX IF NOT EXISTS idx_wp_review_status ON writing_prompts(review_status
 
 ## CURRENT STATUS
 
-**Last worked on:** 2026-09-11 — NSW WRITING IS DEALT, PUSHED AND LIVE. 42 FORMS OF ONE.
+**Last worked on:** 2026-09-11 — THE REVIEWER'S OWN FLAG QUEUE. 33 FLAGS, 32 REPAIRED.
+
+The flags no longer arrive as a JSON file from a figure page we built and emailed. All
+153 VIC forms went live on 2026-09-04 and the reviewer is now working through them INSIDE
+SELECTLY, pressing the flag button. `review/ui/flagged-questions-2026-09-11.csv` is that
+queue exported: 33 rows across `vic-drill-mq-001` to `-018`, flagged 2026-08-29 to 09-08.
+
+**SO EVERY ONE OF THESE IS LIVE AND APPROVED, which no previous round was.** The repairs
+change what a student is served right now, and they do not reach anyone until pushed.
+
+**NONE OF THE 33 HAD BEEN REPAIRED BEFORE** — checked, not assumed. The stem, options,
+key, explanation and SVG of all 33 were hashed against every backup in `run_data/db`, and
+not one has changed since 2026-08-31, before the earliest of these flags was acted on. The
+eleven on forms 001-010 are the unpaged-figure problem of 2026-09-07 arriving by another
+route: those forms were approved in August, so `figure_review_page.py --status pending`
+left their figures off every page we ever sent.
+
+**32 repaired, 0 refused, newly firing none, 299 tests pass.** Backup
+`qbank.db.bak-round12-203751`, script `tools/repair_vic_round12_flags.py`, record
+`run_data/output/vic_round12_flags.json`. Exactly 32 rows differ from the backup
+bank-wide. Five checks cleared: `text_overlaps_geometry`, `latex_markup_in_text`,
+`leaked_working`, `gridlines_stop_short_of_the_axes`, `coordinate_figure_without_grid`.
+
+**THE 33RD IS DELIBERATELY UNTOUCHED.** `9ea1dc86` and `b51e43e6` are positions 21 and 19
+of `vic-drill-mq-017` and the reviewer flagged each as a duplicate of the other. They are:
+one 5-12-13 chord calculation twice, answer 24 both times, in one paper. Phase 4 could not
+have seen it — it compares STEMS, and these two share almost no wording. Swept over every
+form, this was the ONLY pair in the bank with the same key and the same stem numbers; the
+other 23 the sweep found share a key like 4 or 2 by coincidence. `b51e43e6` is re-cut on
+8-15-17 (the round-11 precedent for `431d4c9b`) and `9ea1dc86` keeps the 5-12-13, because
+its figure is the better built of the two.
+
+**SIX WERE WORSE THAN THE NOTE SAID, and only measuring or redrawing showed it:**
+
+- **A figure contradicting its own three labels.** `117dde83` drew triangle DEF on sides
+  of 139, 139 and 140 px — equilateral — and labelled them 4, 6 and 8, with PQR the same
+  shape again. The note was about a label overlapping a side. No check looks at a
+  triangle's shape once it carries an unknown side.
+- **An answer that was off the paper.** `a016ffb4`'s answer is C(10, 0) and the x-axis
+  stopped at 8. Its y numbers were spaced 15 px per unit putting 0 at y=140, while the
+  x-axis line — which IS y=0 — was drawn at y=110, so B, drawn at (2, 0), read as (2, 2)
+  against the figure's own numbering.
+- **Two figures drawing their own answer.** `bda18384` asks which line is the axis of
+  symmetry and drew it, dashed, through the 2 on the x-axis. `fd4d2c94` asks for the line
+  perpendicular to l and drew that too — and could not draw it perpendicular, because
+  P(0,4) sat at 20 px per unit and Q(2,0) at 40. Both lines are GONE, which is more than
+  was asked and is why the questions now test what they claim to.
+- **A question with two correct answers, one of which announced itself.** `0ba593f2`'s
+  option B read "∜(a² · b² · c³) — 12th root of a⁸ b⁶ c⁹", and the text after the dash is
+  option C word for word. The note was only about the caret notation.
+- **A question with no right answer, and an explanation that said so.** `2629c534` divided
+  330 m by 3.5 h to get 94.3 against a nearest option of 90, and the stored explanation
+  worked that out, then wrote "since none match exactly", then "Replacing the weakest
+  distractor (100) with the exact value is better" — the generating model arguing with
+  itself in the field a student reads.
+- **A net that could not be folded.** `df76a602`'s three rectangles gave fold edges of 4,
+  5 and 6 against a 3-4-5 triangle, each stamped with a "10" that is the prism's length.
+
+**THREE QUESTIONS IN THE MATHS PAPER WERE ABOUT METHOD, NOT MATHS**, and the reviewer said
+so three times in almost the same words. "Why does a stem-and-leaf plot show more than a
+histogram?", "What does the final cumulative frequency entry always equal?", "Why does
+experimental probability differ from theoretical?" — four sentences as options, nothing
+counted. All three are re-cut to the same topic DONE rather than described: read the
+median off a stem-and-leaf plot, off a cumulative frequency table, and compare an expected
+count with an observed one. A fourth, `089855ba`, asked for domain and range in inequality
+notation and is re-cut to substituting into the same relation.
+
+**FIVE NEEDED A CALCULATOR AND NOW DO NOT.** √1200 becomes a 15-20-25 triangle; 700÷110
+becomes 660÷110; 1.15³ becomes 1.1³; a monthly loan-amortisation formula becomes simple
+interest; 1.05⁸ becomes 1.2². Every key is now reachable in two steps by hand, and each
+was confirmed by a second route before it was written.
+
+**EVERY RE-CUT KEEPS ITS ANSWER LETTER** — 14 of them — so no form's key balance moves.
+The closest existing stem to any re-cut is 0.835, under phase 4's 0.85.
+
+**A TRAP IN `fl.plane` THAT THE OWNER HAS ALREADY RULED ON.** It draws tick numbers BEFORE
+the plotted lines, so a line crosses them; its answer is to move the struck-through number
+to the other side of the axis, or drop it if neither side is clear. Round 11's ruling was
+that a missing tick number is to be written and every number sits on the same side as the
+rest. Three figures here hit it. `straighten_ticks` in the round-12 script lifts the two
+tick layers out and re-emits them at the END of the document, where the halo works: every
+number back in its row or column, any dropped one written back at the pixel its own
+neighbours put it. **A number is only ever moved ACROSS its axis, never along it** — along
+is the direction every check reads the mapping from.
+
+**MEASURED AND NOT ACTIONED (rule 11d — these are mutative, so the flagged one only).**
+Backticks in a stem: 5 in the bank, 3 live. Caret exponents like `e^(0.02t)`: 32, 22 live.
+`$...$` maths markup: 5 real ones (the other 4 hits are prices), 1 live. Stems opening
+"Using the table/chart/histogram/summary shown below": 24, and no form holds two, so no
+student meets it twice in one paper.
+
+**NOT YET PUSHED.** `--dry-run` over the 15 affected forms reports **32 to push, 0 new, 32
+changed**, all carrying their form, all routed to `vic-seal`. Until that runs, the
+reviewer's flags are fixed in qbank and unchanged in front of students:
+
+    env -u PYTHONPATH .venv/bin/python3.11 -m pipeline.push_to_selectly --forms \
+      vic-drill-mq-001,vic-drill-mq-002,vic-drill-mq-003,vic-drill-mq-005,vic-drill-mq-007,\
+      vic-drill-mq-008,vic-drill-mq-009,vic-drill-mq-010,vic-drill-mq-012,vic-drill-mq-013,\
+      vic-drill-mq-014,vic-drill-mq-015,vic-drill-mq-016,vic-drill-mq-017,vic-drill-mq-018
+
+**Page built and ready to send: `review/ui/compare-vic-uiflags.html`** — 21 before/after
+pairs, all carrying the reviewer's own note. Verified by parsing the page's own data back:
+every before-picture matches the backup and every after-picture, stem, option and key
+matches the live row. It covers the 21 questions that carry a figure; the other 12 changed
+in words only and are best seen in Selectly once the push runs.
+
+**Previously:** 2026-09-11 — NSW WRITING IS DEALT, PUSHED AND LIVE. 42 FORMS OF ONE.
 
 `nsw-drill-wr-001..042`, one prompt each, `form_position` 1, `form_kind` drill.
 `inserted=42 skipped=0`; `--verify` reads back 96 of 96 writing prompts live with all four
