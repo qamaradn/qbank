@@ -915,8 +915,63 @@ CREATE INDEX IF NOT EXISTS idx_wp_review_status ON writing_prompts(review_status
 
 ## CURRENT STATUS
 
-**Last worked on:** 2026-09-07 — 133 FIGURES WERE NEVER ON A REVIEW PAGE. THE REVIEWER
-IS RIGHT.
+**Last worked on:** 2026-09-11 — NSW WRITING IS DEALT, PUSHED AND LIVE. 42 FORMS OF ONE.
+
+`nsw-drill-wr-001..042`, one prompt each, `form_position` 1, `form_kind` drill.
+`inserted=42 skipped=0`; `--verify` reads back 96 of 96 writing prompts live with all four
+migration fields present and 0 live carrying no form. Dealer
+`tools/assign_nsw_writing_forms.py`, manifest
+`run_data/output/forms/nsw_writing_forms_manifest.json`, backup
+`qbank.db.bak-nswwr-194751`. 299 tests pass.
+
+Read back from production against every one of Selectly's own acceptance checks: 42 alone
+in their own forms at position 1, ids 001-042 with no gap, `time_limit_minutes` on all 42
+splitting 32 at 30 min and 10 at 25, `word_count_min` <= `word_limit` on all 42, all eight
+prompt types and none outside them, and the 54 VIC prompts unchanged and still paired. All
+nine pushed fields match the qbank row on all 42.
+
+**THE REASON THE 42 HAD NO FORMS WAS WRONG.** "NSW sets one prompt, so a form of one adds
+nothing" is recorded above and is false: `listStudentForms` builds the student's set list
+from `questions.form_id IS NOT NULL`, so an unformed prompt is invisible in drill. A form
+of one is what makes a prompt something a student can choose, and the only way progress
+through the 42 can be counted.
+
+**TWO INVARIANTS SELECTLY NOW DEPENDS ON — do not "simplify" either dealer.**
+
+1. **A VIC writing form is a PAIR: one short (130-170 words / 15 min) at position 1, one
+   extended (220-290 / 25 min) at position 2, and one narrated task with one argued one.**
+   Selectly rotates VIC writing over form GROUPS rather than over prompts precisely so a
+   mock cannot serve two short tasks or two narratives. Measured: **27 of 27 forms** hold
+   one narrated and one argued (Selectly reported 25 of 27; the real figure is stronger).
+   Enforced by construction in `assign_writing_forms.py` and pinned by
+   `tests/test_nsw_writing_forms.py`.
+2. **An NSW writing form is ONE prompt.** A single-prompt form is timed by its own
+   `time_limit_minutes`; a two-prompt form ignores it and takes the section's 30 minutes,
+   which would silently hand the ten 25-minute prompts five extra minutes. `time_limit_minutes`
+   may never be null for the same reason. The dealer refuses to write a form id if it is,
+   and a test fails if any NSW form ever holds two.
+
+**The NSW word range is keyed to the TIME BAND, not the prompt type** — every one of the
+32 thirty-minute prompts is 200-320 words; the ten 25-minute ones run 300-500 across four
+ranges. Type does not predict length: `persuasive` appears at 200-320, 350-480 and 350-500.
+
+**An unknown ninth prompt type would be marked on quality of argument**, because Selectly
+falls back to the ARGUED rubric for anything outside the eight. The dealer refuses to deal
+one and says why, so that fails before a push rather than after it.
+`news_report`, `email` and `advice_sheet` now resolve to Information & Accuracy ·
+Audience & Purpose on the Selectly side (`33a0383`, `45465b6`).
+
+**`run_data/output/vic_repairs_recovered_20260824.json` IS RETIRED — DO NOT RESTORE IT.**
+Renamed `.superseded`. All five ids were checked against qbank and production: qbank and
+production agree exactly and the file is the outlier. On `4d26d3e0` the file holds
+`-1 wickets` as option C where qbank holds `27 wickets` — the file's version fires
+`negative_count` and qbank's passes. The other four are not older versions of the same
+question but DIFFERENT questions, re-cut in qbank after August: different stem, all four
+options, and in three cases a different key. All five are approved and live in
+`vic-drill-mq-001..003`, so restoring would have pushed five wrong questions to students.
+
+**Previously:** 2026-09-07 — 133 FIGURES WERE NEVER ON A REVIEW PAGE. THE REVIEWER IS
+RIGHT.
 
 Alaan reported meeting figures in `vic-drill-mq-010` that he had never seen on the figure
 page. He is right, the cause is a default in our own tool, and it hit BOTH exams.
@@ -1133,11 +1188,14 @@ marking dimensions now come from `prompt_type`, which matters: `vic-drill-wr-016
 persuasive at position 1 and narrative at position 2, so the old fixed rubric was marking
 that narrative on "Argument".
 
-**NSW and JMSS writing are NOT pushed and that is deliberate.** NSW's section is already
-correct at 1 task / 30 min and its 42 prompts have no forms dealt, because NSW sets one
-prompt and a form of one adds nothing -- "writing does not halve" (SPEC). JMSS has no
-exam in schools.ts, so the sender holds its 10 back on its own. All 106 are `approved`;
-52 are approved-but-unsent by design, which is what `--verify` reports as "not live".
+**NSW WRITING IS NOW LIVE TOO (2026-09-11) -- the paragraph that said otherwise was
+wrong and is replaced here.** "NSW sets one prompt, so a form of one adds nothing" was the
+recorded reason for leaving the 42 unformed, and Selectly's code says the opposite:
+`listStudentForms` builds the student's set list from `questions.form_id IS NOT NULL`, so
+an unformed prompt is INVISIBLE in drill, reachable only inside a mock. The free-tier
+allowance, form locking, `form_attempts` rounds and "you have sat 12 of 42" all key on the
+form. **JMSS is still held back** -- no exam in `schools.ts` -- so 10 of the 106 are
+approved-but-unsent by design, which is what `--verify` reports as "not live".
 
 **Previously:** 2026-09-04 — VIC REVIEW ROUND 11. THE SIXTEEN THAT CAME BACK.
 
