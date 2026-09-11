@@ -1017,11 +1017,20 @@ reviewer's flags are fixed in qbank and unchanged in front of students:
       vic-drill-mq-008,vic-drill-mq-009,vic-drill-mq-010,vic-drill-mq-012,vic-drill-mq-013,\
       vic-drill-mq-014,vic-drill-mq-015,vic-drill-mq-016,vic-drill-mq-017,vic-drill-mq-018
 
-**Page built and ready to send: `review/ui/compare-vic-uiflags.html`** — 21 before/after
-pairs, all carrying the reviewer's own note. Verified by parsing the page's own data back:
-every before-picture matches the backup and every after-picture, stem, option and key
-matches the live row. It covers the 21 questions that carry a figure; the other 12 changed
-in words only and are best seen in Selectly once the push runs.
+**Page built and ready to send: `review/ui/compare-vic-uiflags.html`** — ALL 33, not
+just the figures. `figure_compare_page` reads `WHERE figure_svg IS NOT NULL`, which was
+right while every round was a figure round and is wrong now: 12 of these 33 have no
+picture at all, so they were repaired and then fell off the page.
+`tools/question_compare_page.py` is the general one — it shows the WORDS both ways as
+well, because a re-cut question is not obvious the way a redrawn figure is, and a page
+showing only the new wording hides the repair. 5 re-cut, 14 redrawn, 13 reworded, 1 left
+alone, 33 carrying the reviewer's own note.
+
+It takes `--why`, a JSON map of id to a sentence, for cards where the automatic label
+would mislead: `9ea1dc86` is UNCHANGED and its flag was still acted on — by re-cutting its
+partner — and a card reading "not changed" would have told the reviewer the opposite.
+Verified field by field against the live database and the backup: 33 of 33, 0 mismatches,
+`node --check` clean on the page's script.
 
 **Previously:** 2026-09-11 — NSW WRITING IS DEALT, PUSHED AND LIVE. 42 FORMS OF ONE.
 
