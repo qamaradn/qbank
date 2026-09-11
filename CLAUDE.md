@@ -847,12 +847,13 @@ CREATE INDEX IF NOT EXISTS idx_wp_review_status ON writing_prompts(review_status
       SUBJECT average, which hid it: the books skew in opposite directions
       (external_vr_300526 43% A against direct_ve_290526 43% B) and cancelled out. Every
       book now within a point of 25/25/25/25. Manifest: key_skew_verbal_manifest.json
-- [ ] VIC verbal_reasoning: exclude the off-target §6 questions (blocked — see item 1)
+- [x] VIC verbal_reasoning §6 off-target questions excluded — `tools/vr_banned_types.py`
+      holds 158 ids and `push_to_selectly` refuses to send them
 - [x] NSW reading_comprehension vocabulary cloze — 120 questions, 15 passages (2026-08-04)
 - [x] Selectly: `mathematics` in schools.ts union — already done, mapped to nsw-shspt
       "Mathematical Reasoning" (verified 2026-08-04)
-- [ ] Selectly: make pushed questions addressable (send qbank uuid as the row id) — see
-      CURRENT STATUS item 1; blocks the VR exclusion and every future correction
+- [x] Selectly: pushed questions are addressable — `qbank_id` is live and every approved
+      row carries one, verified by reading production back (0 unaddressable, 2026-09-04)
 - [x] NSW Thinking Skills built 300 -> 956/880, every named subcategory at target (2026-08-10)
 - [x] NSW Reading 649/649, Mathematical Reasoning 839/838, Writing 42 prompts
 - [x] Fixed-form delivery: form_id/form_position/form_kind in schema.sql,
@@ -908,7 +909,8 @@ CREATE INDEX IF NOT EXISTS idx_wp_review_status ON writing_prompts(review_status
       tools/assign_writing_forms.py deals 27 forms of exactly 40 minutes.
       WR_BOOK=wr_vic_acer selects the VIC profile and enforces the two bands
 - [ ] QR pages rerun with GEMINI_MODEL=gemini-2.5-flash (full model, no thinking)
-- [ ] writing_prompts table + generator implemented (see WRITING PROMPTS section above)
+- [x] writing_prompts table + generator implemented — 106 prompts (VIC 54, NSW 42, JMSS 10);
+      96 live in 69 forms, JMSS held back because `schools.ts` has no JMSS exam
 - [ ] First batch synced to Supabase
 
 ---
