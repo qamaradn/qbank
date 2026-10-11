@@ -917,7 +917,27 @@ CREATE INDEX IF NOT EXISTS idx_wp_review_status ON writing_prompts(review_status
 
 ## CURRENT STATUS
 
-**Last worked on:** 2026-09-11 — THE REVIEWER'S OWN FLAG QUEUE. 33 FLAGS, 32 REPAIRED.
+**Last worked on:** 2026-10-12 — VIC ROUND 13. 35 VIC FLAGS FROM THE 2026-10-11 EXPORT,
+ALL 35 REPAIRED. NSW HALF (20 FLAGS) NOT STARTED.
+
+`review/ui/flagged-questions-2026-10-11.csv` holds 55 flags: 35 on `vic-drill-mq-019..034`
+and 20 on NSW forms. The 35 VIC ones are repaired, 0 refused, newly firing none, 299
+tests pass, exactly 35 rows differ from backup `qbank.db.bak-round13-091428`. Script
+`tools/repair_vic_round13_flags.py`, record `run_data/output/vic_round13_flags.json`.
+Four wrong keys moved to the option the explanation already proved (d39176ed, 5e0f6626,
+0605319e, 87888e6f); three questions whose right answer was missing from the options;
+three with two correct options; five calculator questions re-cut to hand arithmetic;
+eight 'root' / '^' / slash / vinculum notation fixes; eight figures; two method
+questions re-cut to use the method. Every other re-cut keeps its answer letter.
+
+`09506111` (pie chart) was NOT wrong: key B = 9/24 in qbank and production, and the slice
+measures 135°. The chart just never drew the 24 parts the stem names; it does now.
+
+Page ready to send: `review/ui/compare-vic-uiflags-2026-10-11.html` (35 cards, a plain
+sentence on each). NOT YET PUSHED: `push_to_selectly --dry-run --forms <the 15 forms>`
+reports 35 to push, 0 new, 35 changed.
+
+**Previously:** 2026-09-11 — THE REVIEWER'S OWN FLAG QUEUE. 33 FLAGS, 32 REPAIRED.
 
 The flags no longer arrive as a JSON file from a figure page we built and emailed. All
 153 VIC forms went live on 2026-09-04 and the reviewer is now working through them INSIDE
