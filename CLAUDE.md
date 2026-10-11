@@ -917,8 +917,21 @@ CREATE INDEX IF NOT EXISTS idx_wp_review_status ON writing_prompts(review_status
 
 ## CURRENT STATUS
 
-**Last worked on:** 2026-10-12 — VIC ROUND 13. 35 VIC FLAGS FROM THE 2026-10-11 EXPORT,
-ALL 35 REPAIRED. NSW HALF (20 FLAGS) NOT STARTED.
+**Last worked on:** 2026-10-12 — ROUND 13, BOTH HALVES. 35 VIC + 20 NSW FLAGS FROM THE
+2026-10-11 EXPORT. NEITHER IS PUSHED: THE OWNER PUSHES ONCE THE REVIEWER HAS APPROVED THE
+TWO COMPARE PAGES.
+
+**NSW half:** 18 repaired, 2 left as they are on purpose, 0 refused, newly firing none, 299
+tests pass, exactly 18 rows differ from backup `qbank.db.bak-nsw13-092507`. Script
+`tools/repair_nsw_round13_flags.py`, record `run_data/output/nsw_round13_flags.json`, page
+`review/ui/compare-nsw-uiflags-2026-10-11.html`. Push dry-run over the 16 NSW forms: 18 to
+push, 0 new, 18 changed. `1c2ad907` had NO answer (rectangle s by s+14 can never match the
+square's perimeter) and is re-cut. Left alone: `10c4510b` ("simultaneous equations, not
+thinking" -- round 5's numeric-deduction ruling, still awaiting owner confirmation) and
+`1c476116` ("duplicate?" -- checked, closest stem 0.61). Measured, not actioned: 17
+knight-and-knave questions in NSW forms, never two per form; only the flagged one re-cut.
+
+**VIC half:**
 
 `review/ui/flagged-questions-2026-10-11.csv` holds 55 flags: 35 on `vic-drill-mq-019..034`
 and 20 on NSW forms. The 35 VIC ones are repaired, 0 refused, newly firing none, 299
