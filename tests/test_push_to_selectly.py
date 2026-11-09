@@ -277,3 +277,54 @@ def test_clear_flags_survives_the_endpoint_not_existing(tmp_path, monkeypatch, c
 
     monkeypatch.setattr(m.urllib.request, "urlopen", fake)
     m.clear_flags("http://x", "sec", rf, dry_run=False)   # must not raise
+
+
+def _withdrawal_plan(tmp_path, monkeypatch, caplog, tracked, forms=""):
+    """Dry-run the sender over a throwaway bank holding one rejected prompt and one
+    approved one, and return its summary lines."""
+    import argparse
+    import json as _json
+    import logging
+    import pathlib
+    import sqlite3
+    import pipeline.push_to_selectly as m
+    db = tmp_path / "q.db"
+    con = sqlite3.connect(db)
+    schema = pathlib.Path(m.__file__).resolve().parents[1] / "db/schema.sql"
+    con.executescript(schema.read_text())
+    for pid, status in (("prompt-live", "approved"), ("prompt-rejected", "rejected")):
+        con.execute("INSERT INTO writing_prompts (id, prompt_type, school_type, stimulus_type,"
+                    " task_instruction, target_year, difficulty, review_status, created_at)"
+                    " VALUES (?, 'narrative', 'general', 'text', 't', '6', 'medium', ?, 'now')",
+                    (pid, status))
+    con.commit()
+    con.close()
+    f = tmp_path / "pushed.json"
+    f.write_text(_json.dumps({"pushed": tracked}))
+    monkeypatch.setattr(m, "DB_PATH", db)
+    monkeypatch.setattr(m, "TRACKING_FILE", f)
+    monkeypatch.setattr(m, "load_env", lambda: None)
+    monkeypatch.delenv("SELECTLY_URL", raising=False)
+    monkeypatch.delenv("SELECTLY_IMPORT_SECRET", raising=False)
+    args = argparse.Namespace(reset_tracking=False, url="", secret="", forms=forms, subject=None,
+                              dry_run=True, clear_flags="", no_deactivate=False,
+                              force_deactivate=False, batch=40)
+    with caplog.at_level(logging.INFO, logger=m.logger.name):
+        m.run(args)
+    return caplog.text
+
+
+def test_a_live_writing_prompt_is_not_withdrawn(tmp_path, monkeypatch, caplog):
+    """Writing prompts share the tracking file but live in their own table, so a run with
+    no --forms read all 96 live prompts as 'no longer sendable' and planned to switch them
+    off. 96 is under the 200 bulk guard, so nothing stopped it."""
+    text = _withdrawal_plan(tmp_path, monkeypatch, caplog,
+                            {"prompt-live": {"h": "h1", "f": "vic-drill-wr-001"}})
+    assert "To deactivate" not in text, text
+
+
+def test_a_rejected_writing_prompt_is_still_withdrawn(tmp_path, monkeypatch, caplog):
+    """The fix must not cost this: a prompt rejected after it was sent has to come off."""
+    text = _withdrawal_plan(tmp_path, monkeypatch, caplog,
+                            {"prompt-rejected": {"h": "h1", "f": "vic-drill-wr-001"}})
+    assert "To deactivate  : 1" in text, text

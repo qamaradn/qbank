@@ -366,6 +366,22 @@ def fetch_approved(subject: str | None, forms: list[str] | None = None) -> list[
         conn.close()
 
 
+def approved_writing_ids() -> set[str]:
+    """Prompts this sender must not read as withdrawn.
+
+    `push_writing_to_selectly` shares the tracking file, so every live prompt is in
+    `already_pushed`, but this sender only fetches from `questions`. Left out of the
+    sendable set, all 96 read as 'no longer sendable' and a run with no --forms planned
+    to switch them off. A rejected prompt is deliberately NOT here, so it still comes off.
+    """
+    conn = sqlite3.connect(DB_PATH)
+    try:
+        return {r[0] for r in conn.execute(
+            "SELECT id FROM writing_prompts WHERE review_status='approved'")}
+    finally:
+        conn.close()
+
+
 def post_batch(url: str, secret: str, questions: list[dict]) -> tuple[int, int, list[str]]:
     payload = json.dumps({"questions": questions}).encode("utf-8")
     req = urllib.request.Request(
@@ -528,7 +544,7 @@ def run(args: argparse.Namespace) -> None:
 
     # Anything previously sent that is no longer sendable must be switched off, or a
     # question rejected at review keeps being served.
-    sendable_ids = {r["id"] for r in all_rows}
+    sendable_ids = {r["id"] for r in all_rows} | approved_writing_ids()
     if forms:
         # Scope withdrawal by the form the question was SENT as part of, not the form it
         # sits in now. A question rejected at review is lifted out of its form and its
@@ -599,10 +615,11 @@ def run(args: argparse.Namespace) -> None:
 
     if args.dry_run:
         logger.info("DRY RUN — no API calls made.")
-        logger.info("Sample converted question:")
-        sample = row_to_question(to_push[0])
-        preview = json.dumps(sample, indent=2)
-        logger.info(preview[:600] + ("..." if len(preview) > 600 else ""))
+        if to_push:     # a withdrawal-only run has nothing to sample
+            logger.info("Sample converted question:")
+            sample = row_to_question(to_push[0])
+            preview = json.dumps(sample, indent=2)
+            logger.info(preview[:600] + ("..." if len(preview) > 600 else ""))
         return
 
     if not url:

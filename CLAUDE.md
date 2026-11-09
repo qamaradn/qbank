@@ -931,10 +931,11 @@ match on all 53. All 55 flags from the 2026-10-11 export are cleared from Select
 (`--clear-flags 13`, 55 of 55), including the 2 left as they are. Record:
 `run_data/output/review_flags/round_13.json`.
 
-**ALWAYS GIVE `push_to_selectly` `--forms` (or `--no-deactivate`).** A bare run plans "To
-deactivate: 96". Those 96 are exactly the live writing prompts: they sit in the shared
-tracking file, this tool only reads the questions table, so it calls them no longer
-sendable. Not run and not fixed.
+**FIXED: a `push_to_selectly` run with no `--forms` used to plan "To deactivate: 96".**
+Those 96 were exactly the live writing prompts: they sit in the shared tracking file, and
+the tool only read the questions table, so it called them no longer sendable. It never ran
+for real. Approved prompts now count as sendable; a rejected one still comes off. The same
+fix stops a dry run crashing when it has something to withdraw and nothing to send.
 
 **Two reviewer rulings on notation, because Selectly prints stems as plain text.** Do not
 stack a combining mark over a digit: `d4096e9a`'s dots merged with the 7, so it now writes
