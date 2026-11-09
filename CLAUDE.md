@@ -917,7 +917,36 @@ CREATE INDEX IF NOT EXISTS idx_wp_review_status ON writing_prompts(review_status
 
 ## CURRENT STATUS
 
-**Last worked on:** 2026-10-12 — ROUND 13, BOTH HALVES. 35 VIC + 20 NSW FLAGS FROM THE
+**Last worked on:** 2026-11-09 — ROUND 14. THE REVIEWER'S RETURNS ON THE TWO ROUND 13
+PAGES. 51 of 55 cards carry no comment, so they pass. The 4 commented are repaired, 0
+refused, newly firing none, 299 tests pass, exactly 4 rows differ from backup
+`qbank.db.bak-round14-142653`. Script `tools/repair_round14_flags.py`, record
+`run_data/output/round14_flags.json`, pages `review/ui/compare-nsw-round14.html` and
+`compare-vic-round14.html`.
+
+**ROUNDS 13 AND 14 ARE PUSHED AND LIVE (2026-11-09).** The owner checked both pages and
+asked for the push. `inserted=53 skipped=0 errors=0` over the 31 round 13 forms, 0 new, 53
+changed. Read back from production: stem, options, key, explanation, form and position
+match on all 53. All 55 flags from the 2026-10-11 export are cleared from Selectly's board
+(`--clear-flags 13`, 55 of 55), including the 2 left as they are. Record:
+`run_data/output/review_flags/round_13.json`.
+
+**ALWAYS GIVE `push_to_selectly` `--forms` (or `--no-deactivate`).** A bare run plans "To
+deactivate: 96". Those 96 are exactly the live writing prompts: they sit in the shared
+tracking file, this tool only reads the questions table, so it calls them no longer
+sendable. Not run and not fixed.
+
+**Two reviewer rulings on notation, because Selectly prints stems as plain text.** Do not
+stack a combining mark over a digit: `d4096e9a`'s dots merged with the 7, so it now writes
+0.272727… in words. Do not draw a plain algebra expression as a figure: `9ad41d04` is back
+to text, which brings the slashes back. Real stacked fractions need Selectly to render
+maths, and it has no maths library.
+
+Measured, not actioned (rule 11d): `a8011f8a` (`vic-drill-mq-016`, live) still has bars
+stacked over its decimal; `2203f240` (`vic-drill-mq-011`, live) still has worded operators
+as options.
+
+**Previously:** 2026-10-12 — ROUND 13, BOTH HALVES. 35 VIC + 20 NSW FLAGS FROM THE
 2026-10-11 EXPORT. NEITHER IS PUSHED: THE OWNER PUSHES ONCE THE REVIEWER HAS APPROVED THE
 TWO COMPARE PAGES.
 

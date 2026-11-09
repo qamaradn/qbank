@@ -1,0 +1,29 @@
+{
+ "kind": "qbank-figure-review",
+ "version": 1,
+ "scope": "nsw-uiflags-2026-10-11",
+ "reviewer": "Alaan",
+ "reviewed_at": "2026-10-31T00:31:47.127Z",
+ "total_on_page": 20,
+ "reviewed": 2,
+ "items": [
+  {
+   "n": 2,
+   "id": "d1975740-be6d-48a7-833e-0c117577e7d5",
+   "book": "ma_nsw_selective",
+   "form": "nsw-drill-math-011",
+   "verdict": "problem",
+   "note": "in the answers section, replace the text for each answer with the corresponding symbol (like the + for plus or - for minus)",
+   "stem": "Which operation belongs in the box to make this true: 24 □ 6 = 4?"
+  },
+  {
+   "n": 8,
+   "id": "1e9739d8-a61e-4e19-9ff2-caa1e48a946b",
+   "book": "lr_thinking_skills",
+   "form": "nsw-drill-ts-005",
+   "verdict": "problem",
+   "note": "the text of each number(and the centimeters text) are all a pit displaced and too far from the line they represent. Bring the ones that apply closer.",
+   "stem": "The pencil in the diagram has not been lined up with the zero mark on the ruler. Reading the scale, how long is the penc"
+  }
+ ]
+}

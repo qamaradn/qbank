@@ -1,0 +1,29 @@
+{
+ "kind": "qbank-figure-review",
+ "version": 1,
+ "scope": "vic-uiflags-2026-10-11",
+ "reviewer": null,
+ "reviewed_at": "2026-10-25T09:05:14.554Z",
+ "total_on_page": 35,
+ "reviewed": 2,
+ "items": [
+  {
+   "n": 13,
+   "id": "d4096e9a-4b84-4a31-9212-dbe8457272f0",
+   "book": "png_act_test2_230526",
+   "form": "vic-drill-mq-026",
+   "verdict": "problem",
+   "note": "The repeating decimal symbol, vinculum, is unclear and merged with the number 7 that makes it hard to tell what the number is.",
+   "stem": "What is the 143rd digit after the decimal point in the recurring decimal 0.2̇7̇ (that is, 0.272727…)?"
+  },
+  {
+   "n": 23,
+   "id": "9ad41d04-2700-4490-94aa-5cffd024477c",
+   "book": "act_test10",
+   "form": "vic-drill-mq-029",
+   "verdict": "problem",
+   "note": "Revert pack to original form because there is no need to create an image for this algebraic expression.",
+   "stem": "Simplify the expression shown below."
+  }
+ ]
+}

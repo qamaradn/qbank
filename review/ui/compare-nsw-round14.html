@@ -1,0 +1,239 @@
+<!doctype html>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Question repairs &mdash; before and after</title>
+<style>
+ :root{--ink:#0D1117;--line:#d8dee6;--old:#c0392b;--new:#1e7a3c}
+ *{box-sizing:border-box}
+ body{margin:0;font:15px/1.5 system-ui,sans-serif;background:#eef1f5;color:var(--ink)}
+ header{position:sticky;top:0;background:#fff;border-bottom:1px solid var(--line);
+        padding:12px 18px;z-index:5}
+ h1{margin:0;font-size:17px}
+ .sub{color:#5a6572;font-size:13px;margin-top:3px}
+ .bar{margin-top:8px;display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+ input,select{font:inherit;padding:5px 8px;border:1px solid var(--line);
+              border-radius:6px}
+ main{padding:18px;display:flex;flex-direction:column;gap:18px}
+ .item{background:#fff;border:1px solid var(--line);border-radius:10px;
+       overflow:hidden}
+ .hd{padding:9px 14px;border-bottom:1px solid var(--line);background:#fafbfc;
+     font-size:13px;color:#5a6572}
+ .hd b{color:var(--ink)}
+ .badge{float:right;font-size:11px;letter-spacing:.05em;text-transform:uppercase;
+        font-weight:700;padding:2px 8px;border-radius:20px}
+ .badge.recut{background:#f3e8fd;color:#6b2ab5}
+ .badge.redrawn{background:#e6f4ea;color:var(--new)}
+ .badge.reworded{background:#e8eefc;color:#2a4b9b}
+ .badge.same{background:#fdece9;color:var(--old)}
+ .why{padding:9px 14px;background:#f6f7f9;border-bottom:1px solid var(--line);
+      font-size:13px;color:#5a6572}
+ .note{padding:9px 14px;background:#fff8e8;border-bottom:1px solid var(--line);
+       font-size:14px}
+ .note::before{content:"you wrote: ";color:#8a6d1c;font-weight:600}
+ .pair{display:grid;grid-template-columns:1fr 1fr;gap:0;
+       border-bottom:1px solid var(--line)}
+ .pair:last-of-type{border-bottom:0}
+ .cell{padding:14px;min-width:0}
+ .cell+.cell{border-left:1px solid var(--line)}
+ .cell.b{background:#fffafa}
+ .tag{font-size:11px;letter-spacing:.06em;text-transform:uppercase;font-weight:700;
+      margin-bottom:8px}
+ .cell.b .tag{color:var(--old)} .cell.a .tag{color:var(--new)}
+ .cell.one .tag{color:#5a6572}
+ .pic{text-align:center}
+ .cell svg{max-width:100%;height:auto}
+ .stem{font-size:13.5px;color:#222;margin-bottom:8px}
+ .opts{font-size:13px;color:#444;margin-bottom:8px}
+ .opts div{padding:1px 0}
+ .opts .k{color:var(--new);font-weight:700}
+ .expl{font-size:12.5px;color:#5a6572;border-top:1px dashed var(--line);
+       padding-top:7px}
+ @media (max-width:860px){.pair{grid-template-columns:1fr}
+   .cell+.cell{border-left:0;border-top:1px solid var(--line)}}
+ .item.flagged{border-color:var(--old);box-shadow:0 0 0 2px rgba(192,57,43,.16)}
+ .item.done{opacity:.55}
+ .acts{padding:10px 14px;border-top:1px solid var(--line);display:flex;gap:8px;
+       align-items:center;flex-wrap:wrap;background:#fafbfc}
+ button{font:inherit;padding:6px 12px;border:1px solid var(--line);background:#fff;
+        border-radius:7px;cursor:pointer}
+ button:hover{background:#f1f4f8}
+ .say{flex:1;min-width:220px}
+ .item.flagged .say{background:#fff8f7}
+ dialog{border:1px solid var(--line);border-radius:10px;padding:16px;max-width:640px}
+ textarea{width:100%;height:220px;font:12px/1.45 ui-monospace,monospace}
+</style>
+<header>
+  <h1>Question repairs &mdash; before and after</h1>
+  <div class="sub"><b>2</b> questions you flagged: <b>0</b> re-cut, <b>1</b> redrawn, <b>1</b> with the wording fixed, <b>0</b> not changed. 1 have a new picture and 1 changed in words. <b>2</b> carry a note you wrote.<br>Left is what you flagged; right is what is in the
+    bank now. Some of these changed in words only and have no picture &mdash; read the
+    question and the four options on both sides. Mark anything still wrong, type what
+    is wrong with it, then press <b>Download my comments</b> and send the file back.
+    </div>
+  <div class="bar">
+    <input id="find" placeholder="filter by form, book or words in the question"
+           style="min-width:260px">
+    <select id="filter">
+      <option value="all">show all</option>
+      <option value="todo">not yet marked</option>
+      <option value="flagged">still a problem</option>
+      <option value="pic">picture changed</option>
+      <option value="words">words changed</option>
+      <option value="same">not changed</option>
+    </select>
+    <input id="who" placeholder="your name" style="width:130px">
+    <button id="download"><b>Download my comments</b></button>
+    <button id="copy">Copy the list</button>
+    <button id="reset">Clear my marks</button>
+    <span id="count" class="sub"></span>
+  </div>
+</header>
+<main id="grid"></main>
+<dialog id="out"><h3 style="margin:0 0 8px">Still a problem</h3>
+  <textarea id="outtext" readonly></textarea>
+  <p style="margin:10px 0 0;text-align:right">
+    <button onclick="document.getElementById('out').close()">Close</button></p>
+</dialog>
+<script>
+const DATA = [{"n": 2, "id": "d1975740", "full": "d1975740-be6d-48a7-833e-0c117577e7d5", "book": "ma_nsw_selective", "form": "nsw-drill-math-011", "pos": 11, "status": "reworded", "wordsChanged": true, "picChanged": false, "why": "The four answers are now the symbols ×, +, − and ÷. The worked answer uses them too. The right answer is still D.", "note": "in the answers section, replace the text for each answer with the corresponding symbol (like the + for plus or - for minus)", "before": {"stem": "Which operation belongs in the box to make this true: 24 □ 6 = 4?", "a": "multiplied by", "b": "plus", "c": "minus", "d": "divided by", "key": "d", "expl": "24 divided by 6 gives 4. Multiplied by would give 144, plus would give 30 and minus would give 18, so none of those can be right."}, "after": {"stem": "Which operation belongs in the box to make this true: 24 □ 6 = 4?", "a": "×", "b": "+", "c": "−", "d": "÷", "key": "d", "expl": "24 ÷ 6 = 4. The others do not work: 24 × 6 = 144, 24 + 6 = 30 and 24 − 6 = 18."}, "beforeSvg": "", "afterSvg": "", "hay": "ma_nsw_selective nsw-drill-math-011 which operation belongs in the box to make this true: 24 □ 6 = 4?"}, {"n": 8, "id": "1e9739d8", "full": "1e9739d8-a61e-4e19-9ff2-caa1e48a946b", "book": "lr_thinking_skills", "form": "nsw-drill-ts-005", "pos": 4, "status": "redrawn", "wordsChanged": false, "picChanged": true, "why": "The numbers now sit just under their own tick marks, and &#x27;centimetres&#x27; sits just under the ruler, centred. Nothing moved sideways, so the scale reads the same: the pencil still runs from 3 to 11.5 and the answer is still B.", "note": "the text of each number(and the centimeters text) are all a pit displaced and too far from the line they represent. Bring the ones that apply closer.", "before": {"stem": "The pencil in the diagram has not been lined up with the zero mark on the ruler. Reading the scale, how long is the pencil?", "a": "11.5 cm", "b": "8.5 cm", "c": "8 cm", "d": "11 cm", "key": "b", "expl": "The pencil runs from the 3 cm mark to the 11.5 cm mark, so its length is 11.5 − 3 = 8.5 cm; reading only the right-hand end gives 11.5 cm."}, "after": {"stem": "The pencil in the diagram has not been lined up with the zero mark on the ruler. Reading the scale, how long is the pencil?", "a": "11.5 cm", "b": "8.5 cm", "c": "8 cm", "d": "11 cm", "key": "b", "expl": "The pencil runs from the 3 cm mark to the 11.5 cm mark, so its length is 11.5 − 3 = 8.5 cm; reading only the right-hand end gives 11.5 cm."}, "beforeSvg": "<svg viewBox=\"0 0 340 220\" xmlns=\"http://www.w3.org/2000/svg\" fill=\"none\" stroke-linejoin=\"round\" stroke-linecap=\"round\"><rect x=\"26\" y=\"120\" width=\"273\" height=\"40\" stroke=\"currentColor\" stroke-opacity=\".85\" stroke-width=\"1.8\" fill=\"currentColor\" fill-opacity=\".05\"/><path d=\"M26 120 L26 142\" stroke=\"currentColor\" stroke-opacity=\".5\" stroke-width=\"1.3\"/><path d=\"M47 120 L47 132\" stroke=\"currentColor\" stroke-opacity=\".5\" stroke-width=\"1.3\"/><path d=\"M68 120 L68 132\" stroke=\"currentColor\" stroke-opacity=\".5\" stroke-width=\"1.3\"/><path d=\"M89 120 L89 132\" stroke=\"currentColor\" stroke-opacity=\".5\" stroke-width=\"1.3\"/><path d=\"M110 120 L110 132\" stroke=\"currentColor\" stroke-opacity=\".5\" stroke-width=\"1.3\"/><path d=\"M131 120 L131 142\" stroke=\"currentColor\" stroke-opacity=\".5\" stroke-width=\"1.3\"/><path d=\"M152 120 L152 132\" stroke=\"currentColor\" stroke-opacity=\".5\" stroke-width=\"1.3\"/><path d=\"M173 120 L173 132\" stroke=\"currentColor\" stroke-opacity=\".5\" stroke-width=\"1.3\"/><path d=\"M194 120 L194 132\" stroke=\"currentColor\" stroke-opacity=\".5\" stroke-width=\"1.3\"/><path d=\"M215 120 L215 132\" stroke=\"currentColor\" stroke-opacity=\".5\" stroke-width=\"1.3\"/><path d=\"M236 120 L236 142\" stroke=\"currentColor\" stroke-opacity=\".5\" stroke-width=\"1.3\"/><path d=\"M257 120 L257 132\" stroke=\"currentColor\" stroke-opacity=\".5\" stroke-width=\"1.3\"/><path d=\"M278 120 L278 132\" stroke=\"currentColor\" stroke-opacity=\".5\" stroke-width=\"1.3\"/><path d=\"M299 120 L299 132\" stroke=\"currentColor\" stroke-opacity=\".5\" stroke-width=\"1.3\"/><text x=\"68\" y=\"156\" font-family=\"system-ui,sans-serif\" font-size=\"10\" fill=\"currentColor\" fill-opacity=\".65\" text-anchor=\"middle\">2</text><text x=\"110\" y=\"156\" font-family=\"system-ui,sans-serif\" font-size=\"10\" fill=\"currentColor\" fill-opacity=\".65\" text-anchor=\"middle\">4</text><text x=\"152\" y=\"156\" font-family=\"system-ui,sans-serif\" font-size=\"10\" fill=\"currentColor\" fill-opacity=\".65\" text-anchor=\"middle\">6</text><text x=\"194\" y=\"156\" font-family=\"system-ui,sans-serif\" font-size=\"10\" fill=\"currentColor\" fill-opacity=\".65\" text-anchor=\"middle\">8</text><text x=\"236\" y=\"156\" font-family=\"system-ui,sans-serif\" font-size=\"10\" fill=\"currentColor\" fill-opacity=\".65\" text-anchor=\"middle\">10</text><text x=\"278\" y=\"156\" font-family=\"system-ui,sans-serif\" font-size=\"10\" fill=\"currentColor\" fill-opacity=\".65\" text-anchor=\"middle\">12</text><rect x=\"89\" y=\"70\" width=\"178\" height=\"34\" stroke=\"currentColor\" stroke-opacity=\".9\" stroke-width=\"1.8\" fill=\"currentColor\" fill-opacity=\".14\"/><text x=\"178\" y=\"92\" font-family=\"system-ui,sans-serif\" font-size=\"12\" fill=\"currentColor\" fill-opacity=\".8\" text-anchor=\"middle\">pencil</text><text x=\"170\" y=\"190\" font-family=\"system-ui,sans-serif\" font-size=\"11\" fill=\"currentColor\" fill-opacity=\".7\" text-anchor=\"middle\">centimetres</text></svg>", "afterSvg": "<svg viewBox=\"0 0 340 220\" xmlns=\"http://www.w3.org/2000/svg\" fill=\"none\" stroke-linejoin=\"round\" stroke-linecap=\"round\"><rect x=\"26\" y=\"120\" width=\"273\" height=\"34\" stroke=\"currentColor\" stroke-opacity=\".85\" stroke-width=\"1.8\" fill=\"currentColor\" fill-opacity=\".05\"/><path d=\"M26 120 L26 137\" stroke=\"currentColor\" stroke-opacity=\".5\" stroke-width=\"1.3\"/><path d=\"M47 120 L47 132\" stroke=\"currentColor\" stroke-opacity=\".5\" stroke-width=\"1.3\"/><path d=\"M68 120 L68 132\" stroke=\"currentColor\" stroke-opacity=\".5\" stroke-width=\"1.3\"/><path d=\"M89 120 L89 132\" stroke=\"currentColor\" stroke-opacity=\".5\" stroke-width=\"1.3\"/><path d=\"M110 120 L110 132\" stroke=\"currentColor\" stroke-opacity=\".5\" stroke-width=\"1.3\"/><path d=\"M131 120 L131 137\" stroke=\"currentColor\" stroke-opacity=\".5\" stroke-width=\"1.3\"/><path d=\"M152 120 L152 132\" stroke=\"currentColor\" stroke-opacity=\".5\" stroke-width=\"1.3\"/><path d=\"M173 120 L173 132\" stroke=\"currentColor\" stroke-opacity=\".5\" stroke-width=\"1.3\"/><path d=\"M194 120 L194 132\" stroke=\"currentColor\" stroke-opacity=\".5\" stroke-width=\"1.3\"/><path d=\"M215 120 L215 132\" stroke=\"currentColor\" stroke-opacity=\".5\" stroke-width=\"1.3\"/><path d=\"M236 120 L236 137\" stroke=\"currentColor\" stroke-opacity=\".5\" stroke-width=\"1.3\"/><path d=\"M257 120 L257 132\" stroke=\"currentColor\" stroke-opacity=\".5\" stroke-width=\"1.3\"/><path d=\"M278 120 L278 132\" stroke=\"currentColor\" stroke-opacity=\".5\" stroke-width=\"1.3\"/><path d=\"M299 120 L299 132\" stroke=\"currentColor\" stroke-opacity=\".5\" stroke-width=\"1.3\"/><text x=\"68\" y=\"148\" font-family=\"system-ui,sans-serif\" font-size=\"10\" fill=\"currentColor\" fill-opacity=\".65\" text-anchor=\"middle\">2</text><text x=\"110\" y=\"148\" font-family=\"system-ui,sans-serif\" font-size=\"10\" fill=\"currentColor\" fill-opacity=\".65\" text-anchor=\"middle\">4</text><text x=\"152\" y=\"148\" font-family=\"system-ui,sans-serif\" font-size=\"10\" fill=\"currentColor\" fill-opacity=\".65\" text-anchor=\"middle\">6</text><text x=\"194\" y=\"148\" font-family=\"system-ui,sans-serif\" font-size=\"10\" fill=\"currentColor\" fill-opacity=\".65\" text-anchor=\"middle\">8</text><text x=\"236\" y=\"148\" font-family=\"system-ui,sans-serif\" font-size=\"10\" fill=\"currentColor\" fill-opacity=\".65\" text-anchor=\"middle\">10</text><text x=\"278\" y=\"148\" font-family=\"system-ui,sans-serif\" font-size=\"10\" fill=\"currentColor\" fill-opacity=\".65\" text-anchor=\"middle\">12</text><rect x=\"89\" y=\"70\" width=\"178\" height=\"34\" stroke=\"currentColor\" stroke-opacity=\".9\" stroke-width=\"1.8\" fill=\"currentColor\" fill-opacity=\".14\"/><text x=\"178\" y=\"92\" font-family=\"system-ui,sans-serif\" font-size=\"12\" fill=\"currentColor\" fill-opacity=\".8\" text-anchor=\"middle\">pencil</text><text x=\"162.5\" y=\"168\" font-family=\"system-ui,sans-serif\" font-size=\"11\" fill=\"currentColor\" fill-opacity=\".7\" text-anchor=\"middle\">centimetres</text></svg>", "hay": "lr_thinking_skills nsw-drill-ts-005 the pencil in the diagram has not been lined up with the zero mark on the ruler. reading the scale, how long is the pencil?"}];
+const SCOPE = "nsw-round14";
+const KEY = "qbank-qcompare:" + SCOPE;
+const grid = document.getElementById("grid");
+
+let CAN_SAVE = true, state = {};
+try { state = JSON.parse(localStorage.getItem(KEY) || "{}"); }
+catch (e) { CAN_SAVE = false; }
+function save(){ try { localStorage.setItem(KEY, JSON.stringify(state)); }
+                 catch (e) { CAN_SAVE = false; } }
+
+function words(side, tag){
+  let h = '<div class="tag">' + tag + '</div><div class="stem">' + side.stem +
+          '</div><div class="opts">';
+  for (const L of ['a','b','c','d'])
+    h += '<div' + (L === side.key ? ' class="k"' : '') + '>' + L.toUpperCase() +
+         ')&nbsp; ' + side[L] + (L === side.key ? '  \u2190 answer' : '') + '</div>';
+  return h + '</div><div class="expl">' + side.expl + '</div>';
+}
+
+function card(d){
+  const st = state[d.n] || {};
+  const el = document.createElement("div");
+  el.className = "item" + (st.flag ? " flagged" : "") + (st.ok ? " done" : "");
+  const BADGE = {recut: "re-cut", redrawn: "redrawn", reworded: "wording fixed",
+                 same: "not changed"};
+  // The WORDS. Shown both ways only when they changed -- putting identical text in
+  // two columns reads as "look, it is different now" when it is not.
+  const wordBlock = d.wordsChanged
+    ? '<div class="pair"><div class="cell b">' + words(d.before, "you flagged this") +
+      '</div><div class="cell a">' + words(d.after, "in the bank now") + '</div></div>'
+    : '<div class="pair"><div class="cell one">' +
+      words(d.after, "the question, unchanged") + '</div></div>';
+  // The PICTURE, on the same rule.
+  let picBlock = '';
+  if (d.picChanged)
+    picBlock = '<div class="pair"><div class="cell b pic"><div class="tag">' +
+      (d.beforeSvg ? 'picture before' : 'there was no picture') + '</div>' +
+      (d.beforeSvg || '') + '</div><div class="cell a pic">' +
+      '<div class="tag">picture now</div>' + d.afterSvg + '</div></div>';
+  else if (d.afterSvg)
+    picBlock = '<div class="pair"><div class="cell one pic">' +
+      '<div class="tag">the picture, unchanged</div>' + d.afterSvg + '</div></div>';
+  el.innerHTML =
+    '<div class="hd"><b>' + d.n + '</b> &middot; ' + d.book +
+    (d.form ? ' &middot; ' + d.form + ' q' + d.pos : '') + ' &middot; ' + d.id +
+    '<span class="badge ' + d.status + '">' + BADGE[d.status] + '</span></div>' +
+    (d.note ? '<div class="note">' + d.note + '</div>' : '') +
+    (d.why ? '<div class="why">' + d.why + '</div>' : '') +
+    wordBlock + picBlock +
+    '<div class="acts">' +
+      '<input class="say" placeholder="what is still wrong with it?" value="' +
+        (st.note || "").replace(/"/g,"&quot;") + '">' +
+      '<button data-act="flag">' + (st.flag ? "Un-flag" : "Still a problem") +
+      '</button><button data-act="ok">' + (st.ok ? "Un-mark" : "Fixed") +
+      '</button></div>';
+  el.querySelector('[data-act=flag]').onclick = () => {
+    state[d.n] = Object.assign({}, state[d.n], {flag: !st.flag, ok:false});
+    save(); draw();
+  };
+  el.querySelector('[data-act=ok]').onclick = () => {
+    state[d.n] = Object.assign({}, state[d.n], {ok: !st.ok, flag:false});
+    save(); draw();
+  };
+  el.querySelector('.say').oninput = e => {
+    state[d.n] = Object.assign({}, state[d.n], {note: e.target.value}); save();
+  };
+  return el;
+}
+
+function draw(){
+  const q = document.getElementById("find").value.trim().toLowerCase();
+  const mode = document.getElementById("filter").value;
+  grid.innerHTML = ""; let n = 0;
+  for (const d of DATA){
+    const st = state[d.n] || {};
+    if (mode === "todo" && (st.flag || st.ok)) continue;
+    if (mode === "flagged" && !st.flag) continue;
+    if (mode === "pic" && !d.picChanged) continue;
+    if (mode === "words" && !d.wordsChanged) continue;
+    if (mode === "same" && d.status !== "same") continue;
+    if (q && !d.hay.includes(q)) continue;
+    grid.appendChild(card(d)); n++;
+  }
+  const f = Object.values(state).filter(s => s.flag).length;
+  const k = Object.values(state).filter(s => s.ok).length;
+  document.getElementById("count").textContent =
+    n + " shown \u2022 " + f + " still a problem \u2022 " + k + " fixed \u2022 " +
+    (DATA.length - f - k) + " left";
+}
+document.getElementById("find").oninput = draw;
+document.getElementById("filter").onchange = draw;
+document.getElementById("reset").onclick = () => {
+  if (confirm("Clear every mark on this page?")) { state = {}; save(); draw(); }
+};
+try { document.getElementById("who").value = localStorage.getItem(KEY + ":who") || ""; }
+catch (e) {}
+document.getElementById("who").oninput = e => {
+  try { localStorage.setItem(KEY + ":who", e.target.value); } catch (err) {}
+};
+if (!CAN_SAVE) {
+  const w = document.createElement("p");
+  w.style.cssText = "margin:0;padding:10px 16px;background:#ffe8e6;color:#8a1c12;" +
+    "border-bottom:1px solid var(--line);font-size:13px";
+  w.innerHTML = "<b>This browser will not let the page remember your marks.</b> " +
+    "Press <b>Download my comments</b> before you close the tab.";
+  document.querySelector("header").after(w);
+}
+
+document.getElementById("download").onclick = () => {
+  const seen = DATA.filter(d => {
+    const s = state[d.n] || {}; return s.flag || s.ok || (s.note || "").trim();
+  }).map(d => {
+    const s = state[d.n];
+    return {n: d.n, id: d.full, book: d.book, form: d.form,
+            verdict: s.flag ? "problem" : (s.ok ? "fine" : "note"),
+            note: (s.note || "").trim(), stem: d.after.stem.slice(0, 120)};
+  });
+  const doc = {kind: "qbank-figure-review", version: 1, scope: SCOPE,
+               reviewer: document.getElementById("who").value.trim() || null,
+               reviewed_at: new Date().toISOString(),
+               total_on_page: DATA.length, reviewed: seen.length, items: seen};
+  const blob = new Blob([JSON.stringify(doc, null, 1)], {type: "application/json"});
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = "question-review-" + SCOPE + "-" +
+               new Date().toISOString().slice(0, 10) + ".json";
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+};
+
+document.getElementById("copy").onclick = () => {
+  const lines = DATA.filter(d => (state[d.n]||{}).flag).map(d => {
+    const note = (state[d.n].note || "").trim();
+    return d.n + "  " + d.id + "  " + d.book + (d.form ? " " + d.form : "") +
+           (note ? "  -- " + note : "");
+  });
+  document.getElementById("outtext").value =
+    lines.length ? lines.join("\n") : "nothing marked as still a problem";
+  document.getElementById("out").showModal();
+  document.getElementById("outtext").select();
+};
+draw();
+</script>
